@@ -283,6 +283,23 @@
     return s;
   }
 
+  // Make "now" the starting point for weighing and bookkeeping.
+  function rebase(s) {
+    s.cIn = s.cOutResp = s.cOutDecomp = s.cLitterFall = 0;
+    s.initialTreeC = treeCarbon(s) + s.litter;
+    s.initialDry = massBudget(s).dry;
+    s.initialSoil = s.soilMass;
+    return s;
+  }
+
+  // Step until the given day of year and hour.
+  function runUntil(s, env, day, hour) {
+    var c = calendar(s.t);
+    var target = s.t - (c.day * 24 + c.hour) + day * 24 + hour;
+    if (target <= s.t) target += HOURS_PER_YEAR;
+    return run(s, env, target - s.t);
+  }
+
   function run(s, env, hours) {
     for (var i = 0; i < hours; i++) step(s, env);
     return s;
@@ -304,6 +321,8 @@
     createState: createState,
     step: step,
     run: run,
+    runUntil: runUntil,
+    rebase: rebase,
     calendar: calendar,
     sunHeight: sunHeight,
     temperature: temperature,
