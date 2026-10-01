@@ -5,9 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
   <meta name="theme-color" content="#0f3b35">
   <title>Kasva!</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,600..800&family=Caveat:wght@700&family=Atkinson+Hyperlegible+Next:wght@400;700&display=swap">
   <style>
     :root {
       --deep: #0f3b35; --deep-2: #071f1b; --sun: #ffc83d; --ink: #10241c; --paper: #f3f6f1; --muted: #c4d6cc;
@@ -19,6 +16,16 @@
     }
     * { box-sizing: border-box; }
     [hidden] { display: none !important; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+    :focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+    [tabindex="-1"]:focus { outline: none; }
+    .about { text-align: left; width: 100%; display: grid; gap: 8px; }
+    .about details { background: rgba(255,255,255,0.07); border-radius: 12px; padding: 10px 14px; }
+    .about summary { cursor: pointer; font: 800 1.05rem/1.2 var(--display); color: var(--sun); }
+    .about p { margin: 8px 0 0; font-size: 0.92rem; line-height: 1.45; }
+    .about label { display: flex; gap: 10px; align-items: flex-start; font-size: 0.9rem; cursor: pointer; }
+    .about input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--sun); flex: 0 0 auto; margin-top: 1px; }
+    .confirm { display: grid; gap: 8px; background: rgba(242, 113, 28, 0.18); border: 1.5px solid #f2711c; border-radius: 12px; padding: 10px 12px; font-size: 0.9rem; }
     html, body { margin: 0; height: 100%; background: var(--deep); color: var(--paper); overflow: hidden;
       font: 16px/1.4 var(--body); -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: none; }
     canvas#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
@@ -143,7 +150,9 @@
   </style>
 </head>
 <body>
-  <canvas id="game" aria-label="Kasva"></canvas>
+  <main>
+  <canvas id="game" role="img" aria-label="Kasva" tabindex="-1"></canvas>
+  <div class="sr-only" id="sr" aria-live="polite" aria-atomic="true"></div>
 
   <div class="hud-btns" id="hud-btns" hidden>
     <button type="button" class="icon" id="btn-mute" aria-label="Sound"></button>
@@ -176,10 +185,11 @@
       <div class="row">
         <button type="button" class="btn ghost small" id="btn-kisat"></button>
         <button type="button" class="btn ghost small" id="btn-cards"></button>
+        <button type="button" class="btn ghost small" id="btn-about"></button>
       </div>
       <div class="howto" id="t-howto"></div>
       <div class="keys" id="t-keys"></div>
-      <details class="log"><summary id="t-log"></summary><div id="log-body"></div></details>
+      <details class="log" id="log" hidden><summary id="t-log"></summary><div id="log-body"></div></details>
     </div>
   </section>
 
@@ -196,7 +206,7 @@
       <canvas id="ring" width="300" height="300" aria-hidden="true"></canvas>
       <span class="newbest" id="r-best" hidden></span>
       <p class="banner" id="r-challenge" hidden></p>
-      <div class="big" id="r-stored">0</div>
+      <div class="big" id="r-stored" tabindex="-1">0</div>
       <div class="unit" id="t-r-stored"></div>
       <div class="stats">
         <div><b id="r-caught"></b><span id="t-r-caught"></span></div>
@@ -223,7 +233,7 @@
     <div class="panel glass levelup">
       <div class="ripple"></div><div class="ripple"></div><div class="ripple"></div>
       <div class="theme" id="t-levelup"></div>
-      <div class="rankname" id="lu-rank"></div>
+      <div class="rankname" id="lu-rank" tabindex="-1"></div>
       <p id="lu-desc" style="margin:0"></p>
       <p class="tikka"><canvas id="lu-face" width="96" height="96" aria-hidden="true"></canvas><span id="lu-tikka"></span></p>
       <button type="button" class="btn" id="btn-lu-continue"></button>
@@ -232,7 +242,7 @@
 
   <section class="screen" id="cards" hidden>
     <div class="panel glass" style="width:min(100%,560px)">
-      <div class="theme" id="t-cards"></div>
+      <div class="theme" id="t-cards" tabindex="-1"></div>
       <div class="cardgrid" id="cardgrid"></div>
       <div class="fact glass" id="fact" hidden style="padding:14px 16px;width:100%"></div>
       <button type="button" class="btn ghost small" id="btn-cards-close"></button>
@@ -241,7 +251,7 @@
 
   <section class="screen" id="share" hidden>
     <div class="panel glass">
-      <div class="theme" id="t-share"></div>
+      <div class="theme" id="t-share" tabindex="-1"></div>
       <img id="poster-preview" alt="">
       <div class="row">
         <button type="button" class="btn" id="btn-share-image"></button>
@@ -257,7 +267,7 @@
 
   <section class="screen" id="kisat" hidden>
     <div class="panel glass" style="width:min(100%,520px)">
-      <div class="theme" id="t-kisat"></div>
+      <div class="theme" id="t-kisat" tabindex="-1"></div>
       <div class="nick"><div><span class="note" id="t-you"></span><br><b id="k-nick"></b></div><button type="button" class="btn ghost small" id="btn-reroll"></button></div>
       <p class="note" id="t-nicknote" style="text-align:left;width:100%"></p>
       <div class="section"><h3 id="t-today"></h3><p class="note" id="k-today" style="font-size:0.9rem"></p>
@@ -272,7 +282,7 @@
   <section class="screen" id="challenge" hidden>
     <div class="panel glass">
       <div class="theme" id="c-label"></div>
-      <div class="pause-title" id="c-title" style="font-size:2rem"></div>
+      <div class="pause-title" id="c-title" style="font-size:2rem" tabindex="-1"></div>
       <div class="weather" id="c-weather"></div>
       <div class="big" id="c-score"></div>
       <p class="tikka"><canvas id="c-face" width="96" height="96" aria-hidden="true"></canvas><span id="c-line"></span></p>
@@ -281,6 +291,24 @@
     </div>
   </section>
 
+  <section class="screen" id="about" hidden>
+    <div class="panel glass" style="width:min(100%,600px)">
+      <h2 class="theme" id="t-about" tabindex="-1" style="margin:0"></h2>
+      <div class="about" id="about-sections"></div>
+      <div class="about">
+        <h3 id="t-data" style="margin:6px 0 0;font:800 1.05rem/1.2 var(--display);color:var(--sun)"></h3>
+        <label><input type="checkbox" id="opt-testlog"><span id="t-testlog"></span></label>
+        <div class="row" style="justify-content:flex-start"><button type="button" class="btn ghost small" id="btn-delete"></button></div>
+        <div class="confirm" id="del-confirm" hidden role="alertdialog" aria-labelledby="t-delconfirm">
+          <span id="t-delconfirm"></span>
+          <div class="row" style="justify-content:flex-start"><button type="button" class="btn small" id="btn-del-yes"></button><button type="button" class="btn ghost small" id="btn-del-no"></button></div>
+        </div>
+      </div>
+      <button type="button" class="btn ghost small" id="btn-about-close"></button>
+    </div>
+  </section>
+
+  </main>
   <script type="module" src="/src/app/main.ts"></script>
 </body>
 </html>

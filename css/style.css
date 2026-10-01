@@ -194,5 +194,8 @@ textarea { width: 100%; min-height: 80px; border: 1px solid var(--line); border-
 
 .foot { max-width: 1280px; margin: 0 auto; padding: 0 20px 24px; color: var(--muted); font-size: 0.9rem; }
 .foot summary { cursor: pointer; }
+.foot details + details { margin-top: 8px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+select:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 .foot table { border-collapse: collapse; margin: 8px 0; }
 .foot td, .foot th { border: 1px solid var(--line); padding: 4px 10px; text-align: left; }

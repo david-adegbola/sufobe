@@ -131,7 +131,16 @@ window.I18N = {
     tallyAfter: 'Jälkeen',
     tallyN: '{n} oppilasta',
     clear: 'Tyhjennä',
-    tallyNote: 'Vastaukset tallentuvat vain tähän selaimeen, ilman nimiä.'
+    tallyNote: 'Vastaukset tallentuvat vain tähän selaimeen, ilman nimiä.',
+    stepsLabel: 'Vaiheet',
+    chartAlt: 'Kaavio: lehtien hiili palaa ilmaan muutamassa vuodessa, paperin hiilestä puolet on poissa noin kahdessa vuodessa, tuolin hiilestä puolet on tallessa vielä noin 35 vuoden päästä, ja poltettaessa kaikki hiili palaa ilmaan heti.',
+    blankLabels: ['Mistä puu on tehty', 'Mitä kautta se tuli puuhun', 'Mistä energia tuli'],
+    privacyTitle: 'Tietosuoja ja lisenssit',
+    privacyBody: [
+      'Tämä sivu ei kerää eikä lähetä tietoja minnekään: ei tilejä, evästeitä, analytiikkaa eikä ulkopuolisia palveluita. Sivu käyttää laitteen omia fontteja.',
+      'Opettajan laskuri tallentaa vain oppilaiden vastausvaihtoehdot (ei nimiä) tämän selaimen muistiin. Sen voi tyhjentää yllä olevalla napilla. Pohdintakenttään kirjoitettua tekstiä ei tallenneta.',
+      'Grafiikka on piirretty koodilla tätä sivua varten. Tuotteiden puoliintumisajat: IPCC 2019. Mallin oletukset: docs/MODEL.md.',
+    ],
   },
 
   en: {
@@ -265,6 +274,15 @@ window.I18N = {
     tallyAfter: 'After',
     tallyN: '{n} students',
     clear: 'Clear',
-    tallyNote: 'Answers are stored only in this browser, without names.'
+    tallyNote: 'Answers are stored only in this browser, without names.',
+    stepsLabel: 'Steps',
+    chartAlt: 'Chart: carbon in leaves returns to the air within a few years, half of the carbon in paper is gone in about two years, half of the carbon in a chair is still stored after about 35 years, and burning returns all the carbon at once.',
+    blankLabels: ['What a tree is mostly made from', 'How it got into the tree', 'Where the energy came from'],
+    privacyTitle: 'Privacy and licences',
+    privacyBody: [
+      'This page collects and sends no data: no accounts, cookies, analytics or outside services. It uses the device\'s own fonts.',
+      'The teacher tally stores only the answer options pupils chose (no names) in this browser. Clear it with the button above. Text written in the reflection box is not stored.',
+      'All graphics are drawn in code for this page. Product half-lives: IPCC 2019. Model assumptions: docs/MODEL.md.',
+    ],
   }
 };

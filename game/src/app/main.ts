@@ -3,6 +3,7 @@
  * progression (XP, ranks, badges, growth choice), level-ups and the card
  * collection. Progress is saved in this browser only.
  */
+import './fonts.css';
 import { makeExpert } from '../core/bots';
 import {
   ACHIEVEMENTS, MAX_GROWTH, RANKS, STORY, applySeason, challengePlayed, challengeSent, choose, growthMods, migrate, rankIndex, rankProgress,
@@ -12,6 +13,7 @@ import { DT, LIGHT_TICKS, STANDARD_TREE, clock, createSeason, result, step, type
 import { decodeChallenge, encodeChallenge, nickParts, randomNick, type Challenge } from '../core/share';
 import { dailySeed, planWeather, type Weather } from '../core/weather';
 import { Sound } from './audio';
+import { ABOUT_UI, aboutSections } from './legal';
 import { renderPoster } from './poster';
 import { Renderer } from './render';
 import { iconSvg } from './scene/icons';
@@ -23,6 +25,7 @@ const LOG_KEY = 'kasva-greybox-log';
 const SAVE_KEY = 'kasva-save';
 const LANG_KEY = 'kasva-lang';
 const SOUND_KEY = 'kasva-sound';
+const TESTLOG_KEY = 'kasva-testlog';
 
 interface LogRow { at: string; seed: string; stored: number; caught: number; resp: number; combo: number; wilts: number }
 
@@ -34,6 +37,9 @@ function store(key: string, v: unknown) { try { localStorage.setItem(key, JSON.s
 let lang: Lang = load<Lang>(LANG_KEY, 'fi');
 const t = () => TEXT[lang];
 let save: Save = migrate(load<unknown>(SAVE_KEY, null));
+// the playtest log is for teachers and researchers: off unless switched on
+let testLogOn = load<boolean>(TESTLOG_KEY, false);
+const ui = () => ABOUT_UI[lang];
 const persist = () => store(SAVE_KEY, save);
 const today = () => dailySeed().slice(1);
 
@@ -61,7 +67,7 @@ let picked: Growth | null = null;
 // a shared link like #s-d2026-10-02 opens that exact weather
 let linkSeed: string | null = /^#s-([A-Za-z0-9._~-]{1,40})$/.exec(location.hash)?.[1] ?? null;
 // a challenge link like #c-3a-2840-d2026-10-02 opens the challenge card
-let linkChallenge: Challenge | null = decodeChallenge(location.hash);
+const linkChallenge: Challenge | null = decodeChallenge(location.hash);
 let challengeOutcome: { won: boolean; from: Challenge; mine: number } | null = null;
 let posterUrl: string | null = null;
 let posterBlob: Blob | null = null;
@@ -95,15 +101,32 @@ const dailyConfig = (): SeasonConfig => ({ mode: 'daily', seed: linkSeed ?? dail
 
 // ---------- screens ----------
 
-const SCREENS = ['start', 'pause', 'results', 'levelup', 'cards', 'share', 'kisat', 'challenge'] as const;
+const SCREENS = ['start', 'pause', 'results', 'levelup', 'cards', 'share', 'kisat', 'challenge', 'about'] as const;
 type Screen = (typeof SCREENS)[number];
-function show(id: Screen | null) {
+let visible: Screen | null = null;
+/** Show one screen. Moving focus into it keeps keyboard and screen-reader users in step. */
+function show(id: Screen | null, focus = true) {
   for (const s of SCREENS) $(s).hidden = s !== id;
   $('hud-btns').hidden = mode !== 'play';
+  const changed = id !== visible;
+  visible = id;
+  if (id && focus && changed) {
+    const el = $(id).querySelector<HTMLElement>('[tabindex="-1"], button:not([disabled])');
+    requestAnimationFrame(() => el?.focus({ preventScroll: false }));
+  }
+  if (!id) canvas.focus({ preventScroll: true });
+}
+
+/** Read short updates to screen readers (the canvas itself is silent). */
+function announce(text: string) {
+  const sr = $('sr');
+  sr.textContent = '';
+  requestAnimationFrame(() => (sr.textContent = text));
 }
 
 function weatherRow(w: Weather[]) {
-  return w.map((d) => `<span title="${t().weather[d]}">${iconSvg(d, 26)}</span>`).join('');
+  const names = w.map((d) => t().weather[d]).join(', ');
+  return `<span role="img" aria-label="${ui().weather}: ${names}" style="display:contents">${w.map((d) => `<span title="${t().weather[d]}">${iconSvg(d, 26)}</span>`).join('')}</span>`;
 }
 
 function finnishDate(seed: string) {
@@ -157,7 +180,7 @@ function renderText() {
   $('btn-daily').textContent = x.daily;
   $('btn-cards').textContent = x.cards;
   $('btn-radio').innerHTML = sound.muted ? '♪̸' : '♪';
-  $('btn-radio').setAttribute('aria-label', x.radio(!sound.muted).replace(/<[^>]+>/g, ''));
+  $('btn-radio').setAttribute('aria-label', ui().sound);
   $('t-howto').innerHTML = x.howto.map((h, i) => `<span><i>${i + 1}</i>${h}</span>`).join('');
   $('t-keys').innerHTML = x.keys.map(([k, v]) => `<span><kbd>${k}</kbd>${v}</span>`).join('');
   $('t-paused').textContent = x.paused;
@@ -199,6 +222,13 @@ function renderText() {
   if (!$('kisat').hidden) renderKisat();
   if (!$('challenge').hidden && linkChallenge) renderChallenge(linkChallenge);
   $('btn-mute').textContent = sound.muted ? '♪̸' : '♪';
+  $('btn-mute').setAttribute('aria-label', ui().sound);
+  $('btn-mute').setAttribute('aria-pressed', String(!sound.muted));
+  $('btn-radio').setAttribute('aria-pressed', String(!sound.muted));
+  $('btn-pause').setAttribute('aria-label', ui().pause);
+  canvas.setAttribute('aria-label', ui().canvas);
+  $('btn-about').textContent = ui().about;
+  renderAbout();
   document.querySelectorAll<HTMLButtonElement>('.lang button[data-lang]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
   renderer.hud.labels = { water: x.water, stored: x.stored, day: x.day, juhannus: x.juhannus };
   renderHome();
@@ -207,6 +237,7 @@ function renderText() {
 }
 
 function renderLog() {
+  $('log').hidden = !testLogOn;
   const rows = load<LogRow[]>(LOG_KEY, []);
   const x = t();
   $('log-body').innerHTML = rows.length
@@ -241,6 +272,7 @@ function hint(key: keyof (typeof TEXT)['fi']['hints'], secs = 3.6) {
   if (shown.has(key) || (save.seasons >= 3 && !always)) return;
   shown.add(key);
   renderer.showHint(t().hints[key], secs);
+  announce(t().hints[key]);
   sound.drum();
 }
 
@@ -260,6 +292,7 @@ function handleEvents() {
         break;
       case 'dawn':
         if (e.day > 0) sound.dawn();
+        announce(ui().dayStart(e.day + 1, t().weather[e.weather]));
         if (e.weather === 'heat') { shown.delete('heat'); hint('heat'); }
         if (e.weather === 'rain') hint('rain');
         break;
@@ -290,9 +323,12 @@ function finish() {
     challengeOutcome = { won: c.won, from: current.from, mine: Math.max(r.storedG, save.challenges.received[0]?.myBestG ?? 0) };
   }
   persist();
-  const rows = load<LogRow[]>(LOG_KEY, []);
-  rows.push({ at: new Date().toISOString(), seed: r.seed, stored: r.storedG, caught: r.caughtG, resp: r.respiredG, combo: r.bestCombo, wilts: r.wilts });
-  store(LOG_KEY, rows.slice(-200));
+  if (testLogOn) {
+    const rows = load<LogRow[]>(LOG_KEY, []);
+    rows.push({ at: new Date().toISOString(), seed: r.seed, stored: r.storedG, caught: r.caughtG, resp: r.respiredG, combo: r.bestCombo, wilts: r.wilts });
+    store(LOG_KEY, rows.slice(-200));
+  }
+  announce(ui().seasonEnd(r.storedG.toLocaleString(lang === 'fi' ? 'fi-FI' : 'en-GB')));
   lastResult = r;
   lastOutcome = outcome;
   fillResults(r, outcome, true, before);
@@ -317,7 +353,7 @@ function tikkaLine(r: SeasonResult) {
 
 function leafBadge(id: string, unlocked = true, label = false) {
   const a = (t().achievements as Record<string, { name: string }>)[id];
-  const leaf = `<button type="button" class="leaf${unlocked ? '' : ' locked'}" data-badge="${id}" aria-label="${a.name}"><span>${unlocked ? '✦' : '?'}</span></button>`;
+  const leaf = `<button type="button" class="leaf${unlocked ? '' : ' locked'}" data-badge="${id}" aria-label="${unlocked ? a.name : ui().lockedBadge}"><span aria-hidden="true">${unlocked ? '✦' : '?'}</span></button>`;
   return label ? `<div class="badge-item">${leaf}<span>${unlocked ? a.name : ''}</span></div>` : leaf;
 }
 
@@ -572,6 +608,35 @@ async function sharePoster() {
   $('t-savehint').classList.add('banner');
 }
 
+// ---------- about, privacy and data ----------
+
+function renderAbout() {
+  const u = ui();
+  $('t-about').textContent = u.title;
+  $('about-sections').innerHTML = aboutSections(lang).map((sec) =>
+    `<details id="about-${sec.id}"><summary>${sec.title}</summary>${sec.body.map((p) => `<p>${p}</p>`).join('')}</details>`).join('');
+  $('t-data').textContent = u.dataTitle;
+  $('t-testlog').textContent = u.testlog;
+  $<HTMLInputElement>('opt-testlog').checked = testLogOn;
+  $('btn-delete').textContent = u.del;
+  $('t-delconfirm').textContent = u.delConfirm;
+  $('btn-del-yes').textContent = u.delYes;
+  $('btn-del-no').textContent = u.delNo;
+  $('btn-about-close').textContent = t().close;
+}
+
+/** Delete everything this game stored in this browser, then start fresh. */
+function deleteAllData() {
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k?.startsWith('kasva-')) keys.push(k); }
+    keys.forEach((k) => localStorage.removeItem(k));
+  } catch { /* storage blocked: nothing was stored either */ }
+  announce(ui().deleted);
+  location.hash = '';
+  location.reload();
+}
+
 // ---------- contests ----------
 
 function renderKisat() {
@@ -641,6 +706,25 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyM') toggleMute();
 });
 window.addEventListener('keyup', (e) => { if (e.code === 'Space') press(false); });
+// Escape always goes one step back
+window.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (mode === 'play') pause(true);
+  else if (mode === 'pause') pause(false);
+  else if (visible === 'share' || visible === 'levelup') show('results');
+  else if (visible === 'cards' || visible === 'kisat' || visible === 'about' || visible === 'challenge') {
+    if (lastResult && mode === 'results') show('results'); else toMenu();
+  }
+});
+document.addEventListener('change', (e) => {
+  const el = e.target as HTMLInputElement;
+  if (el.id === 'opt-testlog') {
+    testLogOn = el.checked;
+    store(TESTLOG_KEY, testLogOn);
+    if (!testLogOn) store(LOG_KEY, []); // switching it off also clears it
+    renderLog();
+  }
+});
 window.addEventListener('blur', () => { press(false); pause(true); });
 document.addEventListener('visibilitychange', () => { if (document.hidden) pause(true); });
 window.addEventListener('resize', () => renderer.resize());
@@ -662,6 +746,11 @@ document.addEventListener('click', (e) => {
     case 'btn-pause': pause(true); break;
     case 'btn-resume': pause(false); break;
     case 'btn-mute': case 'btn-radio': toggleMute(); break;
+    case 'btn-about': show('about'); break;
+    case 'btn-about-close': toMenu(); break;
+    case 'btn-delete': $('del-confirm').hidden = false; $('btn-del-no').focus(); break;
+    case 'btn-del-no': $('del-confirm').hidden = true; $('btn-delete').focus(); break;
+    case 'btn-del-yes': deleteAllData(); break;
     case 'btn-share': openShare(); break;
     case 'btn-share-image': void sharePoster(); break;
     case 'btn-copy': if (lastResult) void copy(shareText(lastResult), b, t().result.copied); break;
@@ -713,7 +802,7 @@ function frame(now: number) {
 }
 
 renderText();
-if (linkChallenge) { renderChallenge(linkChallenge); show('challenge'); } else show('start');
+if (linkChallenge) { renderChallenge(linkChallenge); show('challenge', false); } else show('start', false);
 void document.fonts?.load('800 40px "Bricolage Grotesque"');
 void document.fonts?.load('700 24px Caveat').then(() => renderHome());
 requestAnimationFrame(frame);

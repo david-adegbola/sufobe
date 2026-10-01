@@ -65,13 +65,13 @@
   // ---------- tally (anonymous, this browser only) ----------
 
   function readTally() {
-    try { return JSON.parse(localStorage.getItem(TALLY_KEY)) || []; } catch (e) { return []; }
+    try { return JSON.parse(localStorage.getItem(TALLY_KEY)) || []; } catch { return []; }
   }
   function saveTally() {
     if (!S.before || !S.after) return;
     var t = readTally().filter(function (r) { return r.id !== S.id; });
     t.push({ id: S.id, b: S.before, a: S.after });
-    try { localStorage.setItem(TALLY_KEY, JSON.stringify(t)); } catch (e) { /* storage blocked */ }
+    try { localStorage.setItem(TALLY_KEY, JSON.stringify(t)); } catch { /* storage blocked */ }
     renderTeacher();
   }
 
@@ -95,6 +95,9 @@
     $('#scene').setAttribute('aria-label', t.sceneLabel);
     scene.labels = { soil: t.soilShort, rings: t.ringsLabel, tree: t.treeTag };
     $('#teacher-summary').textContent = t.teacher;
+    $('#steps').setAttribute('aria-label', t.stepsLabel);
+    $('#privacy-summary').textContent = t.privacyTitle;
+    $('#privacy-body').innerHTML = t.privacyBody.map(function (p) { return '<p>' + esc(p) + '</p>'; }).join('');
     renderControls();
     renderTeacher();
   }
@@ -167,7 +170,7 @@
       var t = T();
       return '<h2>' + t.steps[0] + '</h2><p>' + t.predictIntro + '</p>' +
         '<p><strong>' + t.question + '</strong></p>' + answerChoices(S.before, 'before') +
-        (S.before ? '<p class="feedback">' + t.predictSaved + '</p>' : '') + nav(!!S.before);
+        (S.before ? '<p role="status" class="feedback">' + t.predictSaved + '</p>' : '') + nav(!!S.before);
     },
     function explore() {
       var t = T(), k = S.tasks;
@@ -186,7 +189,7 @@
       var pct = function (x) { return Math.round(100 * x / b.dry); };
       var src = [['air', b.fromAir], ['water', b.fromWater], ['soil', b.fromSoil], ['sun', 0]];
       return '<h2>' + t.steps[2] + '</h2><p>' + t.weighIntro + '</p>' +
-        (yearsRun < 3 ? '<p class="feedback warn">' + t.needYears + ' <button type="button" class="btn" id="ff10">' + t.ff10 + '</button></p>' : '') +
+        (yearsRun < 3 ? '<p role="status" class="feedback warn">' + t.needYears + ' <button type="button" class="btn" id="ff10">' + t.ff10 + '</button></p>' : '') +
         '<div class="compare">' +
           '<span></span><span class="h">' + t.atStart + '</span><span class="h">' + t.now + '</span>' +
           '<span>' + t.treeDry + '</span><span class="v">' + kg(s.initialDry) + '</span><span class="v" data-live="tree">' + kg(b.dry) + '</span>' +
@@ -198,7 +201,7 @@
           return '<div class="bar-row"><span class="bar-label">' + t.src[r[0]] + (r[0] === 'sun' ? ' – <span class="muted">' + t.sunNote + '</span>' : '') +
             '</span><span class="bar-pct">' + pct(r[1]) + ' %</span><div class="bar"><span style="width:' + pct(r[1]) + '%"></span></div></div>';
         }).join('') + '</div>' +
-        '<p class="feedback">' + t.weighSummary + '</p>' + nav(true);
+        '<p role="status" class="feedback">' + t.weighSummary + '</p>' + nav(true);
     },
     function explain() {
       var t = T();
@@ -206,7 +209,7 @@
       var q2 = t.q2opts.map(function (o, i) { return { text: o.text, ok: S.q2 === i ? !!o.ok : undefined }; });
       var fb = function (opts, sel) {
         if (sel == null) return '';
-        return '<p class="feedback' + (opts[sel].ok ? '' : ' warn') + '">' + opts[sel].fb + '</p>';
+        return '<p role="status" class="feedback' + (opts[sel].ok ? '' : ' warn') + '">' + opts[sel].fb + '</p>';
       };
       var sentence = '<p class="sentence">' + t.sentence[0] + ' ' + blank(0) + t.sentence[1] + ' ' + blank(1) + ' ' +
         t.sentence[2] + ' ' + blank(2) + t.sentence[3] + '</p>';
@@ -217,18 +220,18 @@
         '<p><strong>2. ' + t.q2 + '</strong></p>' + choiceList(q2, S.q2, 'q2') + fb(t.q2opts, S.q2) +
         '<p><strong>3. ' + t.q3 + '</strong></p>' + sentence +
         '<div><button type="button" class="btn" id="check">' + t.check + '</button></div>' +
-        (S.checked ? '<p class="feedback' + (allOk ? '' : ' warn') + '">' + (allOk ? t.allRight : t.almost) + '</p>' : '') +
+        (S.checked ? '<p role="status" class="feedback' + (allOk ? '' : ' warn') + '">' + (allOk ? t.allRight : t.almost) + '</p>' : '') +
         nav(true);
     },
     function fates() {
       var t = T();
       return '<h2>' + t.steps[4] + '</h2><p>' + t.fatesIntro + '</p><div class="fates">' +
-        FATES.map(function (f, i) {
+        FATES.map(function (f) {
           return '<button type="button" class="choice" data-fate="' + f + '" aria-pressed="' + (S.fate === f) + '">' +
             '<span style="color:' + FATE_COLORS[f] + '">●</span> ' + esc(t.fates[f].name) + '</button>';
         }).join('') + '</div>' +
-        '<p class="feedback">' + t.fates[S.fate].desc + '</p>' +
-        '<div><strong>' + t.chartTitle + '</strong><canvas id="fate-chart"></canvas></div>' +
+        '<p role="status" class="feedback">' + t.fates[S.fate].desc + '</p>' +
+        '<div><strong id="chart-title">' + t.chartTitle + '</strong><canvas id="fate-chart" role="img" aria-labelledby="chart-title" aria-describedby="chart-desc"></canvas><p class="sr-only" id="chart-desc">' + t.chartAlt + '</p></div>' +
         '<p>' + t.fatesTakeaway + '</p><p class="muted small">' + t.fatesSource + '</p>' + nav(true);
     },
     function again() {
@@ -250,7 +253,7 @@
   function blank(i) {
     var t = T();
     var cls = S.checked ? (S.blanks[i] === 0 ? ' class="good"' : ' class="bad"') : '';
-    return '<select data-blank="' + i + '"' + cls + ' aria-label="' + (i + 1) + '">' +
+    return '<select data-blank="' + i + '"' + cls + ' aria-label="' + esc(t.blankLabels[i]) + '">' +
       '<option value="-1">' + t.choose + '</option>' +
       // show options in a fixed shuffled order so the right one is not always first
       [1, 0, 2].map(function (o) {
@@ -463,7 +466,7 @@
         window.scrollTo({ top: 0, behavior: 'smooth' });
         break;
       case 'clear-tally':
-        try { localStorage.removeItem(TALLY_KEY); } catch (err) { /* ignore */ }
+        try { localStorage.removeItem(TALLY_KEY); } catch { /* ignore */ }
         renderTeacher();
         break;
     }
