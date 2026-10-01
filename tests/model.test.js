@@ -91,3 +91,12 @@ test('carbon in products: burning releases at once, chairs keep it for decades',
   close(M.storedAfter('chair', 35), 0.5, 1e-9, 'sawnwood half-life');
   assert.ok(M.storedAfter('leaves', 10) < 0.1, 'leaves mostly gone in 10 years');
 });
+
+test('after rebase the on-screen bookkeeping still balances', () => {
+  const s = M.createState();
+  M.runUntil(s, NORMAL, 171, 4);
+  M.rebase(s);
+  M.run(s, NORMAL, 3 * M.HOURS_PER_YEAR);
+  const lhs = s.initialTreeC + s.cIn - s.cOutResp - s.cOutDecomp;
+  close(lhs, M.treeCarbon(s) + s.litter, 1e-9, 'start + in - out = tree + litter');
+});
