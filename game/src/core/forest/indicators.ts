@@ -28,7 +28,8 @@ export interface Results {
   carbon: { trees: number; dead: number; soil: number; products: number; removed: number };
   life: { score: number; reason: LifeReason; species: number; deadwoodM3: number; bigTrees: number };
   health: { score: number; reason: HealthReason; water: number; crowding: number; deaths: number };
-  products: { sawn: number; paper: number; energy: number };
+  /** carbon made into products so far, t CO₂ per hectare */
+  products: { sawn: number; paper: number; textile: number; energy: number };
 }
 
 const round05 = (x: number) => Math.round(x * 2) / 2;
@@ -96,8 +97,8 @@ export function results(f: Forest): Results {
   const co2 = (kg: number) => tHa(kg) * CO2_PER_C;
   const standing = f.history.at(-1)?.stats.volume ?? 0;
   const harvested = f.harvests.reduce((a, h) => a + h.harvest.volume * HA_FACTOR, 0);
-  const made = { sawn: 0, paper: 0, energy: 0 };
-  for (const h of f.harvests) for (const k of ['sawn', 'paper', 'energy'] as const) made[k] += co2(h.harvest.products[k]);
+  const made = { sawn: 0, paper: 0, textile: 0, energy: 0 };
+  for (const h of f.harvests) for (const k of ['sawn', 'paper', 'textile', 'energy'] as const) made[k] += co2(h.harvest.products[k] ?? 0);
   return {
     year: f.year,
     wood: { standing, harvested },

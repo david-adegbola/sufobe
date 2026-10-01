@@ -13,8 +13,10 @@ function check(f: Forest, start: number) {
   const s = f.ledger.stores;
   expect(Math.abs(total(f.ledger) - start)).toBeLessThan(1e-6 * Math.max(1, Math.abs(start)));
   expect(Math.abs(s.trees - treesCarbon(f))).toBeLessThan(1e-6);
-  const pools = f.pools.sawn + f.pools.paper + f.pools.energy;
+  const pools = f.pools.sawn + f.pools.paper + f.pools.textile + f.pools.energy;
   expect(Math.abs(s.products - pools)).toBeLessThan(1e-6);
+  // every product lot is accounted for in the products store
+  expect(Math.abs(s.products - f.lots.reduce((a, l) => a + l.c, 0))).toBeLessThan(1e-6);
   for (const k of STORES) if (k !== 'air') expect(s[k]).toBeGreaterThanOrEqual(-1e-9);
   for (const t of f.trees) {
     expect(t.c.wood).toBeGreaterThanOrEqual(0);
@@ -83,7 +85,7 @@ describe('carbon conservation', () => {
     const s = f.ledger.stores;
     expect(s.trees).toBeCloseTo(0, 9);
     expect(s.air).toBe(before.air); // the cutting itself releases nothing; burning comes later
-    expect(s.products - before.products).toBeCloseTo(h.products.sawn + h.products.paper + h.products.energy, 6);
+    expect(s.products - before.products).toBeCloseTo(h.products.sawn + h.products.paper + h.products.textile + h.products.energy, 6);
     expect(h.sawlogC).toBeGreaterThan(0);
     expect(h.pulpwoodC).toBeGreaterThan(0);
   });
@@ -91,10 +93,11 @@ describe('carbon conservation', () => {
   it('energy wood returns to the air within the year; sawn wood lasts much longer than paper', () => {
     const f = createForest({ seed: 'prod', place: 'east', soil: 'loam' });
     plant(f, { spruce: 1 });
+    f.recycle = false; // half-lives alone; recycling is tested in products.test.ts
     for (let i = 0; i < 80; i++) stepYear(f);
     clearcut(f);
     stepYear(f);
-    expect(f.pools.energy).toBe(0);
+    expect(f.pools.energy).toBeCloseTo(0, 9);
     for (let i = 0; i < 10; i++) stepYear(f);
     // after 11 years: paper (half-life 2) almost gone, sawn wood (35) mostly left
     const sawnLeft = f.pools.sawn / f.harvests[0].harvest.products.sawn;

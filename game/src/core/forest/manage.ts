@@ -12,7 +12,7 @@ import { HA_FACTOR, carbonFor, standStats, type ChoiceId, type Forest, type Harv
 import { DISTURBANCE } from './events';
 import { SPECIES, stemVolume, type SpeciesId } from './species';
 import { toGround } from './year';
-import { fell, mill, newHarvest, type Harvest } from './wood';
+import { fell, mill, newHarvest, type Harvest, type SortBin } from './wood';
 
 /** Planting densities, trees per hectare (verify against Tapio guidance). */
 export const SPACING = { sparse: 1600, normal: 2000, dense: 2600 } as const;
@@ -57,7 +57,13 @@ export function plant(f: Forest, mix: Partial<Record<SpeciesId, number>>, spacin
   return n;
 }
 
-function take(f: Forest, chosen: Tree[], kind: HarvestEvent['kind']): Harvest {
+/** The child's sorting at the roadside, and whether branches go to the biorefinery. */
+export interface HarvestOptions {
+  sort?: Record<number, SortBin>;
+  residues?: boolean;
+}
+
+function take(f: Forest, chosen: Tree[], kind: HarvestEvent['kind'], opt: HarvestOptions = {}): Harvest {
   const out = newHarvest();
   const ids = new Set(chosen.map(t => t.id));
   for (const t of chosen) {
@@ -65,10 +71,11 @@ function take(f: Forest, chosen: Tree[], kind: HarvestEvent['kind']): Harvest {
       toGround(f.ledger, t);
       continue;
     }
-    fell(f.ledger, f.pools, {
-      sp: t.sp, d: t.d, volume: stemVolume(SPECIES[t.sp], t.d, t.h),
+    f.felled.push({ id: t.id, sp: t.sp, born: t.born, age: t.age, h: t.h, d: t.d, rings: t.rings.slice(-150), year: f.year, how: kind });
+    fell(f, {
+      id: t.id, sp: t.sp, d: t.d, volume: stemVolume(SPECIES[t.sp], t.d, t.h),
       wood: t.c.wood, foliage: t.c.foliage, fine: t.c.fine,
-    }, out);
+    }, out, { bin: opt.sort?.[t.id], residues: opt.residues });
     t.c = { wood: 0, foliage: 0, fine: 0 };
   }
   f.trees = f.trees.filter(t => !ids.has(t.id));
@@ -77,17 +84,17 @@ function take(f: Forest, chosen: Tree[], kind: HarvestEvent['kind']): Harvest {
 }
 
 /** Thin from below: remove the smallest trees until `perHa` remain. */
-export function thin(f: Forest, perHa: number, kind: 'thin' | 'tend' = 'thin'): Harvest {
+export function thin(f: Forest, perHa: number, kind: 'thin' | 'tend' = 'thin', opt: HarvestOptions = {}): Harvest {
   const keepN = Math.round(perHa / HA_FACTOR);
   const sorted = [...f.trees].sort((a, b) => b.d - a.d || b.h - a.h || a.id - b.id);
   const marked = sorted.filter(t => t.keep);
   const rest = sorted.filter(t => !t.keep);
   const remove = rest.slice(Math.max(0, keepN - marked.length));
-  return take(f, remove, kind);
+  return take(f, remove, kind, opt);
 }
 
 /** Thin by basal area: remove the smallest trees until the stand is at `targetG` m²/ha. */
-export function thinToBasalArea(f: Forest, targetG: number): Harvest {
+export function thinToBasalArea(f: Forest, targetG: number, opt: HarvestOptions = {}): Harvest {
   const sorted = [...f.trees].sort((a, b) => b.d - a.d || b.h - a.h || a.id - b.id);
   let G = 0;
   const remove: Tree[] = [];
@@ -96,7 +103,7 @@ export function thinToBasalArea(f: Forest, targetG: number): Harvest {
     if (t.keep || G + g <= targetG) G += g;
     else remove.push(t);
   }
-  return take(f, remove, 'thin');
+  return take(f, remove, 'thin', opt);
 }
 
 /** Mark the biggest `n` trees on the plot to be kept forever (säästöpuut). */
@@ -106,8 +113,8 @@ export function markKeep(f: Forest, n: number): void {
 }
 
 /** Final harvest: everything except the trees marked to keep. */
-export function clearcut(f: Forest): Harvest {
-  return take(f, f.trees.filter(t => !t.keep), 'clearcut');
+export function clearcut(f: Forest, opt: HarvestOptions = {}): Harvest {
+  return take(f, f.trees.filter(t => !t.keep), 'clearcut', opt);
 }
 
 /** Keep a couple of trees forever, preferring aspen, then pine and the biggest (säästöpuut). */
@@ -120,7 +127,7 @@ export function keepRetention(f: Forest, n = 2): void {
  * Continuous cover (jatkuva kasvatus): cut the biggest trees until the stand
  * is at `targetG` m²/ha, and let the small ones and new seedlings grow on.
  */
-export function continuousCover(f: Forest, targetG = 12): Harvest {
+export function continuousCover(f: Forest, targetG = 12, opt: HarvestOptions = {}): Harvest {
   const G = () => standStats(f.trees.filter(t => !chosen.has(t.id))).G;
   const chosen = new Set<number>();
   for (const t of [...f.trees].sort((a, b) => b.d - a.d || a.id - b.id)) {
@@ -128,7 +135,7 @@ export function continuousCover(f: Forest, targetG = 12): Harvest {
     if (!t.keep) chosen.add(t.id);
   }
   f.continuous = true;
-  return take(f, f.trees.filter(t => chosen.has(t.id)), 'cc');
+  return take(f, f.trees.filter(t => chosen.has(t.id)), 'cc', opt);
 }
 
 /** Let the forest seed itself over the next years (luontainen uudistuminen). */
@@ -141,14 +148,15 @@ export function seedNaturally(f: Forest): void {
  * carbon moves from the deadwood store to products, and the log leaves the
  * view. Fresh logs still give some sawlogs; older ones only pulp and energy.
  */
-export function salvage(f: Forest, logs: Log[]): Harvest {
+export function salvage(f: Forest, logs: Log[], opt: HarvestOptions = {}): Harvest {
   const out = newHarvest();
   const ids = new Set(logs.map(l => l.id));
   for (const l of logs) {
     const stem = Math.min(l.c / (1 + BRANCH_SHARE + ROOT_SHARE), f.ledger.stores.deadwood);
     if (stem <= 0) continue;
     const fresh = f.year - l.year <= 1;
-    mill(f.ledger, 'deadwood', f.pools, l.sp, l.d, stem, out, fresh && l.cause === 'storm' ? 0.7 : 0);
+    f.felled.push({ id: l.id, sp: l.sp, born: l.born ?? 0, age: l.age ?? 0, h: l.h, d: l.d, rings: l.rings ?? [], year: f.year, how: 'salvage' });
+    mill(f, 'deadwood', l.id, l.sp, l.d, stem, out, fresh && l.cause === 'storm' ? 0.7 : 0, opt.sort?.[l.id]);
     out.count++;
     out.volume += stemVolume(SPECIES[l.sp], l.d, l.h);
   }
@@ -162,7 +170,7 @@ export function freshLogs(f: Forest, cause: 'storm' | 'beetle'): Log[] {
   return f.logs.filter(l => l.cause === cause && f.year - l.year <= 2);
 }
 
-export interface ChoiceOptions {
+export interface ChoiceOptions extends HarvestOptions {
   mix?: Partial<Record<SpeciesId, number>>;
   spacing?: Spacing;
 }
@@ -176,15 +184,23 @@ export function applyChoice(f: Forest, choice: ChoiceId, opt: ChoiceOptions = {}
       plant(f, opt.mix ?? { spruce: 1 }, opt.spacing ?? 'normal');
       return null;
     case 'seed': seedNaturally(f); return null;
-    case 'tend': return thin(f, 1800, 'tend');
-    case 'thin': return thinToBasalArea(f, 19);
-    case 'thinLight': return thinToBasalArea(f, 23);
-    case 'clearcut': f.continuous = false; return clearcut(f);
-    case 'clearcutKeep': f.continuous = false; keepRetention(f); return clearcut(f);
-    case 'cc': return continuousCover(f);
-    case 'removeFallen': return salvage(f, freshLogs(f, 'storm'));
-    case 'removeHalf': { const l = freshLogs(f, 'storm'); return salvage(f, l.filter((_, i) => i % 2 === 0)); }
-    case 'removeBeetle': return salvage(f, freshLogs(f, 'beetle'));
+    case 'tend': return thin(f, 1800, 'tend', opt);
+    case 'thin': return thinToBasalArea(f, 19, opt);
+    case 'thinLight': return thinToBasalArea(f, 23, opt);
+    case 'clearcut': f.continuous = false; return clearcut(f, opt);
+    case 'clearcutKeep': f.continuous = false; keepRetention(f); return clearcut(f, opt);
+    case 'cc': return continuousCover(f, 12, opt);
+    case 'removeFallen': return salvage(f, freshLogs(f, 'storm'), opt);
+    case 'removeHalf': { const l = freshLogs(f, 'storm'); return salvage(f, l.filter((_, i) => i % 2 === 0), opt); }
+    case 'removeBeetle': return salvage(f, freshLogs(f, 'beetle'), opt);
     case 'nothing': case 'leaveOld': case 'leaveFallen': case 'leaveBeetle': return null;
   }
+}
+
+/** What a choice would send to the mills, without doing it: for the sorting game. */
+export function previewHarvest(f: Forest, choice: ChoiceId): { id: number; sp: SpeciesId; d: number; h: number }[] {
+  const copy = structuredClone(f);
+  const before = copy.felled.length;
+  applyChoice(copy, choice);
+  return copy.felled.slice(before).map(s => ({ id: s.id, sp: s.sp, d: s.d, h: s.h }));
 }

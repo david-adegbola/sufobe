@@ -14,7 +14,7 @@ import {
   CARBON_SHARE, SPECIES, ageAtHeight, foliageDry, heightAt, stemVolume, woodyDry,
   type Species, type SpeciesId,
 } from './species';
-import type { Harvest, ProductKind } from './wood';
+import type { Harvest, Lot, ProductKind, Receipt, TreeSnap } from './wood';
 
 /** Plot size, m². Each tree on the plot stands for HA_FACTOR trees per hectare. */
 export const PLOT_M2 = 400;
@@ -63,6 +63,10 @@ export interface Log {
   year: number;
   cause: DeathCause;
   standing: boolean;
+  /** kept so a salvaged log's products can be traced to the tree it was */
+  born?: number;
+  age?: number;
+  rings?: number[];
 }
 
 export type EventKind = 'storm' | 'beetle' | 'moose' | 'drought';
@@ -126,6 +130,18 @@ export interface Forest {
   regenUntil: number | null;
   /** continuous cover: young trees keep arriving under the canopy */
   continuous: boolean;
+  /** products still in use, each remembering its tree (F3) */
+  lots: Lot[];
+  /** every tree taken to the mills, as it was when felled */
+  felled: TreeSnap[];
+  /** how many items each tree made */
+  receipts: Receipt[];
+  /** carbon made into each kind of product from this forest's wood, kg */
+  made: Record<ProductKind, number>;
+  /** carbon in paper made again from recycled fibre, kg */
+  recycled: number;
+  /** is paper and cardboard collected for recycling? */
+  recycle: boolean;
 }
 
 export function createForest(opts: { seed: string; place: PlaceId; soil: SoilId }): Forest {
@@ -135,8 +151,9 @@ export function createForest(opts: { seed: string; place: PlaceId; soil: SoilId 
   ledger.stores.soil = SOILS[opts.soil].soilC0 * 1000 / HA_FACTOR;
   return {
     version: 1, seed: opts.seed, place: opts.place, soil: opts.soil, year: 0,
-    trees: [], nextId: 1, ledger, pools: { sawn: 0, paper: 0, energy: 0 },
+    trees: [], nextId: 1, ledger, pools: { sawn: 0, paper: 0, textile: 0, energy: 0 },
     history: [], harvests: [], logs: [], events: [], seen: [], pending: null, asked: {}, regenUntil: null, continuous: false,
+    lots: [], felled: [], receipts: [], made: { sawn: 0, paper: 0, textile: 0, energy: 0 }, recycled: 0, recycle: true,
   };
 }
 
@@ -150,6 +167,17 @@ export function upgradeForest(f: Forest): Forest {
   d.asked ??= {};
   d.regenUntil ??= null;
   d.continuous ??= false;
+  d.pools.textile ??= 0;
+  d.felled ??= [];
+  d.receipts ??= [];
+  d.made ??= { sawn: 0, paper: 0, textile: 0, energy: 0 };
+  d.recycled ??= 0;
+  d.recycle ??= true;
+  if (!d.lots) {
+    // products made before F3 had no tree to point at: keep their carbon as anonymous lots
+    d.lots = (['sawn', 'paper', 'energy'] as const).filter(k => d.pools[k] > 0)
+      .map(k => ({ tree: -1, kind: k, route: k === 'sawn' ? 'saw' as const : 'pulp' as const, round: 0, year: d.year, c: d.pools[k] }));
+  }
   return d;
 }
 

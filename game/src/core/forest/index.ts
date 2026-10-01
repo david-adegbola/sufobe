@@ -12,3 +12,4 @@ export * from './events';
 export * from './animals';
 export * from './decisions';
 export * from './report';
+export * from './products';

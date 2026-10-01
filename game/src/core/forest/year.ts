@@ -168,7 +168,7 @@ export function stepYear(f: Forest): YearRecord {
   move(l, 'deadwood', 'soil', deadGone * TUNING.deadwoodHumify);
   move(l, 'deadwood', 'air', deadGone * (1 - TUNING.deadwoodHumify));
   move(l, 'soil', 'air', l.stores.soil * soil.humusK * warm);
-  decayProducts(l, f.pools);
+  decayProducts(f);
 
   const newAnimals = spotAnimals(f);
   const rec: YearRecord = {
