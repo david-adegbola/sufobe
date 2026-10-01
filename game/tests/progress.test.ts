@@ -117,7 +117,7 @@ describe('applying a season', () => {
 
 describe('saves', () => {
   it('survive missing or broken fields', () => {
-    expect(migrate(null)).toEqual(newSave());
+    expect({ ...migrate(null), nick: '' }).toEqual({ ...newSave(), nick: '' });
     const m = migrate({ co2LifetimeG: 1234, growth: { roots: 2 }, rings: 'oops' });
     expect(m.co2LifetimeG).toBe(1234);
     expect(m.growth).toEqual({ roots: 2, leaves: 0, wood: 0 });

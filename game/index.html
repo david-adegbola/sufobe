@@ -126,6 +126,19 @@
       #start .hero, #start .actions { align-self: flex-start; width: min(46vw, 560px); margin-left: 3vw; justify-items: center; }
       #start .spacer { flex: 0 0 4vh; }
     }
+    /* sharing */
+    .banner { margin: 0; font: 800 1.05rem/1.25 var(--display); background: var(--sun); color: var(--deep); padding: 10px 14px; border-radius: 14px; }
+    .banner.lose { background: rgba(255,255,255,0.12); color: var(--paper); }
+    #poster-preview { width: min(100%, 300px); aspect-ratio: 4 / 5; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.35); background: #234; }
+    .list { width: 100%; display: grid; gap: 6px; text-align: left; }
+    .list .r { display: flex; justify-content: space-between; gap: 8px; align-items: center; background: rgba(255,255,255,0.07); border-radius: 12px; padding: 8px 12px; font-size: 0.9rem; }
+    .list .r b { font-family: var(--display); }
+    .tag { font: 800 0.75rem/1 var(--display); border-radius: 999px; padding: 4px 9px; background: rgba(255,255,255,0.15); white-space: nowrap; }
+    .tag.won { background: var(--sun); color: var(--deep); }
+    .section { width: 100%; display: grid; gap: 8px; text-align: left; }
+    .section h3 { margin: 0; font: 800 1.05rem/1.2 var(--display); color: var(--sun); }
+    .nick { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; }
+    .nick b { font: 800 1.4rem/1.1 var(--display); }
     @media (prefers-reduced-motion: reduce) { .btn { transition: none; } .levelup .ripple, .rankname { animation: none; } .xp .bar span { transition: none; } }
   </style>
 </head>
@@ -159,7 +172,10 @@
       <div class="row">
         <button type="button" class="btn" id="btn-play"></button>
         <button type="button" class="btn ghost" id="btn-daily"></button>
-        <button type="button" class="btn ghost" id="btn-cards"></button>
+      </div>
+      <div class="row">
+        <button type="button" class="btn ghost small" id="btn-kisat"></button>
+        <button type="button" class="btn ghost small" id="btn-cards"></button>
       </div>
       <div class="howto" id="t-howto"></div>
       <div class="keys" id="t-keys"></div>
@@ -179,6 +195,7 @@
       <div class="weather" id="r-weather"></div>
       <canvas id="ring" width="300" height="300" aria-hidden="true"></canvas>
       <span class="newbest" id="r-best" hidden></span>
+      <p class="banner" id="r-challenge" hidden></p>
       <div class="big" id="r-stored">0</div>
       <div class="unit" id="t-r-stored"></div>
       <div class="stats">
@@ -196,7 +213,7 @@
         <button type="button" class="btn ghost" id="btn-again"></button>
       </div>
       <div class="row">
-        <button type="button" class="btn ghost small" id="btn-copy"></button>
+        <button type="button" class="btn ghost small" id="btn-share"></button>
         <button type="button" class="btn ghost small" id="btn-home"></button>
       </div>
     </div>
@@ -219,6 +236,48 @@
       <div class="cardgrid" id="cardgrid"></div>
       <div class="fact glass" id="fact" hidden style="padding:14px 16px;width:100%"></div>
       <button type="button" class="btn ghost small" id="btn-cards-close"></button>
+    </div>
+  </section>
+
+  <section class="screen" id="share" hidden>
+    <div class="panel glass">
+      <div class="theme" id="t-share"></div>
+      <img id="poster-preview" alt="">
+      <div class="row">
+        <button type="button" class="btn" id="btn-share-image"></button>
+      </div>
+      <div class="row">
+        <button type="button" class="btn ghost small" id="btn-copy"></button>
+        <button type="button" class="btn ghost small" id="btn-copy-challenge"></button>
+      </div>
+      <p class="note" id="t-savehint"></p>
+      <button type="button" class="btn ghost small" id="btn-share-close"></button>
+    </div>
+  </section>
+
+  <section class="screen" id="kisat" hidden>
+    <div class="panel glass" style="width:min(100%,520px)">
+      <div class="theme" id="t-kisat"></div>
+      <div class="nick"><div><span class="note" id="t-you"></span><br><b id="k-nick"></b></div><button type="button" class="btn ghost small" id="btn-reroll"></button></div>
+      <p class="note" id="t-nicknote" style="text-align:left;width:100%"></p>
+      <div class="section"><h3 id="t-today"></h3><p class="note" id="k-today" style="font-size:0.9rem"></p>
+        <div class="row" style="justify-content:flex-start"><button type="button" class="btn small" id="btn-k-daily"></button><button type="button" class="btn ghost small" id="btn-k-challenge"></button></div>
+      </div>
+      <div class="section"><h3 id="t-received"></h3><div class="list" id="k-received"></div></div>
+      <div class="section"><h3 id="t-sent"></h3><div class="list" id="k-sent"></div></div>
+      <button type="button" class="btn ghost small" id="btn-kisat-close"></button>
+    </div>
+  </section>
+
+  <section class="screen" id="challenge" hidden>
+    <div class="panel glass">
+      <div class="theme" id="c-label"></div>
+      <div class="pause-title" id="c-title" style="font-size:2rem"></div>
+      <div class="weather" id="c-weather"></div>
+      <div class="big" id="c-score"></div>
+      <p class="tikka"><canvas id="c-face" width="96" height="96" aria-hidden="true"></canvas><span id="c-line"></span></p>
+      <button type="button" class="btn" id="btn-take"></button>
+      <button type="button" class="btn ghost small" id="btn-c-home"></button>
     </div>
   </section>
 

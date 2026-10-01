@@ -12,7 +12,19 @@ A one-thumb forest game for grades 4–6. You are a silver birch: hold to open y
 - **10 badges with fact cards.** The 2 social ones arrive with challenge links in Phase 3.
 - **Today's weather** uses a standard birch for everyone, so comparisons are fair
 
-Progress is saved in this browser only (`localStorage`, key `kasva-save`). Sharing and PWA come in Phases 3–4. See `docs/art-bible.md` for the style, the science colour code, Tikka's character sheet and prompts for painted layers.
+Progress is saved in this browser only (`localStorage`, key `kasva-save`).
+
+**Phase 3, sharing (no accounts, no server):**
+
+- **Generated nicknames** from Finnish forest animals ("Utelias Ilves"), rerollable. They are stored as two hex digits, so they show in each player's language and contain no free text.
+- **Challenge links:** `#c-<nick>-<grams>-<seed>` replays the exact same Today's weather on the standard birch. The challenge card shows who to beat, and the results say who won. Challenges only use Today's weather, so everyone has the same tree.
+- **A result poster** (1080 × 1350) in the Forest Landscape style, drawn with the game's own scene code. Shared through the system share sheet where the browser allows it, otherwise press and hold (or right-click) to save.
+- **Kisat (Contests) screen:** your nickname, today's best, and challenges received and sent.
+- **Badges:** Challenger (send a challenge) and Overtake (beat one).
+
+Scores in links are not verified, so a determined player could edit one. The deterministic core makes server-side replay checks possible later.
+
+PWA and offline play come in Phase 4. See `docs/art-bible.md` for the style, the science colour code, Tikka's character sheet and prompts for painted layers.
 
 ## Play
 
@@ -33,7 +45,8 @@ Hold anywhere (or the space bar) to open the stomata. P pauses, M mutes. A link 
 ```sh
 npm test               # vitest
 npm run balance        # average score of never / always / sunChaser / smart / expert bots
-npm run bundle:single  # dist/kasva.html, one self-contained file (about 60 KB)
+npm run bundle:single  # dist/kasva.html, one self-contained file (about 100 KB)
+# SHARE_URL=https://... npm run bundle:single  # challenge links point at the published page
 ```
 
 Current balance (40 seeds): never 0 g · always 1,859 g · sunChaser 2,005 g · smart 2,862 g · expert 2,973 g.

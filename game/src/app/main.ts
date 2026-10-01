@@ -5,12 +5,14 @@
  */
 import { makeExpert } from '../core/bots';
 import {
-  ACHIEVEMENTS, MAX_GROWTH, RANKS, STORY, applySeason, choose, growthMods, migrate, rankIndex, rankProgress,
+  ACHIEVEMENTS, MAX_GROWTH, RANKS, STORY, applySeason, challengePlayed, challengeSent, choose, growthMods, migrate, rankIndex, rankProgress,
   type Growth, type Save, type SeasonMode, type SeasonOutcome,
 } from '../core/progress';
 import { DT, LIGHT_TICKS, STANDARD_TREE, clock, createSeason, result, step, type SeasonResult, type SeasonState } from '../core/season';
+import { decodeChallenge, encodeChallenge, nickParts, randomNick, type Challenge } from '../core/share';
 import { dailySeed, planWeather, type Weather } from '../core/weather';
 import { Sound } from './audio';
+import { renderPoster } from './poster';
 import { Renderer } from './render';
 import { iconSvg } from './scene/icons';
 import { drawTikka } from './scene/tikka';
@@ -43,7 +45,7 @@ const sound = new Sound();
 sound.muted = !load<boolean>(SOUND_KEY, true);
 
 type Mode = 'menu' | 'play' | 'pause' | 'results';
-interface SeasonConfig { mode: SeasonMode; seed: string; weather?: Weather[] }
+interface SeasonConfig { mode: SeasonMode; seed: string; weather?: Weather[]; from?: Challenge }
 let mode: Mode = 'menu';
 let current: SeasonConfig = { mode: 'free', seed: 'menu' };
 let sim: SeasonState;
@@ -58,6 +60,23 @@ let lastOutcome: SeasonOutcome | null = null;
 let picked: Growth | null = null;
 // a shared link like #s-d2026-10-02 opens that exact weather
 let linkSeed: string | null = /^#s-([A-Za-z0-9._~-]{1,40})$/.exec(location.hash)?.[1] ?? null;
+// a challenge link like #c-3a-2840-d2026-10-02 opens the challenge card
+let linkChallenge: Challenge | null = decodeChallenge(location.hash);
+let challengeOutcome: { won: boolean; from: Challenge; mine: number } | null = null;
+let posterUrl: string | null = null;
+let posterBlob: Blob | null = null;
+
+function nickName(code: string) {
+  const p = nickParts(code) ?? [0, 0];
+  return `${t().adjectives[p[0]]} ${t().animals[p[1]]}`;
+}
+
+/** Where shared links point: the published page if the build says so, else this page. */
+function shareBase(): string {
+  const meta = document.querySelector<HTMLMetaElement>('meta[name="kasva-share-url"]')?.content;
+  if (meta) return meta;
+  return /^https?:/.test(location.protocol) ? location.origin + location.pathname : '';
+}
 
 function newMenuSeason() {
   menuSim = createSeason('menu-' + menuCount++, ['sun', 'sun', 'sun', 'cloudy', 'sun', 'rain']);
@@ -76,7 +95,7 @@ const dailyConfig = (): SeasonConfig => ({ mode: 'daily', seed: linkSeed ?? dail
 
 // ---------- screens ----------
 
-const SCREENS = ['start', 'pause', 'results', 'levelup', 'cards'] as const;
+const SCREENS = ['start', 'pause', 'results', 'levelup', 'cards', 'share', 'kisat', 'challenge'] as const;
 type Screen = (typeof SCREENS)[number];
 function show(id: Screen | null) {
   for (const s of SCREENS) $(s).hidden = s !== id;
@@ -151,13 +170,34 @@ function renderText() {
   $('t-r-wilts').textContent = x.result.wilts;
   $('btn-again').textContent = x.result.again;
   $('btn-next').textContent = x.nextSeason;
-  $('btn-copy').textContent = x.result.copy;
   $('btn-home').textContent = x.result.home;
   $('t-newbadges').textContent = x.newBadges;
   $('t-levelup').textContent = x.levelUp;
   $('btn-lu-continue').textContent = x.continue;
   $('t-cards').textContent = x.cardsTitle;
   $('btn-cards-close').textContent = x.close;
+  $('btn-kisat').textContent = x.kisat;
+  $('btn-share').textContent = x.share;
+  $('t-share').textContent = x.shareTitle;
+  $('btn-share-image').textContent = x.shareImage;
+  $('btn-copy').textContent = x.copyText;
+  $('btn-copy-challenge').textContent = x.copyChallenge;
+  $('t-savehint').textContent = x.saveHint;
+  $('btn-share-close').textContent = x.close;
+  $('t-kisat').textContent = x.kisat;
+  $('t-you').textContent = x.you;
+  $('btn-reroll').textContent = x.reroll;
+  $('t-nicknote').textContent = x.nickNote;
+  $('t-today').textContent = x.todayTitle;
+  $('btn-k-daily').textContent = x.play;
+  $('btn-k-challenge').textContent = x.challengeFriend;
+  $('t-received').textContent = x.received;
+  $('t-sent').textContent = x.sent;
+  $('btn-kisat-close').textContent = x.close;
+  $('btn-take').textContent = x.takeChallenge;
+  $('btn-c-home').textContent = x.result.home;
+  if (!$('kisat').hidden) renderKisat();
+  if (!$('challenge').hidden && linkChallenge) renderChallenge(linkChallenge);
   $('btn-mute').textContent = sound.muted ? '♪̸' : '♪';
   document.querySelectorAll<HTMLButtonElement>('.lang button[data-lang]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
   renderer.hud.labels = { water: x.water, stored: x.stored, day: x.day, juhannus: x.juhannus };
@@ -187,11 +227,13 @@ function start(cfg: SeasonConfig) {
   holding = false;
   shown = new Set();
   picked = null;
+  challengeOutcome = null;
+  if (posterUrl) { URL.revokeObjectURL(posterUrl); posterUrl = null; posterBlob = null; }
   renderer.hud.shownScore = 0;
   renderer.hud.hint = null;
   show(null);
   if (save.seasons < 3) hint('start', 999);
-  history.replaceState(null, '', cfg.mode === 'daily' ? '#s-' + cfg.seed : location.pathname + location.search);
+  history.replaceState(null, '', cfg.from ? '#' + encodeChallenge(cfg.from) : cfg.mode === 'daily' ? '#s-' + cfg.seed : location.pathname + location.search);
 }
 
 function hint(key: keyof (typeof TEXT)['fi']['hints'], secs = 3.6) {
@@ -241,6 +283,12 @@ function finish() {
   const before = save.co2LifetimeG;
   const outcome = applySeason(save, r, current.mode, today());
   save = outcome.save;
+  if (current.from) {
+    const c = challengePlayed(save, current.from, r.storedG, new Date().toISOString());
+    save = c.save;
+    outcome.newAchievements.push(...c.newAchievements);
+    challengeOutcome = { won: c.won, from: current.from, mine: Math.max(r.storedG, save.challenges.received[0]?.myBestG ?? 0) };
+  }
   persist();
   const rows = load<LogRow[]>(LOG_KEY, []);
   rows.push({ at: new Date().toISOString(), seed: r.seed, stored: r.storedG, caught: r.caughtG, resp: r.respiredG, combo: r.bestCombo, wilts: r.wilts });
@@ -287,6 +335,16 @@ function fillResults(r: SeasonResult, o: SeasonOutcome, animate: boolean, before
   best.hidden = !o.newBest;
   best.textContent = x.result.best;
   face($<HTMLCanvasElement>('tikka-face'));
+  const banner = $('r-challenge');
+  banner.hidden = !challengeOutcome;
+  if (challengeOutcome) {
+    const f = (n: number) => n.toLocaleString(lang === 'fi' ? 'fi-FI' : 'en-GB');
+    const who = nickName(challengeOutcome.from.nick);
+    banner.classList.toggle('lose', !challengeOutcome.won);
+    banner.textContent = challengeOutcome.won
+      ? x.challengeWin(who, f(challengeOutcome.mine), f(challengeOutcome.from.scoreG))
+      : x.challengeLose(who, f(challengeOutcome.from.scoreG - challengeOutcome.mine));
+  }
 
   // XP bar fills from where it was to where it is now (to the end on a rank-up)
   const after = rankProgress(save.co2LifetimeG);
@@ -413,14 +471,22 @@ function countUp(el: HTMLElement, to: number) {
   requestAnimationFrame(tick);
 }
 
-function shareText(r: SeasonResult) {
-  const label = r.seed.startsWith('d') ? t().theme(finnishDate(r.seed)) : r.seed.startsWith('story') ? t().story(Number(r.seed.slice(6)), STORY.length) : t().random;
-  return `Kasva! · ${label}\n🌳 ${r.storedG.toLocaleString('fi-FI')} g CO₂ · ×${r.bestCombo}\n${r.weather.map((w) => WEATHER_EMOJI[w]).join('')}`;
+function seasonLabel(seed: string) {
+  return seed.startsWith('d') ? t().theme(finnishDate(seed)) : seed.startsWith('story') ? t().story(Number(seed.slice(6)), STORY.length) : t().random;
 }
 
-async function copyResult() {
-  if (!lastResult) return;
-  const text = shareText(lastResult);
+function challengeLink(seed: string, g: number) {
+  const base = shareBase();
+  return base ? `${base}#${encodeChallenge({ nick: save.nick, scoreG: g, seed })}` : '';
+}
+
+function shareText(r: SeasonResult) {
+  const link = current.mode === 'daily' ? challengeLink(r.seed, r.storedG) : shareBase();
+  return `Kasva! · ${seasonLabel(r.seed)}\n🌳 ${r.storedG.toLocaleString('fi-FI')} g CO₂ · ×${r.bestCombo}\n${r.weather.map((w) => WEATHER_EMOJI[w]).join('')}${link ? '\n' + link : ''}`;
+}
+
+async function copy(text: string, button: HTMLElement, done: string) {
+  const label = button.textContent;
   try {
     await navigator.clipboard.writeText(text);
   } catch {
@@ -429,8 +495,95 @@ async function copyResult() {
     try { document.execCommand('copy'); } catch { /* ignore */ }
     ta.remove();
   }
-  $('btn-copy').textContent = t().result.copied;
-  setTimeout(() => ($('btn-copy').textContent = t().result.copy), 1500);
+  button.textContent = done;
+  setTimeout(() => (button.textContent = label), 1600);
+}
+
+function sendChallenge(seed: string, g: number, button: HTMLElement) {
+  const x = t();
+  const text = `Kasva! ${x.challengeBy(nickName(save.nick))} ${seasonLabel(seed)} · ${g.toLocaleString('fi-FI')} g\n${challengeLink(seed, g)}`;
+  void copy(text, button, x.copiedChallenge);
+  const out = challengeSent(save, seed, g, new Date().toISOString());
+  save = out.save;
+  persist();
+  if (out.newAchievements.length) sound.badge();
+}
+
+// ---------- share sheet ----------
+
+function openShare() {
+  if (!lastResult) return;
+  const x = t();
+  const r = lastResult;
+  show('share');
+  $('btn-copy-challenge').hidden = current.mode !== 'daily';
+  const img = $<HTMLImageElement>('poster-preview');
+  if (posterUrl) { img.src = posterUrl; return; }
+  img.removeAttribute('src');
+  // draw after the sheet is on screen, so the tap feels instant
+  setTimeout(() => {
+    const cv = renderPoster({
+      scoreG: r.storedG, unit: x.posterUnit, label: seasonLabel(r.seed),
+      who: `${nickName(save.nick)} · ${x.ranks[RANKS[rankIndex(save.co2LifetimeG)].id].name}`,
+      weather: r.weather, rank: rankIndex(save.co2LifetimeG),
+      callout: current.mode === 'daily' ? x.posterCallout : undefined,
+    });
+    cv.toBlob((b) => {
+      if (!b) return;
+      posterBlob = b;
+      posterUrl = URL.createObjectURL(b);
+      img.src = posterUrl;
+      img.alt = `${x.shareTitle}: ${r.storedG} g`;
+    }, 'image/png');
+  }, 30);
+}
+
+async function sharePoster() {
+  if (!posterBlob || !lastResult) return;
+  const file = new File([posterBlob], `kasva-${lastResult.seed}.png`, { type: 'image/png' });
+  try {
+    if (navigator.canShare?.({ files: [file] })) {
+      await navigator.share({ files: [file], text: shareText(lastResult) });
+      if (current.mode === 'daily') { const out = challengeSent(save, lastResult.seed, lastResult.storedG, new Date().toISOString()); save = out.save; persist(); }
+      return;
+    }
+  } catch { /* cancelled or not allowed: fall back to saving */ }
+  const a = document.createElement('a');
+  a.href = posterUrl!;
+  a.download = file.name;
+  a.click();
+  $('t-savehint').classList.add('banner');
+}
+
+// ---------- contests ----------
+
+function renderKisat() {
+  const x = t();
+  const f = (n: number) => n.toLocaleString(lang === 'fi' ? 'fi-FI' : 'en-GB');
+  $('k-nick').textContent = nickName(save.nick);
+  const seed = dailySeed();
+  const d = save.daily[seed];
+  $('k-today').textContent = d ? x.todayBest(d.bestG, d.tries) : x.todayNone;
+  $('btn-k-challenge').hidden = !d;
+  const rec = save.challenges.received;
+  $('k-received').innerHTML = rec.length ? rec.map((c) =>
+    `<div class="r"><span><b>${nickName(c.nick)}</b> · ${seasonLabel(c.seed)}<br>${f(c.myBestG)} g – ${f(c.theirG)} g</span><span class="tag${c.won ? ' won' : ''}">${c.won ? x.won : x.lost}</span></div>`).join('')
+    : `<p class="note">${x.noneYet}</p>`;
+  const sent = save.challenges.sent;
+  $('k-sent').innerHTML = sent.length ? sent.map((c) => `<div class="r"><span>${seasonLabel(c.seed)}</span><b>${f(c.g)} g</b></div>`).join('')
+    : `<p class="note">${x.noneYet}</p>`;
+}
+
+function renderChallenge(c: Challenge) {
+  const x = t();
+  const who = nickName(c.nick);
+  const g = c.scoreG.toLocaleString(lang === 'fi' ? 'fi-FI' : 'en-GB');
+  $('c-label').textContent = seasonLabel(c.seed);
+  $('c-title').textContent = x.challengeBy(who);
+  $('c-weather').innerHTML = weatherRow(planWeather(c.seed));
+  $('c-score').textContent = g + ' g';
+  $('c-line').textContent = x.challengeLine(who, g);
+  face($<HTMLCanvasElement>('c-face'));
 }
 
 function pause(on: boolean) {
@@ -492,7 +645,17 @@ document.addEventListener('click', (e) => {
     case 'btn-pause': pause(true); break;
     case 'btn-resume': pause(false); break;
     case 'btn-mute': case 'btn-radio': toggleMute(); break;
-    case 'btn-copy': void copyResult(); break;
+    case 'btn-share': openShare(); break;
+    case 'btn-share-image': void sharePoster(); break;
+    case 'btn-copy': if (lastResult) void copy(shareText(lastResult), b, t().result.copied); break;
+    case 'btn-copy-challenge': if (lastResult) sendChallenge(lastResult.seed, lastResult.storedG, b); break;
+    case 'btn-share-close': show('results'); break;
+    case 'btn-kisat': show('kisat'); renderKisat(); break;
+    case 'btn-kisat-close': case 'btn-c-home': toMenu(); break;
+    case 'btn-k-daily': start(dailyConfig()); break;
+    case 'btn-k-challenge': { const sd = dailySeed(); const d = save.daily[sd]; if (d) { sendChallenge(sd, d.bestG, b); renderKisat(); } break; }
+    case 'btn-reroll': save = { ...save, nick: randomNick() }; persist(); renderKisat(); sound.pop(2, false); break;
+    case 'btn-take': if (linkChallenge) { const c = linkChallenge; start({ mode: 'daily', seed: c.seed, from: c }); } break;
     case 'btn-clear-log': store(LOG_KEY, []); renderLog(); break;
   }
 });
@@ -533,14 +696,15 @@ function frame(now: number) {
 }
 
 renderText();
-show('start');
+if (linkChallenge) { renderChallenge(linkChallenge); show('challenge'); } else show('start');
 void document.fonts?.load('800 40px "Bricolage Grotesque"');
 void document.fonts?.load('700 24px Caveat').then(() => renderHome());
 requestAnimationFrame(frame);
 
-// Test hook for screenshots: open with #dbg, then window.__kasva.skip(ticks, hold).
-if (location.hash === '#dbg') {
-  linkSeed = null;
+// Test hook for screenshots: open with #dbg (or set localStorage kasva-dbg = 1),
+// then window.__kasva.skip(ticks, hold).
+if (location.hash === '#dbg' || load<number>('kasva-dbg', 0) === 1) {
+  if (location.hash === '#dbg') linkSeed = null;
   (window as unknown as { __kasva: unknown }).__kasva = {
     skip(ticks: number, hold = false) { for (let i = 0; i < ticks && !sim.done; i++) { step(sim, hold); if (sim.done) finish(); } },
     state: () => ({ tick: sim.tick, water: sim.water, mode, save }),

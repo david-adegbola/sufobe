@@ -7,6 +7,7 @@
  */
 import type { SeasonResult, TreeMods } from './season';
 import type { Weather } from './weather';
+import { randomNick } from './share';
 
 export const SAVE_VERSION = 1;
 
@@ -38,6 +39,12 @@ export interface Save {
   choices: Growth[];
   rings: { day: string; g: number; heat: boolean }[];
   daily: Record<string, { bestG: number; tries: number }>;
+  /** generated nickname code, see share.ts */
+  nick: string;
+  challenges: {
+    sent: { seed: string; g: number; at: string }[];
+    received: { nick: string; seed: string; theirG: number; myBestG: number; won: boolean; at: string }[];
+  };
 }
 
 export function newSave(): Save {
@@ -52,6 +59,8 @@ export function newSave(): Save {
     choices: [],
     rings: [],
     daily: {},
+    nick: randomNick(),
+    challenges: { sent: [], received: [] },
   };
 }
 
@@ -70,6 +79,11 @@ export function migrate(raw: unknown): Save {
     choices: Array.isArray(r.choices) ? r.choices : [],
     rings: Array.isArray(r.rings) ? r.rings : [],
     daily: r.daily && typeof r.daily === 'object' ? r.daily : {},
+    nick: typeof r.nick === 'string' && /^[0-9a-f]{2}$/.test(r.nick) ? r.nick : base.nick,
+    challenges: {
+      sent: Array.isArray(r.challenges?.sent) ? r.challenges!.sent : [],
+      received: Array.isArray(r.challenges?.received) ? r.challenges!.received : [],
+    },
   };
 }
 
@@ -157,7 +171,7 @@ export const ACHIEVEMENTS: { id: string; check: (c: AchievementCtx) => boolean }
   // awarded by choose(): three Roots choices in a row
   { id: 'root-care', check: () => false },
   { id: 'ten-rings', check: (c) => c.save.rings.length >= 10 },
-  // social badges: earned through challenge links (Phase 3)
+  // social badges: awarded by challengeSent() and challengePlayed()
   { id: 'challenger', check: () => false },
   { id: 'overtake', check: () => false },
 ];
@@ -209,4 +223,28 @@ export function applySeason(prev: Save, result: SeasonResult, mode: SeasonMode, 
   const newAchievements = ACHIEVEMENTS.filter((a) => !save.achievements.includes(a.id) && a.check(ctx)).map((a) => a.id);
   save.achievements = [...save.achievements, ...newAchievements];
   return { save, rankBefore, rankAfter: rankIndex(save.co2LifetimeG), newAchievements, newBest };
+}
+
+// ---------- challenges ----------
+
+function award(save: Save, id: string): { save: Save; newAchievements: string[] } {
+  if (save.achievements.includes(id)) return { save, newAchievements: [] };
+  return { save: { ...save, achievements: [...save.achievements, id] }, newAchievements: [id] };
+}
+
+/** The player copied or shared a challenge link for a daily seed. */
+export function challengeSent(save: Save, seed: string, g: number, at: string) {
+  const sent = [{ seed, g, at }, ...save.challenges.sent.filter((c) => c.seed !== seed)].slice(0, 30);
+  return award({ ...save, challenges: { ...save.challenges, sent } }, 'challenger');
+}
+
+/** The player finished a season from someone's challenge link. Beating it earns Overtake. */
+export function challengePlayed(save: Save, from: { nick: string; seed: string; scoreG: number }, myG: number, at: string) {
+  const prev = save.challenges.received.find((c) => c.nick === from.nick && c.seed === from.seed);
+  const myBestG = Math.max(myG, prev?.myBestG ?? 0);
+  const won = myBestG > from.scoreG;
+  const entry = { nick: from.nick, seed: from.seed, theirG: from.scoreG, myBestG, won, at };
+  const received = [entry, ...save.challenges.received.filter((c) => c !== prev)].slice(0, 30);
+  const next = { ...save, challenges: { ...save.challenges, received } };
+  return won ? { ...award(next, 'overtake'), won } : { save: next, newAchievements: [] as string[], won };
 }
