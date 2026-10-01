@@ -161,6 +161,19 @@ export class Sound {
 
   dawn() { this.warbler(0.3); }
 
+  /** A new badge: a bright two-string chime. */
+  badge() {
+    if (!this.ctx) return;
+    this.play(this.plucks[9], 0.4); this.play(this.plucks[12], 0.35, 0.09);
+  }
+
+  /** Level up: a full strum across all five strings, twice, rising. */
+  levelUp() {
+    if (!this.ctx) return;
+    for (let i = 0; i < 5; i++) this.play(this.plucks[i], 0.4, i * 0.05);
+    for (let i = 5; i < 11; i++) this.play(this.plucks[i], 0.35, 0.45 + (i - 5) * 0.05);
+  }
+
   end() {
     if (!this.ctx) return;
     [0, 2, 4, 5, 7].forEach((n, i) => this.play(this.plucks[n], 0.45, i * 0.12));

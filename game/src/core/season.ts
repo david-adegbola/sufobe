@@ -42,6 +42,15 @@ export const TUNING = {
   juhannusNightLight: 0.32,
 };
 
+/**
+ * How this particular tree differs from the standard birch (all 1 by default).
+ * Roots hold and refill more water; more leaf area turns more CO2 into sugar
+ * per catch but loses more water; wood makes the tree taller, so its leaves get more light. A bigger
+ * tree also has more living tissue, so it breathes out more (resp).
+ */
+export interface TreeMods { waterMax: number; refill: number; radius: number; drain: number; light: number; resp: number; capture: number }
+export const STANDARD_TREE: TreeMods = { waterMax: 1, refill: 1, radius: 1, drain: 1, light: 1, resp: 1, capture: 1 };
+
 export interface Molecule {
   id: number;
   x: number;
@@ -86,21 +95,23 @@ export interface SeasonState {
     openHeatTicks: number;
     respiredNightG: number;
     bounces: number;
+    midsummerNightCatches: number;
   };
   /** events produced by the last step, for sound and effects */
   events: SeasonEvent[];
   done: boolean;
   rng: Rng;
+  mods: TreeMods;
 }
 
-export function createSeason(seed: string, weather: Weather[] = planWeather(seed)): SeasonState {
+export function createSeason(seed: string, weather: Weather[] = planWeather(seed), mods: TreeMods = STANDARD_TREE): SeasonState {
   return {
     seed,
     tick: 0,
     weather,
     holding: false,
     open: false,
-    water: TUNING.waterMax,
+    water: TUNING.waterMax * mods.waterMax,
     wiltLeft: 0,
     radiusScale: 1,
     breath: 0,
@@ -109,10 +120,11 @@ export function createSeason(seed: string, weather: Weather[] = planWeather(seed
     respAcc: 0,
     caughtG: 0,
     respiredG: 0,
-    stats: { bestCombo: 0, wilts: 0, caughtCount: 0, goldCount: 0, openNightTicks: 0, openHeatTicks: 0, respiredNightG: 0, bounces: 0 },
+    stats: { bestCombo: 0, wilts: 0, caughtCount: 0, goldCount: 0, openNightTicks: 0, openHeatTicks: 0, respiredNightG: 0, bounces: 0, midsummerNightCatches: 0 },
     events: [],
     done: false,
     rng: makeRng('season:' + seed),
+    mods,
   };
 }
 
@@ -144,15 +156,15 @@ export function clock(s: SeasonState, tick = s.tick): Clock {
 /** Sunlight reaching the leaves, 0..1. */
 export function lightAt(s: SeasonState, tick = s.tick): number {
   const c = clock(s, tick);
-  if (c.isNight) return c.juhannus ? TUNING.juhannusNightLight : 0;
+  if (c.isNight) return c.juhannus ? TUNING.juhannusNightLight * s.mods.light : 0;
   // morning → noon → evening, never fully dark at the edges of the day
   const sun = Math.sin(Math.PI * (c.phase + 40) / (LIGHT_TICKS + 80));
-  return Math.max(0, sun) * WEATHER[c.weather].light;
+  return Math.max(0, sun) * WEATHER[c.weather].light * s.mods.light;
 }
 
 export function catchRadius(s: SeasonState): number {
   const combo = Math.min(TUNING.comboRadiusMax, s.breath * TUNING.comboRadiusPerCatch);
-  return TUNING.catchRadius * s.radiusScale * (1 + combo);
+  return TUNING.catchRadius * s.mods.radius * s.radiusScale * (1 + combo);
 }
 
 function spawn(s: SeasonState, light: number) {
@@ -190,11 +202,11 @@ export function step(s: SeasonState, holding: boolean): SeasonState {
   // --- water ---
   if (s.open) {
     const sunShare = TUNING.nightDrainShare + (1 - TUNING.nightDrainShare) * Math.min(1, light);
-    s.water -= TUNING.drainPerSec * fx.drain * sunShare * DT;
+    s.water -= TUNING.drainPerSec * fx.drain * s.mods.drain * sunShare * DT;
     if (light < 0.05) s.stats.openNightTicks++;
     if (c.weather === 'heat' && !c.isNight) s.stats.openHeatTicks++;
   } else {
-    s.water += TUNING.rootRefillPerSec * DT;
+    s.water += TUNING.rootRefillPerSec * s.mods.refill * DT;
   }
   s.water += fx.rain * DT;
   if (s.water <= 0 && s.open) {
@@ -206,10 +218,10 @@ export function step(s: SeasonState, holding: boolean): SeasonState {
     s.stats.wilts++;
     s.events.push({ type: 'wilt' });
   }
-  s.water = Math.min(TUNING.waterMax, Math.max(0, s.water));
+  s.water = Math.min(TUNING.waterMax * s.mods.waterMax, Math.max(0, s.water));
 
   // --- respiration: day and night ---
-  const resp = TUNING.respGPerSec * fx.resp * DT;
+  const resp = TUNING.respGPerSec * fx.resp * s.mods.resp * DT;
   s.respiredG += resp;
   if (c.isNight) s.stats.respiredNightG += resp;
   s.respAcc += resp;
@@ -246,11 +258,12 @@ export function step(s: SeasonState, holding: boolean): SeasonState {
     m.y += m.vy * DT;
     if (m.kind === 'pulled' && Math.hypot(CROWN.x - m.x, CROWN.y - m.y) < CROWN.r * 0.75) {
       if (light > 0.05) {
-        const g = TUNING.moleculeG * (m.gold ? TUNING.goldMultiplier : 1) * (0.35 + 0.65 * Math.min(1, light));
+        const g = TUNING.moleculeG * s.mods.capture * (m.gold ? TUNING.goldMultiplier : 1) * (0.35 + 0.65 * Math.min(1, light));
         s.caughtG += g;
         s.breath++;
         s.stats.caughtCount++;
         if (m.gold) s.stats.goldCount++;
+        if (c.isNight && c.juhannus) s.stats.midsummerNightCatches++;
         s.stats.bestCombo = Math.max(s.stats.bestCombo, s.breath);
         s.events.push({ type: 'catch', id: m.id, g, gold: m.gold, combo: s.breath, x: m.x, y: m.y });
         continue;
@@ -287,6 +300,7 @@ export interface SeasonResult {
   openNightSec: number;
   openHeatSec: number;
   nightRespShare: number; // share of caught carbon breathed out at night
+  midsummerNightCatches: number;
   weather: Weather[];
 }
 
@@ -304,12 +318,13 @@ export function result(s: SeasonState): SeasonResult {
     openHeatSec: s.stats.openHeatTicks / HZ,
     nightRespShare: s.caughtG > 0 ? s.stats.respiredNightG / s.caughtG : 0,
     weather: s.weather,
+    midsummerNightCatches: s.stats.midsummerNightCatches,
   };
 }
 
 /** Run a whole season with an input function (used by tests, bots and score checks). */
-export function simulate(seed: string, input: (s: SeasonState) => boolean, weather?: Weather[]): SeasonResult {
-  const s = createSeason(seed, weather);
+export function simulate(seed: string, input: (s: SeasonState) => boolean, weather?: Weather[], mods?: TreeMods): SeasonResult {
+  const s = createSeason(seed, weather, mods);
   while (!s.done) step(s, input(s));
   return result(s);
 }

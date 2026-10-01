@@ -81,8 +81,10 @@ export function drawHud(c: CanvasRenderingContext2D, W: number, H: number, sim: 
   c.strokeText(dayText, dx, dy); c.fillStyle = '#fff'; c.fillText(dayText, dx, dy);
 
   // ---------- water: a capsule that fills like a stem full of water ----------
-  st.shownWater += (sim.water - st.shownWater) * Math.min(1, dt * 12);
-  const mw = small ? 18 : 22, mh = Math.min(H * 0.36, 260), mx = pad + 2, my = Math.max(scoreY + 44, H * 0.34);
+  const waterPct = 100 * sim.water / (100 * sim.mods.waterMax);
+  st.shownWater += (waterPct - st.shownWater) * Math.min(1, dt * 12);
+  // deeper roots: a taller water capsule
+  const mw = small ? 18 : 22, mh = Math.min(H * 0.36, 260) * Math.min(1.5, sim.mods.waterMax), mx = pad + 2, my = Math.max(scoreY + 44, H * 0.34);
   c.fillStyle = UI.glass;
   pill(c, mx - 4, my - 4, mw + 8, mh + 8); c.fill();
   const low = st.shownWater < 25;

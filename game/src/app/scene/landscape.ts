@@ -102,7 +102,7 @@ export function spruce(c: CanvasRenderingContext2D, r: Rng, x: number, baseY: nu
   }
 }
 
-export function paintLandscape(L: Layout): Landscape {
+export function paintLandscape(L: Layout, rank = 0): Landscape {
   const r = makeRng('landscape-v1');
 
   // ---------- back: hills, lake, far shore ----------
@@ -141,7 +141,34 @@ export function paintLandscape(L: Layout): Landscape {
   b.fillStyle = '#7a5a3e'; b.fillRect(mx + ms * 1.7, my - ms * 0.15, ms * 1.6, ms * 0.15);
   b.fillStyle = 'rgba(166, 58, 43, 0.3)'; b.fillRect(mx, my + 2, ms * 1.6, ms * 0.6);
 
-  // ---------- mid: spruce groves either side, the centre stays open ----------
+  // ---------- things that appear as your tree ranks up ----------
+  if (rank >= 2) {
+    // Taimi: a small sailboat on the lake
+    const bx2 = L.W * 0.36, by2 = hz + (L.lakeBottomY - hz) * 0.45, bs = Math.max(10, L.H * 0.022);
+    b.fillStyle = '#f6f3ea';
+    b.beginPath(); b.moveTo(bx2, by2 - bs * 1.6); b.lineTo(bx2 + bs * 0.9, by2 - bs * 0.15); b.lineTo(bx2, by2 - bs * 0.15); b.closePath(); b.fill();
+    b.fillStyle = '#e9e1cf';
+    b.beginPath(); b.moveTo(bx2 - bs * 0.1, by2 - bs * 1.2); b.lineTo(bx2 - bs * 0.6, by2 - bs * 0.15); b.lineTo(bx2 - bs * 0.1, by2 - bs * 0.15); b.closePath(); b.fill();
+    b.fillStyle = '#8a3b2a';
+    b.beginPath(); b.moveTo(bx2 - bs * 0.8, by2 - bs * 0.1); b.lineTo(bx2 + bs, by2 - bs * 0.1); b.lineTo(bx2 + bs * 0.7, by2 + bs * 0.2); b.lineTo(bx2 - bs * 0.55, by2 + bs * 0.2); b.closePath(); b.fill();
+    b.fillStyle = 'rgba(246, 243, 234, 0.3)'; b.fillRect(bx2 - bs * 0.6, by2 + bs * 0.3, bs * 1.4, bs * 0.25);
+  }
+  if (rank >= 3) {
+    // Vesa: an elk (hirvi) bull wading at the near shore of the lake
+    const ex = L.W * 0.6, ey = L.lakeBottomY - 2, es = Math.max(14, L.H * 0.04);
+    b.fillStyle = '#4a3326';
+    b.beginPath(); b.ellipse(ex, ey - es * 0.95, es * 0.75, es * 0.35, 0, 0, Math.PI * 2); b.fill();      // body
+    b.beginPath(); b.ellipse(ex - es * 0.35, ey - es * 1.22, es * 0.35, es * 0.18, 0, 0, Math.PI * 2); b.fill(); // shoulder hump
+    for (const lx of [-0.5, -0.3, 0.35, 0.55]) b.fillRect(ex + lx * es, ey - es * 0.75, es * 0.09, es * 0.75); // legs
+    b.save(); b.translate(ex - es * 0.85, ey - es * 1.15); b.rotate(0.5);
+    b.beginPath(); b.ellipse(0, 0, es * 0.32, es * 0.14, 0, 0, Math.PI * 2); b.fill(); b.restore();          // long head
+    b.fillStyle = '#c7b79a';                                                                                   // pale palmate antlers
+    b.beginPath(); b.ellipse(ex - es * 0.95, ey - es * 1.5, es * 0.3, es * 0.1, -0.4, 0, Math.PI * 2); b.fill();
+    b.beginPath(); b.ellipse(ex - es * 0.6, ey - es * 1.52, es * 0.28, es * 0.1, 0.4, 0, Math.PI * 2); b.fill();
+    b.fillStyle = 'rgba(232, 246, 246, 0.45)'; b.fillRect(ex - es * 0.8, ey - es * 0.05, es * 1.6, 2);       // ripple
+  }
+
+
   const [mid, m] = layer(L);
   const groves: [number, number][] = [[0.02, 0.3], [0.7, 1.0]];
   for (const [a, z] of groves) {
@@ -208,7 +235,28 @@ export function paintLandscape(L: Layout): Landscape {
     dab(f, mx2, my2 - 8, 7, 4, 0, '#8a4f24');
   }
 
-  // ---------- front: dark spruce boughs framing the edges ----------
+  if (rank >= 4) {
+    // Riukupuu: young birch saplings sprouting from your tree's seeds
+    for (const [px, ph] of [[0.36, 0.11], [0.66, 0.08]] as const) {
+      const x = L.W * px, base = L.floorTopY + span * 0.18, h = L.H * ph;
+      f.fillStyle = '#f1eee6'; f.fillRect(x - 2, base - h, 4, h);
+      f.fillStyle = '#2a2622'; for (let i = 1; i < 4; i++) f.fillRect(x - 2, base - h * i / 4, 3, 1.5);
+      for (let i = 0; i < 26; i++) dab(f, x + rand(r, -h * 0.28, h * 0.28), base - h + rand(r, -h * 0.2, h * 0.35), h * 0.05, h * 0.03, rand(r, 0, 3), i % 2 ? '#74b347' : '#5f9e3a');
+    }
+  }
+  if (rank >= 5) {
+    // Tukkipuu: a capercaillie (metso) displaying on the forest floor
+    const cx = L.W * 0.86, cy = L.floorTopY + span * 0.3, cs = Math.max(14, L.H * 0.035);
+    f.fillStyle = '#2b2e30';
+    for (let i = -3; i <= 3; i++) { f.save(); f.translate(cx + cs * 0.4, cy - cs * 0.4); f.rotate(-1.2 + i * 0.16); f.beginPath(); f.ellipse(0, -cs * 0.55, cs * 0.12, cs * 0.6, 0, 0, Math.PI * 2); f.fill(); f.restore(); } // fanned tail
+    f.beginPath(); f.ellipse(cx, cy - cs * 0.3, cs * 0.55, cs * 0.38, 0, 0, Math.PI * 2); f.fill();        // body
+    f.fillStyle = '#1f3a2c'; f.beginPath(); f.ellipse(cx - cs * 0.3, cy - cs * 0.45, cs * 0.22, cs * 0.25, 0, 0, Math.PI * 2); f.fill(); // green breast sheen
+    f.fillStyle = '#2b2e30'; f.beginPath(); f.ellipse(cx - cs * 0.48, cy - cs * 0.9, cs * 0.16, cs * 0.3, -0.3, 0, Math.PI * 2); f.fill(); // raised neck
+    f.fillStyle = '#d42b2b'; f.fillRect(cx - cs * 0.56, cy - cs * 1.14, cs * 0.1, cs * 0.06);               // red eyebrow
+    f.fillStyle = '#e8dcc0'; f.beginPath(); f.moveTo(cx - cs * 0.6, cy - cs * 1.06); f.lineTo(cx - cs * 0.78, cy - cs * 1.0); f.lineTo(cx - cs * 0.6, cy - cs * 0.98); f.fill(); // pale bill
+  }
+
+
   const [front, fr] = layer(L);
   const greensDark = ['#0f2e27', '#163a31', '#1f4a3c', '#12342c'];
   /** One spruce twig: a stem with short needles all round it, like a bottle brush. */

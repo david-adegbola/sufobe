@@ -18,6 +18,7 @@
       color-scheme: dark;
     }
     * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
     html, body { margin: 0; height: 100%; background: var(--deep); color: var(--paper); overflow: hidden;
       font: 16px/1.4 var(--body); -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: none; }
     canvas#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
@@ -76,7 +77,56 @@
     .tikka canvas { flex: 0 0 auto; width: 48px; height: 48px; border-radius: 50%; background: #e8f1e9; }
     .newbest { font: 800 0.9rem/1 var(--display); text-transform: uppercase; background: #f2711c; color: #1a0d03; border-radius: 999px; padding: 6px 14px; transform: rotate(-3deg); }
     .pause-title { font: 800 2.6rem/1 var(--display); color: var(--sun); }
-    @media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
+    /* progression */
+    .chips-left { display: flex; gap: 6px; flex-wrap: wrap; }
+    .rankchip svg { flex: 0 0 auto; }
+    .streak.cover::after { content: "❄"; margin-left: 2px; color: #cfe8ff; }
+    .bubble { display: flex; gap: 10px; align-items: center; max-width: min(100%, 460px); background: #fffdf6; color: var(--ink);
+      border-radius: 18px 18px 18px 4px; padding: 8px 14px 8px 8px; font: 700 1.3rem/1.1 var(--hand); text-align: left; }
+    .bubble canvas { flex: 0 0 auto; width: 44px; height: 44px; border-radius: 50%; background: #e8f1e9; }
+    .xp { width: 100%; display: grid; gap: 4px; font-size: 0.8rem; color: var(--muted); }
+    .xp .bar { height: 12px; border-radius: 999px; background: rgba(255,255,255,0.15); overflow: hidden; }
+    .xp .bar span { display: block; height: 100%; width: 0; background: var(--sun); border-radius: 999px; transition: width 900ms cubic-bezier(.2,.8,.2,1); }
+    .xp .row2 { display: flex; justify-content: space-between; }
+    .badges { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+    .leaf { width: 54px; height: 54px; border-radius: 0 60% 0 60%; display: grid; place-items: center; transform: rotate(-8deg);
+      background: var(--sun); color: var(--deep); font: 800 0.65rem/1.05 var(--display); text-align: center; padding: 6px; box-shadow: inset 0 -4px 0 rgba(0,0,0,0.15); border: 0; cursor: pointer; }
+    .leaf.locked { background: rgba(255,255,255,0.12); color: var(--muted); box-shadow: none; border: 1.5px dashed var(--line); }
+    .leaf span { transform: rotate(8deg); font-size: 1.3rem; }
+    .badge-item { display: grid; gap: 4px; justify-items: center; width: 84px; font: 700 0.72rem/1.15 var(--body); color: var(--paper); text-align: center; }
+    .grow { width: 100%; display: grid; gap: 8px; }
+    .grow h3 { margin: 0; font: 800 1.05rem/1.2 var(--display); }
+    .grow .cards3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+    .gcard { background: rgba(255,255,255,0.08); border: 1.5px solid var(--line); border-radius: 14px; padding: 8px 6px; color: var(--paper); cursor: pointer;
+      display: grid; gap: 4px; justify-items: center; font: 600 0.72rem/1.25 var(--body); touch-action: manipulation; }
+    .gcard b { font: 800 0.95rem/1 var(--display); }
+    .gcard:hover { border-color: var(--sun); }
+    .gcard .dots { letter-spacing: 2px; color: var(--sun); font-size: 0.8rem; }
+    .gcard[disabled] { opacity: 0.5; cursor: default; }
+    .gcard.picked { border-color: var(--sun); background: rgba(255, 200, 61, 0.18); opacity: 1; }
+    .note { font-size: 0.75rem; color: var(--muted); margin: 0; }
+    .levelup { position: relative; overflow: hidden; }
+    .levelup > :not(.ripple) { position: relative; z-index: 1; }
+    .levelup .ripple { position: absolute; left: 50%; top: 40%; width: 40px; height: 40px; margin: -20px; border-radius: 50%;
+      border: 6px solid var(--sun); opacity: 0; animation: ripple 1.6s ease-out 3; pointer-events: none; }
+    .levelup .ripple:nth-child(2) { animation-delay: 0.3s; } .levelup .ripple:nth-child(3) { animation-delay: 0.6s; }
+    @keyframes ripple { from { transform: scale(0.5); opacity: 0.9; } to { transform: scale(14); opacity: 0; } }
+    .rankname { font: 800 clamp(2.6rem, 12vw, 3.6rem)/0.9 var(--display); font-stretch: 75%; text-transform: uppercase; color: var(--sun);
+      -webkit-text-stroke: 2px var(--deep); paint-order: stroke fill; text-shadow: 0 5px 0 var(--deep-2); transform: rotate(-4deg); animation: stamp 500ms cubic-bezier(.2,1.6,.4,1) both 200ms; }
+    @keyframes stamp { from { transform: rotate(-4deg) scale(2.2); opacity: 0; } to { transform: rotate(-4deg) scale(1); opacity: 1; } }
+    .cardgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 14px 8px; width: 100%; justify-items: center; }
+    .cardgrid .item { display: grid; gap: 6px; justify-items: center; font-size: 0.72rem; color: var(--muted); text-align: center; }
+    .fact { text-align: left; display: grid; gap: 8px; }
+    .fact h3 { margin: 0; font: 800 1.3rem/1.1 var(--display); color: var(--sun); }
+    .fact p { margin: 0; }
+    /* wide screens: menu on the left, the tree on the right */
+    @media (min-width: 900px) and (min-aspect-ratio: 6/5) {
+      #start { align-items: flex-start; }
+      #start .topbar { align-self: stretch; }
+      #start .hero, #start .actions { align-self: flex-start; width: min(46vw, 560px); margin-left: 3vw; justify-items: center; }
+      #start .spacer { flex: 0 0 4vh; }
+    }
+    @media (prefers-reduced-motion: reduce) { .btn { transition: none; } .levelup .ripple, .rankname { animation: none; } .xp .bar span { transition: none; } }
   </style>
 </head>
 <body>
@@ -89,8 +139,12 @@
 
   <section class="screen" id="start">
     <div class="topbar">
-      <button type="button" class="chip" id="btn-radio"></button>
+      <div class="chips-left">
+        <span class="chip rankchip" id="rank-chip"></span>
+        <span class="chip streak" id="streak-chip"></span>
+      </div>
       <div class="lang" role="group" aria-label="Kieli / Language">
+        <button type="button" class="chip" id="btn-radio" style="padding:8px 11px"></button>
         <button type="button" data-lang="fi">FI</button><button type="button" data-lang="en">EN</button>
       </div>
     </div>
@@ -98,12 +152,14 @@
       <h1 class="logo" id="t-title">Kasva!</h1>
       <span class="theme" id="t-theme"></span>
       <div class="weather" id="daily-weather"></div>
+      <p class="bubble" id="home-bubble"><canvas width="88" height="88" aria-hidden="true"></canvas><span></span></p>
     </div>
     <div class="spacer"></div>
     <div class="actions">
       <div class="row">
-        <button type="button" class="btn" id="btn-daily"></button>
-        <button type="button" class="btn ghost" id="btn-random"></button>
+        <button type="button" class="btn" id="btn-play"></button>
+        <button type="button" class="btn ghost" id="btn-daily"></button>
+        <button type="button" class="btn ghost" id="btn-cards"></button>
       </div>
       <div class="howto" id="t-howto"></div>
       <div class="keys" id="t-keys"></div>
@@ -131,15 +187,38 @@
         <div><b id="r-combo"></b><span id="t-r-combo"></span></div>
         <div><b id="r-wilts"></b><span id="t-r-wilts"></span></div>
       </div>
+      <div class="xp"><div class="row2"><span id="r-rank"></span><span id="r-xp"></span></div><div class="bar"><span id="r-xpbar"></span></div></div>
+      <div id="r-badges-wrap" hidden><div class="note" id="t-newbadges" style="margin-bottom:6px"></div><div class="badges" id="r-badges"></div></div>
       <p class="tikka"><canvas id="tikka-face" width="96" height="96" aria-hidden="true"></canvas><span id="r-tikka"></span></p>
+      <div class="grow" id="r-grow"></div>
       <div class="row">
-        <button type="button" class="btn" id="btn-again"></button>
-        <button type="button" class="btn ghost" id="btn-next"></button>
+        <button type="button" class="btn" id="btn-next"></button>
+        <button type="button" class="btn ghost" id="btn-again"></button>
       </div>
       <div class="row">
         <button type="button" class="btn ghost small" id="btn-copy"></button>
         <button type="button" class="btn ghost small" id="btn-home"></button>
       </div>
+    </div>
+  </section>
+
+  <section class="screen" id="levelup" hidden>
+    <div class="panel glass levelup">
+      <div class="ripple"></div><div class="ripple"></div><div class="ripple"></div>
+      <div class="theme" id="t-levelup"></div>
+      <div class="rankname" id="lu-rank"></div>
+      <p id="lu-desc" style="margin:0"></p>
+      <p class="tikka"><canvas id="lu-face" width="96" height="96" aria-hidden="true"></canvas><span id="lu-tikka"></span></p>
+      <button type="button" class="btn" id="btn-lu-continue"></button>
+    </div>
+  </section>
+
+  <section class="screen" id="cards" hidden>
+    <div class="panel glass" style="width:min(100%,560px)">
+      <div class="theme" id="t-cards"></div>
+      <div class="cardgrid" id="cardgrid"></div>
+      <div class="fact glass" id="fact" hidden style="padding:14px 16px;width:100%"></div>
+      <button type="button" class="btn ghost small" id="btn-cards-close"></button>
     </div>
   </section>
 

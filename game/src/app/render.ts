@@ -34,6 +34,9 @@ export class Renderer {
   private wiltFade = 0;
   private time = 0;
   hud: HudState = newHud();
+  private rank = 0;
+  /** Where the tree stands across the screen (0.5 = centre). */
+  private focus = 0.5;
 
   constructor(private canvas: HTMLCanvasElement) {
     this.c = canvas.getContext('2d')!;
@@ -52,7 +55,7 @@ export class Renderer {
     this.world.width = this.canvas.width;
     this.world.height = this.canvas.height;
     const s = Math.min(W / 1000, H / 1050);
-    const ox = (W - 1000 * s) / 2;
+    const ox = W * this.focus - 500 * s;
     const oy = Math.min(H * 0.8 - 900 * s, H - 1000 * s);
     const X = (x: number) => ox + x * s, Y = (y: number) => oy + y * s;
     const groundY = Y(900);
@@ -60,7 +63,7 @@ export class Renderer {
       W, H, dpr, s, X, Y, groundY,
       horizonY: Y(700), lakeBottomY: Y(782), floorTopY: Y(785),
     };
-    this.land = paintLandscape(this.L);
+    this.land = paintLandscape(this.L, this.rank);
     this.birchCache.clear();
     this.grain = this.makeGrain();
   }
@@ -87,6 +90,23 @@ export class Renderer {
     let cv = this.birchCache.get(key);
     if (!cv) { cv = paintBirch(this.L, { leafFraction: frac, wilted }); this.birchCache.set(key, cv); }
     return cv;
+  }
+
+  /** Slide the tree sideways (the menu on wide screens moves it right). Only the
+   *  world-space layers move; the painted landscape stays put. */
+  setFocus(target: number, dt: number) {
+    if (Math.abs(target - this.focus) < 0.001) return;
+    this.focus += (target - this.focus) * Math.min(1, dt * 5 || 1);
+    const L = this.L, s = L.s;
+    const ox = L.W * this.focus - 500 * s;
+    L.X = (x: number) => ox + x * s;
+  }
+
+  /** New things appear in the landscape as the player's tree ranks up. */
+  setRank(rank: number) {
+    if (rank === this.rank) return;
+    this.rank = rank;
+    this.land = paintLandscape(this.L, rank);
   }
 
   // ---------- effects triggered by game events ----------
