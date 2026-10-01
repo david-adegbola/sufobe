@@ -28,7 +28,23 @@
     --warn: #ff8a73;
     --warn-soft: #3a221d;
     --co2-c: #e6e8ec;
+    color-scheme: dark;
   }
+}
+
+:root[data-theme="dark"] {
+  --bg: #161a20;
+  --card: #20262e;
+  --ink: #eef1f5;
+  --muted: #a9b1bd;
+  --line: #333b46;
+  --accent: #5cbf7c;
+  --accent-ink: #0d1a12;
+  --accent-soft: #1e3427;
+  --warn: #ff8a73;
+  --warn-soft: #3a221d;
+  --co2-c: #e6e8ec;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
