@@ -12,6 +12,7 @@ import {
   PLACES, SOILS, relativeDensity, type AnimalId, type DeathCause, type Forest, type SoilId, type SpeciesId, type Tree, type YearRecord,
 } from '../../core/forest';
 import { makeRng } from '../../core/rng';
+import { FrameBudget } from '../scene/budget';
 import type { Season } from './text';
 
 export interface ForestView {
@@ -56,6 +57,9 @@ const SKIES: Record<Season, [string, string]> = {
   winter: ['#a9bfd3', '#eef3f6'],
 };
 
+/** One budget for every forest scene: they all draw on the same canvas. */
+export const forestBudget = new FrameBudget();
+
 export class ForestScene {
   private c: CanvasRenderingContext2D;
   private W = 0;
@@ -77,7 +81,7 @@ export class ForestScene {
   }
 
   resize() {
-    this.dpr = Math.min(2, window.devicePixelRatio || 1);
+    this.dpr = forestBudget.dpr();
     this.W = this.canvas.clientWidth || innerWidth;
     this.H = this.canvas.clientHeight || innerHeight;
     this.canvas.width = Math.round(this.W * this.dpr);
@@ -89,7 +93,7 @@ export class ForestScene {
 
   /** Draw into part of the canvas only (CSS px). Call after the canvas has its size. */
   setViewport(x: number, y: number, w: number, h: number) {
-    this.dpr = Math.min(2, window.devicePixelRatio || 1);
+    this.dpr = forestBudget.dpr();
     if (w !== this.W || h !== this.H) { this.hillsKey = ''; this.zoom = 0; }
     this.vx = x; this.vy = y; this.W = w; this.H = h;
   }

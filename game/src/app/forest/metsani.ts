@@ -20,7 +20,7 @@ import {
 import { drawMills, itemIcon } from './mills';
 import { drawTikka } from '../scene/tikka';
 import type { Lang } from '../text';
-import { ForestScene, seasonOf } from './scene';
+import { ForestScene, forestBudget, seasonOf } from './scene';
 import { addPast, loadForest, storeForest, type ForestSave } from './save';
 import { FOREST_TEXT } from './text';
 import { AFTER_YEAR, QUIZ, QUIZ_UI, loadTally, quizOn, record, saveTally } from './quiz';
@@ -478,6 +478,7 @@ export class Metsani {
 
   update(dt: number) {
     if (!this.active) return;
+    if (forestBudget.tick()) { for (const l of this.lanes) l.scene.resize(); this.setupScene.resize(); }
     this.time += dt;
     if (this.reportTimer > 0) {
       this.reportTimer -= dt;

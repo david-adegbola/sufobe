@@ -2,9 +2,12 @@
 <html lang="fi">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0f3b35">
   <title>Kasva!</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <style>
     :root {
       --deep: #0f3b35; --deep-2: #071f1b; --sun: #ffc83d; --ink: #10241c; --paper: #f3f6f1; --muted: #c4d6cc;
@@ -25,11 +28,23 @@
     .about p { margin: 8px 0 0; font-size: 0.92rem; line-height: 1.45; }
     .about label { display: flex; gap: 10px; align-items: flex-start; font-size: 0.9rem; cursor: pointer; }
     .about input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--sun); flex: 0 0 auto; margin-top: 1px; }
+    .pwa-card { display: flex; gap: 12px; align-items: center; text-align: left; max-width: 460px; margin: 4px auto 0; padding: 10px 14px;
+      background: var(--glass); border: 1px solid var(--line); border-radius: 14px; font-size: 0.92rem; line-height: 1.4; }
+    .pwa-card p { margin: 4px 0 8px; }
+    .pwa-card svg { flex: 0 0 auto; color: var(--sun); }
+    .transfer { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
+    .transfer .qr { display: block; width: 168px; height: 168px; background: #fff; border-radius: 10px; padding: 4px; }
+    .transfer .qr svg { width: 100%; height: 100%; display: block; }
+    .transfer-code { flex: 1 1 200px; min-width: 0; display: grid; gap: 6px; }
+    .about textarea { width: 100%; font: 0.78rem/1.3 ui-monospace, monospace; background: rgba(255,255,255,0.08); color: var(--paper); border: 1.5px solid var(--line); border-radius: 10px; padding: 8px; resize: vertical; word-break: break-all; }
+    .filebtn { position: relative; overflow: hidden; display: inline-block; }
+    .filebtn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .filebtn:focus-within { outline: 3px solid #fff; outline-offset: 3px; }
     .confirm { display: grid; gap: 8px; background: rgba(242, 113, 28, 0.18); border: 1.5px solid #f2711c; border-radius: 12px; padding: 10px 12px; font-size: 0.9rem; }
     html, body { margin: 0; height: 100%; background: var(--deep); color: var(--paper); overflow: hidden;
       font: 16px/1.4 var(--body); -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: none; }
     canvas#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
-    .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px calc(env(safe-area-inset-bottom, 0px) + 16px); overflow-y: auto; touch-action: pan-y; }
+    .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px calc(env(safe-area-inset-bottom, 0px) + 16px); overflow-y: auto; touch-action: pan-y pinch-zoom; }
     .screen[hidden] { display: none; }
     .glass { background: var(--glass); border: 1.5px solid var(--line); border-radius: 20px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
 
@@ -336,6 +351,18 @@
         <button type="button" class="btn ghost small" id="btn-cards"></button>
         <button type="button" class="btn ghost small" id="btn-about"></button>
       </div>
+      <div class="row install" id="install" hidden>
+        <button type="button" class="btn small" id="btn-install"></button>
+        <button type="button" class="btn ghost small" id="btn-install-later"></button>
+      </div>
+      <div class="pwa-card" id="ios-install" role="dialog" aria-labelledby="t-ios-title" aria-describedby="t-ios-steps" hidden>
+        <svg width="34" height="34" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M7 10H5v10h14V10h-2"/></svg>
+        <div><strong id="t-ios-title"></strong><p id="t-ios-steps"></p>
+        <button type="button" class="btn small" id="btn-ios-ok"></button></div>
+      </div>
+      <div class="pwa-card" id="update" role="status" hidden>
+        <span id="t-update"></span><button type="button" class="btn small" id="btn-update"></button>
+      </div>
       <div class="howto" id="t-howto"></div>
       <div class="keys" id="t-keys"></div>
       <details class="log" id="log" hidden><summary id="t-log"></summary><div id="log-body"></div></details>
@@ -451,6 +478,31 @@
         <label><input type="checkbox" id="opt-quiz"><span id="t-quiz"></span></label>
         <div id="quiz-summary" class="quizsum" aria-live="polite"></div>
         <div class="row" style="justify-content:flex-start"><button type="button" class="btn ghost small" id="btn-quiz-clear"></button></div>
+        <h3 id="t-transfer" style="margin:10px 0 0;font:800 1.05rem/1.2 var(--display);color:var(--sun)"></h3>
+        <p id="t-transfer-intro" style="margin:0;font-size:0.9rem"></p>
+        <div class="row" style="justify-content:flex-start"><button type="button" class="btn ghost small" id="btn-show-code"></button></div>
+        <div class="transfer" id="transfer-out" hidden>
+          <div id="transfer-qr"></div>
+          <div class="transfer-code">
+            <label for="transfer-code-text" class="sr-only" id="t-code-label"></label>
+            <textarea id="transfer-code-text" readonly rows="3"></textarea>
+            <div class="row" style="justify-content:flex-start"><button type="button" class="btn ghost small" id="btn-copy-code"></button><button type="button" class="btn ghost small" id="btn-copy-link"></button></div>
+          </div>
+        </div>
+        <label for="transfer-in" id="t-paste" style="display:block;font-size:0.9rem"></label>
+        <textarea id="transfer-in" rows="2" spellcheck="false" autocomplete="off"></textarea>
+        <div class="row" style="justify-content:flex-start"><button type="button" class="btn ghost small" id="btn-import"></button></div>
+        <p class="note" id="transfer-msg" role="status" style="margin:0"></p>
+        <div class="confirm" id="import-confirm" hidden role="alertdialog" aria-labelledby="t-importconfirm">
+          <span id="t-importconfirm"></span>
+          <div class="row" style="justify-content:flex-start"><button type="button" class="btn small" id="btn-import-yes"></button><button type="button" class="btn ghost small" id="btn-import-no"></button></div>
+        </div>
+        <h3 id="t-backup" style="margin:10px 0 0;font:800 1.05rem/1.2 var(--display);color:var(--sun)"></h3>
+        <p id="t-backup-intro" style="margin:0;font-size:0.9rem"></p>
+        <div class="row" style="justify-content:flex-start">
+          <button type="button" class="btn ghost small" id="btn-backup-save"></button>
+          <label class="btn ghost small filebtn"><span id="t-backup-load"></span><input type="file" id="backup-file" accept=".json,application/json"></label>
+        </div>
         <div class="row" style="justify-content:flex-start"><button type="button" class="btn ghost small" id="btn-delete"></button></div>
         <div class="confirm" id="del-confirm" hidden role="alertdialog" aria-labelledby="t-delconfirm">
           <span id="t-delconfirm"></span>

@@ -69,12 +69,18 @@ export function migrate(raw: unknown): Save {
   const base = newSave();
   if (!raw || typeof raw !== 'object') return base;
   const r = raw as Partial<Save>;
+  // A save can also arrive in a transfer code from someone else's link, so numbers are checked too.
+  const num = (v: unknown, max: number) => typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(max, v)) : 0;
+  const g = { ...base.growth, ...(r.growth ?? {}) };
   return {
     ...base,
     ...r,
     version: SAVE_VERSION,
+    co2LifetimeG: num(r.co2LifetimeG, 1e12),
+    seasons: Math.floor(num(r.seasons, 1e7)),
+    storyIndex: Math.floor(num(r.storyIndex, 1e7)),
     streak: { ...base.streak, ...(r.streak ?? {}) },
-    growth: { ...base.growth, ...(r.growth ?? {}) },
+    growth: { roots: Math.floor(num(g.roots, MAX_GROWTH)), leaves: Math.floor(num(g.leaves, MAX_GROWTH)), wood: Math.floor(num(g.wood, MAX_GROWTH)) },
     achievements: Array.isArray(r.achievements) ? r.achievements : [],
     choices: Array.isArray(r.choices) ? r.choices : [],
     rings: Array.isArray(r.rings) ? r.rings : [],

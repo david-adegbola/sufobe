@@ -16,6 +16,8 @@ import { Sound } from './audio';
 import { Metsani } from './forest/metsani';
 import { FOREST_TEXT } from './forest/text';
 import { QUIZ_UI, clearTally, quizOn, setQuizOn, summaryHtml } from './forest/quiz';
+import { initPwa, renderPwa } from './pwa';
+import { decodeTransfer, encodeTransfer, makeBackup, qrSvg, readBackup, restoreBackup, type Transfer } from './transfer';
 import { ABOUT_UI, aboutSections } from './legal';
 import { renderPoster } from './poster';
 import { Renderer } from './render';
@@ -94,6 +96,10 @@ let linkSeed: string | null = /^#s-([A-Za-z0-9._~-]{1,40})$/.exec(location.hash)
 const linkChallenge: Challenge | null = decodeChallenge(location.hash);
 let challengeOutcome: { won: boolean; from: Challenge; mine: number } | null = null;
 let posterUrl: string | null = null;
+/** a transfer link like #t-K1z.… brings progress from another device */
+const linkTransfer: string | null = /^#t-(K1[zj]\.[A-Za-z0-9_-]+)$/.exec(location.hash)?.[1] ?? null;
+/** an import waiting for the player's yes */
+let pendingImport: { kind: 'code'; t: Transfer } | { kind: 'file'; data: Record<string, string> } | null = null;
 /** what a Metsäni zoom-in summer did to the birch, shown on the results */
 let forestMsg: string | null = null;
 let posterBlob: Blob | null = null;
@@ -196,6 +202,7 @@ function renderHome() {
     $('home-bubble').querySelector('span')!.textContent = x.homeFree;
   }
   face($('home-bubble').querySelector('canvas'));
+  renderPwa();
 }
 
 function renderText() {
@@ -657,10 +664,100 @@ function renderAbout() {
   $('quiz-summary').innerHTML = `<h4 style="margin:4px 0;font:800 0.95rem/1.2 var(--display)">${QUIZ_UI[lang].summaryTitle}</h4>${summaryHtml(lang)}`;
   $('btn-quiz-clear').textContent = QUIZ_UI[lang].clear;
   $('btn-delete').textContent = u.del;
+  $('t-transfer').textContent = u.transferTitle;
+  $('t-transfer-intro').textContent = u.transferIntro;
+  $('btn-show-code').textContent = u.showCode;
+  $('t-code-label').textContent = u.showCode;
+  $('btn-copy-code').textContent = u.copyCode;
+  $('btn-copy-link').textContent = u.copyLink;
+  $('btn-copy-link').hidden = !shareBase();
+  $('t-paste').textContent = u.pasteLabel;
+  $('btn-import').textContent = u.importButton;
+  $('btn-import-yes').textContent = u.importYes;
+  $('btn-import-no').textContent = u.importNo;
+  $('t-backup').textContent = u.backupTitle;
+  $('t-backup-intro').textContent = u.backupIntro;
+  $('btn-backup-save').textContent = u.backupSave;
+  $('t-backup-load').textContent = u.backupLoad;
   $('t-delconfirm').textContent = u.delConfirm;
   $('btn-del-yes').textContent = u.delYes;
   $('btn-del-no').textContent = u.delNo;
   $('btn-about-close').textContent = t().close;
+}
+
+// ---------- moving progress between devices ----------
+
+function transferLink(code: string) {
+  const base = shareBase();
+  return base ? `${base}#t-${code}` : '';
+}
+
+async function showTransferCode() {
+  const code = await encodeTransfer({ save, lang, sound: !sound.muted });
+  const link = transferLink(code);
+  $<HTMLTextAreaElement>('transfer-code-text').value = code;
+  $('transfer-qr').innerHTML = qrSvg(link || code, ui().qrLabel);
+  $('transfer-out').hidden = false;
+}
+
+function askImport(p: NonNullable<typeof pendingImport>) {
+  pendingImport = p;
+  const u = ui();
+  $('transfer-msg').textContent = '';
+  if (p.kind === 'code') {
+    const x = t();
+    $('t-importconfirm').textContent = u.importConfirm(x.ranks[RANKS[rankIndex(p.t.save.co2LifetimeG)].id].name,
+      (p.t.save.co2LifetimeG / 1000).toLocaleString(lang === 'fi' ? 'fi-FI' : 'en-GB', { maximumFractionDigits: 1 }));
+  } else {
+    $('t-importconfirm').textContent = u.backupConfirm;
+  }
+  $('btn-import-yes').textContent = p.kind === 'code' ? u.importYes : u.restoreYes;
+  $('import-confirm').hidden = false;
+  $('btn-import-no').focus();
+}
+
+async function importCode(code: string) {
+  const tr = await decodeTransfer(code);
+  if (!tr) { $('transfer-msg').textContent = ui().importBad; return; }
+  askImport({ kind: 'code', t: tr });
+}
+
+function confirmImport() {
+  const p = pendingImport;
+  if (!p) return;
+  pendingImport = null;
+  $('import-confirm').hidden = true;
+  if (p.kind === 'file') {
+    try { restoreBackup(p.data); } catch { /* storage blocked */ }
+    announce(ui().restored);
+    location.hash = '';
+    location.reload();
+    return;
+  }
+  save = p.t.save;
+  persist();
+  if (p.t.lang === 'fi' || p.t.lang === 'en') { lang = p.t.lang; store(LANG_KEY, lang); }
+  if (typeof p.t.sound === 'boolean') { sound.setMuted(!p.t.sound); store(SOUND_KEY, p.t.sound); }
+  renderer.setRank(rankIndex(save.co2LifetimeG));
+  history.replaceState(null, '', location.pathname + location.search);
+  renderText();
+  $('transfer-msg').textContent = ui().imported;
+  announce(ui().imported);
+}
+
+async function saveBackup(button: HTMLElement) {
+  const blob = new Blob([JSON.stringify(makeBackup())], { type: 'application/json' });
+  const filename = `kasva-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  if (downloads) {
+    try { await downloads.save({ filename, data: blob }); } catch { /* declined */ }
+    return;
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  void button;
 }
 
 /** Delete everything this game stored in this browser, then start fresh. */
@@ -778,6 +875,15 @@ window.addEventListener('keydown', (e) => {
 document.addEventListener('change', (e) => {
   const el = e.target as HTMLInputElement;
   if (el.id === 'opt-quiz') { setQuizOn(el.checked); renderAbout(); return; }
+  if (el.id === 'backup-file' && el.files?.[0]) {
+    void el.files[0].text().then((text) => {
+      const data = readBackup(text);
+      if (!data) $('transfer-msg').textContent = ui().backupBad;
+      else askImport({ kind: 'file', data });
+      el.value = '';
+    });
+    return;
+  }
   if (el.id === 'opt-testlog') {
     testLogOn = el.checked;
     store(TESTLOG_KEY, testLogOn);
@@ -827,6 +933,13 @@ document.addEventListener('click', (e) => {
     case 'btn-take': if (linkChallenge) { const c = linkChallenge; start({ mode: 'daily', seed: c.seed, from: c }); } break;
     case 'btn-clear-log': store(LOG_KEY, []); renderLog(); break;
     case 'btn-quiz-clear': clearTally(); renderAbout(); break;
+    case 'btn-show-code': void showTransferCode(); break;
+    case 'btn-copy-code': void copy($<HTMLTextAreaElement>('transfer-code-text').value, b, ui().copied); break;
+    case 'btn-copy-link': void copy(transferLink($<HTMLTextAreaElement>('transfer-code-text').value), b, ui().copied); break;
+    case 'btn-import': void importCode($<HTMLTextAreaElement>('transfer-in').value); break;
+    case 'btn-import-yes': confirmImport(); break;
+    case 'btn-import-no': pendingImport = null; $('import-confirm').hidden = true; $('btn-import').focus(); break;
+    case 'btn-backup-save': void saveBackup(b); break;
   }
 });
 
@@ -870,8 +983,11 @@ function frame(now: number) {
   requestAnimationFrame(frame);
 }
 
+initPwa({ seasons: () => save.seasons, lang: () => lang });
 renderText();
-if (linkChallenge) { renderChallenge(linkChallenge); show('challenge', false); } else show('start', false);
+if (linkChallenge) { renderChallenge(linkChallenge); show('challenge', false); }
+else if (linkTransfer) { history.replaceState(null, '', location.pathname + location.search); show('about', false); void importCode(linkTransfer); }
+else show('start', false);
 void document.fonts?.load('800 40px "Bricolage Grotesque"');
 void document.fonts?.load('700 24px Caveat').then(() => renderHome());
 requestAnimationFrame(frame);

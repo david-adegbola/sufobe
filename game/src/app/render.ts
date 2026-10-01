@@ -9,6 +9,7 @@ import { CROWN, DAY_TICKS, LIGHT_TICKS, catchRadius, clock, lightAt, TUNING, typ
 import { makeRng } from '../core/rng';
 import { BOX, paintBirch } from './scene/birch';
 import { drawHud, newHud, type HudState } from './scene/hud';
+import { FrameBudget } from './scene/budget';
 import { paintLandscape, type Landscape, type Layout } from './scene/landscape';
 import { SCIENCE, css, moodFor, type Mood } from './scene/palette';
 import { drawTikka } from './scene/tikka';
@@ -24,6 +25,9 @@ export class Renderer {
   private wc: CanvasRenderingContext2D;
   L!: Layout;
   private land!: Landscape;
+  /** back, mid and floor layers merged once, so each frame copies one image instead of three */
+  private base!: HTMLCanvasElement;
+  private budget = new FrameBudget();
   private birchCache = new Map<string, HTMLCanvasElement>();
   private grain: CanvasPattern | null = null;
   private fx: Fx[] = [];
@@ -48,7 +52,7 @@ export class Renderer {
   }
 
   resize() {
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const dpr = this.budget.dpr();
     const W = window.innerWidth, H = window.innerHeight;
     this.canvas.width = Math.round(W * dpr);
     this.canvas.height = Math.round(H * dpr);
@@ -63,7 +67,7 @@ export class Renderer {
       W, H, dpr, s, X, Y, groundY,
       horizonY: Y(700), lakeBottomY: Y(782), floorTopY: Y(785),
     };
-    this.land = paintLandscape(this.L, this.rank);
+    this.setLand(paintLandscape(this.L, this.rank));
     this.birchCache.clear();
     this.grain = this.makeGrain();
   }
@@ -106,7 +110,18 @@ export class Renderer {
   setRank(rank: number) {
     if (rank === this.rank) return;
     this.rank = rank;
-    this.land = paintLandscape(this.L, rank);
+    this.setLand(paintLandscape(this.L, rank));
+  }
+
+  private setLand(land: Landscape) {
+    this.land = land;
+    const b = (this.base ??= document.createElement('canvas'));
+    b.width = land.back.width;
+    b.height = land.back.height;
+    const bc = b.getContext('2d')!;
+    bc.drawImage(land.back, 0, 0);
+    bc.drawImage(land.mid, 0, 0);
+    bc.drawImage(land.floor, 0, 0);
   }
 
   // ---------- effects triggered by game events ----------
@@ -125,6 +140,7 @@ export class Renderer {
   showHint(text: string, secs: number) { this.hud.hint = { text, t: secs, total: secs }; this.drum(); }
 
   draw(sim: SeasonState, dt: number, live: boolean) {
+    if (this.budget.tick()) this.resize();
     this.time += dt;
     const { c, L } = this;
     const { W, H, dpr } = L;
@@ -140,9 +156,7 @@ export class Renderer {
     const w = this.wc;
     w.setTransform(1, 0, 0, 1, 0, 0);
     w.clearRect(0, 0, this.world.width, this.world.height);
-    w.drawImage(this.land.back, 0, 0);
-    w.drawImage(this.land.mid, 0, 0);
-    w.drawImage(this.land.floor, 0, 0);
+    w.drawImage(this.base, 0, 0);
     w.setTransform(dpr, 0, 0, dpr, 0, 0);
     this.drawBirch(w, sim, light, dt, k.weather === 'rain');
     this.drawTikka(w, dt);

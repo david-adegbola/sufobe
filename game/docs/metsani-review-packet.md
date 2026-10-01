@@ -91,6 +91,8 @@ Read `forest-model.md` first (about 15 minutes). Then:
 - [ ] Name the host where the game will be published (`legal.ts`, the "Third parties" paragraph).
 - [ ] Optionally, state the governing law for the terms.
 - [ ] Re-read `docs/LEGAL.md`. Have someone qualified check the reasoning before use in schools.
+- [ ] On a real iPad and an Android tablet, open the offline web build (`npm run build`, see the README's *Publish*), play two seasons, install it, switch on flight mode, and check that it still opens and plays.
+- [ ] Move progress from one device to the other with the QR code, and restore a backup file.
 
 The browser storage keys used by Metsäni are listed in `docs/LEGAL.md`:
 - `kasva-forest`: the forest and its products
