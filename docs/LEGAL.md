@@ -10,7 +10,7 @@ This is not legal advice. The reasoning below should be checked by someone quali
 |---|---|---|
 | **Operator name**: the person or organisation responsible for the game | `OPERATOR.name` in `game/src/app/legal.ts` | The privacy notice must say who is responsible (GDPR art. 13 asks for the controller's identity, even when little or no personal data is processed). |
 | **Contact** for privacy questions: an email address or web form | `OPERATOR.contact` in the same file | People must be able to ask questions or make requests. |
-| **Where the game will be hosted publicly** (domain and host) | the "Third parties" paragraph in `legal.ts` | It currently names claude.ai, where the test version is published. A different host processes web requests under its own policy, and that host should be named. |
+| ~~Where the game will be hosted publicly~~ | done: GitHub Pages, named in the "Third parties" paragraph in `legal.ts` | Update it if the game moves to another host. |
 | *(Optional)* **Governing law / jurisdiction** for the terms | the terms section in `legal.ts` | Left out on purpose rather than guessed. |
 
 Until these are filled in, the app shows a clearly marked "[missing …]" line instead of invented details.
@@ -50,7 +50,7 @@ Adding accounts, free-text names, chat, analytics or a server would change this 
 
 - **Fonts:** bundled in the game file (OFL 1.1, see `game/licenses/fonts-OFL.txt`). Google Fonts was removed so that loading the game sends nothing to Google.
 - **Runtime dependencies:** one, bundled into the game file: `qrcode-generator` 2.0.4 (MIT, © 2009 Kazuhiko Arase, see `game/licenses/qrcode-generator-MIT.txt`), which draws the transfer QR code on the device. It makes no network requests. The other npm packages are build and test tools only (Vite, Vitest, TypeScript, esbuild, ESLint, axe-core).
-- **Hosting:** whoever serves the page. For the published test version that is claude.ai (Anthropic). The offline web build can be put on any static host; name that host in `legal.ts` and here before publishing.
+- **Hosting:** the public site is GitHub Pages (GitHub, Inc.), published by `.github/workflows/pages.yml` on every push to `main`. GitHub receives normal web requests (including IP addresses) under the GitHub Privacy Statement. The test version on claude.ai is served by Anthropic. If the game moves to another host, update `legal.ts` and this line.
 - **Share sheet and saving:** the device's own share sheet, or the claude.ai viewer's save prompt.
 
 ## Not applicable

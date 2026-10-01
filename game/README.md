@@ -72,7 +72,7 @@ There are two builds.
 npm run build          # writes dist/: index.html, assets/, icons/, manifest.webmanifest, sw.js
 ```
 
-Copy everything in `dist/` to the host, in any folder (paths are relative). It must be served over HTTPS (or `localhost`), or the browser will not start the service worker. On the first visit `sw.js` stores the whole game, about 500 KB, so it then plays without the internet. Each build gets a new cache name, so after you publish a new version, open copies show "A new version is ready – Update" on the home screen.
+The public site is published by `.github/workflows/pages.yml`: every push to `main` runs all checks, builds the game, adds the classroom simulation under `mista-puu-tulee/`, and deploys to GitHub Pages (`https://david-adegbola.github.io/sufobe/`). To use another host instead, copy everything in `dist/` there, in any folder (paths are relative). It must be served over HTTPS (or `localhost`), or the browser will not start the service worker. On the first visit `sw.js` stores the whole game, about 500 KB, so it then plays without the internet. Each build gets a new cache name, so after you publish a new version, open copies show "A new version is ready – Update" on the home screen.
 
 After the second finished season the home screen offers to install the game: Android and desktop Chrome or Edge show the browser's own install prompt, and iPad and iPhone get a short "Share → Add to Home Screen" card. "Not now" waits another 10 seasons.
 

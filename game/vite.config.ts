@@ -54,6 +54,10 @@ self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
   if (req.mode === 'navigate') {
+    // Only the game's own page: other pages in sub-folders (the classroom sim) load normally.
+    const home = new URL('./', location.href).pathname;
+    const path = new URL(req.url).pathname;
+    if (path !== home && path !== home + 'index.html') return;
     e.respondWith(caches.match('./', { cacheName: CACHE }).then((hit) => hit || fetch(req)));
     return;
   }
