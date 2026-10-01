@@ -3,6 +3,7 @@
  * your birch in warm evening light, with the season's result on a glass card.
  * Drawn with the same scene code as the game, so it always matches.
  */
+import { num } from './format';
 import type { Weather } from '../core/weather';
 import { paintBirch } from './scene/birch';
 import { drawIcon } from './scene/icons';
@@ -101,7 +102,7 @@ export function renderPoster(info: PosterInfo): HTMLCanvasElement {
   c.strokeStyle = 'rgba(255, 255, 255, 0.4)'; c.lineWidth = 3; c.stroke();
   c.font = `800 120px ${FONT_DISPLAY}`;
   c.lineWidth = 10; c.strokeStyle = '#071f1b';
-  const score = `${info.scoreG.toLocaleString('fi-FI')} g`;
+  const score = `${num(info.scoreG)} g`;
   c.strokeText(score, W / 2, cy + 128);
   c.fillStyle = UI.sun; c.fillText(score, W / 2, cy + 128);
   c.font = `700 38px ${FONT_DISPLAY}`;

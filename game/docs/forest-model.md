@@ -189,12 +189,38 @@ The tests check:
 - A normal rotation gives more than twice the sawn wood of a short one.
 - Carbon stays conserved through every manager.
 
-**Known issue, to calibrate:** the short pulpwood rotation produces about 10 % more total cubic metres than the thinned rotation. In Finnish yield tables a thinned rotation near the age of maximum mean growth should give at least as much. The likely causes are:
-- crowding losses between thinnings
-- the simple thinning rule
-- the strength of shared competition (`CROWDING`)
+**Known issue, diagnosed in Phase 5: thinned stands do not speed up enough.** Run `npm run rotation-check` to reproduce (east/loam, mean of 6 seeds):
 
-This needs checking against Luke yield tables before playtests. Until then the game never claims either way gives "more wood". It shows the numbers, and the sawlog/pulpwood split shows the difference in what the wood becomes.
+```
+1. Growth at age 40–55 (m³/ha/yr): unthinned 9.83, thinned to 19 m²/ha 6.88, ratio 0.70
+
+2. 300 years (m³/ha/yr)        gross  usable  died
+thinned, cut when mature         6.10    5.58  0.52
+never thinned, cut when mature   7.46    5.01  2.46
+thinned, cut at 60 years         6.43    6.03  0.40
+short rotation (dq 15 cm)        6.19    5.96  0.23
+```
+
+*Gross* counts every tree that grew, cut, dead or standing. *Usable* leaves out trees that died and rotted in the forest.
+
+What this shows:
+- **Part of the old "short rotation wins" result came from the 100-year window.** Over 300 years, total growth of the short rotation and the thinned rotation is about equal.
+- **The direction of usable wood is right.** Thinning collects wood that would otherwise die (5.58 against 5.01).
+- **Thinned stands lose too much growth.** In the 15 years after a thinning to 19 m²/ha, the stand grows 70% as much as an unthinned one. Finnish thinning trials report a much smaller loss after moderate thinning; the reviewers should give the source and the target. As a result:
+  - the thinned rotation grows 18% less in total than the unthinned one;
+  - a 60-year rotation beats an 80–100-year one;
+  - the short rotation is nearly as good as either.
+
+**The cause.** In `growTree`, each tree's diameter growth depends on its own light (the basal area of taller trees) and a weak shared crowding factor, e^(−0.015·G). Thinning from below removes shorter trees. That barely changes the light reaching the dominant trees, and the crowding factor gains only about 18%. Real residual trees grow bigger crowns and roots into the freed space.
+
+**Candidate fixes, for the reviewers to choose and calibrate against Luke yield and thinning-trial data:**
+1. **A stronger crowding factor** with a higher base growth `g0`.
+   - Tried: k = 0.04 lifts the ratio to 0.82; k = 0.06 lifts it to 0.93.
+   - But both lower growth in mid-aged stands and break two species-ranking calibration tests ("pine copes with sand better than spruce", "birch is the fast starter"). Each species' `g0` would need recalibrating.
+2. **A stand-level growth budget.** The site sets the stand's total growth for a given leaf area, and trees share it by size and light. Langsæter's plateau, where total growth is nearly the same across a wide range of densities, then emerges by itself. This is a larger change to `growTree` and `year.ts`.
+3. **Crown recovery after release.** Trees freed by a thinning grow faster for some years. This is closest to the biology, but it adds state to every tree.
+
+Until this is fixed, the game makes no claim about which way gives "more wood". It shows the numbers, and the sawlog/pulpwood split shows the difference in what the wood becomes.
 
 ## F3: from forest to factory
 

@@ -22,7 +22,10 @@ Read `forest-model.md` first (about 15 minutes). Then:
   - thinning makes the remaining trees grow thicker
 
   Are all of these right, and is anything important missing?
-- [ ] **Known issue.** A short pulpwood rotation (clear-cut at about 35 years) gives about 10 % more total volume than a thinned rotation. Is that plausible, or is thinning under-rewarded? (`forest-model.md`, "Trade-offs")
+- [ ] **Thinning response (most important).** After thinning to 19 m²/ha at age 40, the model's stand grows only 70% as much as an unthinned stand over 15 years. That makes a short rotation nearly as productive as a thinned one. Run `npm run rotation-check`. Then:
+  - What ratio do Finnish thinning trials support, and from which source?
+  - Which of the three candidate fixes in `forest-model.md` ("Known issue, diagnosed in Phase 5") should we use?
+  - Which Luke tables should we calibrate against?
 - [ ] **Disturbances.** Check the storm frequency and species and soil factors, the bark-beetle risk rules, and the moose browsing rates.
 - [ ] **Soil carbon.** Check the starting soil carbon by soil type (peat 600 t C/ha), decay rates, ground-plant litter, and that a young stand is a small carbon source for its first years.
 - [ ] **Thinning and harvest rules.** Check when Tikka suggests thinning (relative density ≥ 0.65, dominant height ≥ 11 m, mean diameter ≥ 12 cm, 15 years since the last cut), how much is left (19 or 23 m²/ha), and when a stand counts as mature.

@@ -12,7 +12,8 @@
     "forest": "vite-node tools/forest-run.ts",
     "bundle:single": "node tools/single-file.mjs",
     "lint": "eslint . && cd .. && game/node_modules/.bin/eslint --config eslint.config.cjs js tests",
-    "check": "npm run lint && npm run typecheck && npm test && npm run build"
+    "check": "npm run lint && npm run typecheck && npm test && npm run build",
+    "rotation-check": "vite-node tools/rotation-check.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

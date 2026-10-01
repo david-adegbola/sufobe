@@ -91,7 +91,8 @@ export interface YearRecord {
   /** water in the soil when summer starts, mm */
   springWater: number;
   stores: Ledger['stores'];
-  flows: Ledger['flows'];
+  /** the year's carbon flows; left out of old years when a save is compacted (compact.ts) */
+  flows?: Ledger['flows'];
   deaths: number;
   stats: StandStats;
   /** what happened this year (storm, beetles, moose, drought) */

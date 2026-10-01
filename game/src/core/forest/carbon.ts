@@ -36,4 +36,4 @@ export function total(l: Ledger): number {
 }
 
 /** CO₂ mass from carbon mass. */
-export const CO2_PER_C = 44 / 12;
+export { CO2_PER_C } from '../units';

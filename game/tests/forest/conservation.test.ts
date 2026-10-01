@@ -64,7 +64,7 @@ describe('carbon conservation', () => {
         const prev = forest.history[i - 1].stores;
         const rec = forest.history[i];
         const change: Record<string, number> = {};
-        for (const [k, v] of Object.entries(rec.flows)) {
+        for (const [k, v] of Object.entries(rec.flows ?? {})) {
           const [from, to] = k.split('>') as [Store, Store];
           change[from] = (change[from] ?? 0) - v;
           change[to] = (change[to] ?? 0) + v;

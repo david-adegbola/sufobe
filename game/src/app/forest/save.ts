@@ -1,12 +1,13 @@
 /**
- * Metsäni keeps its own save, separate from Kasva!'s, in this browser only
- * (localStorage key "kasva-forest", removed by "Delete all data").
+ * Metsäni's part of the world save (storage.ts, part "forest"), in this
+ * browser only, removed by "Delete all data". Old years are compacted
+ * before saving (core/forest/compact.ts).
  * It holds the current forest and short summaries of earlier ones, so a child
  * can compare which place and soil grew the best forest.
  */
-import { upgradeForest, type Forest, type PlaceId, type SoilId, type SpeciesId, type Spacing } from '../../core/forest';
+import { getPart, setPart } from '../storage';
+import { compactHistory, upgradeForest, type Forest, type PlaceId, type SoilId, type SpeciesId, type Spacing } from '../../core/forest';
 
-export const FOREST_KEY = 'kasva-forest';
 const MAX_PAST = 12;
 
 export interface ForestSummary {
@@ -38,10 +39,8 @@ export function emptySave(): ForestSave {
 
 export function loadForest(): ForestSave {
   try {
-    const raw = localStorage.getItem(FOREST_KEY);
-    if (!raw) return emptySave();
-    const s = JSON.parse(raw) as Partial<ForestSave>;
-    if (s.v !== 1 || !Array.isArray(s.past)) return emptySave();
+    const s = getPart<Partial<ForestSave> | null>('forest', null);
+    if (!s || s.v !== 1 || !Array.isArray(s.past)) return emptySave();
     const current = s.current && s.current.version === 1 ? upgradeForest(s.current) : null;
     return { ...emptySave(), ...s, current } as ForestSave;
   } catch {
@@ -50,7 +49,8 @@ export function loadForest(): ForestSave {
 }
 
 export function storeForest(s: ForestSave): void {
-  try { localStorage.setItem(FOREST_KEY, JSON.stringify(s)); } catch { /* storage full or blocked */ }
+  if (s.current) compactHistory(s.current);
+  setPart('forest', s); // storage full or blocked: the forest lives on in memory
 }
 
 export function addPast(s: ForestSave, sum: ForestSummary): ForestSave {

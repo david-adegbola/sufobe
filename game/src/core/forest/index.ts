@@ -14,3 +14,4 @@ export * from './decisions';
 export * from './report';
 export * from './products';
 export * from './zoom';
+export * from './compact';

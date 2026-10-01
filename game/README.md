@@ -2,7 +2,7 @@
 
 A one-thumb forest game for grades 4–6. You are a silver birch: hold to open your stomata and catch CO₂, save water through heatwaves and nights, and turn carbon into wood.
 
-**Status: Phase 4 done**: offline app, install offer, and moving progress between devices (see *Publish*). Before a public release it still needs the operator details in `legal.ts` and the reviews in `docs/metsani-review-packet.md`.
+**Status: Phase 5 (foundation) in progress.** Kasva! and Metsäni will become one game (see the vision assessment). Phase 5 prepares that: one world save, shared number formatting, smaller modules, content checks, and a diagnosis of the thinning issue for the forest scientist. Still open in Phase 5: the expert review of the model, a native-speaker check of the Finnish, and tests on real iPads and Android tablets (`docs/metsani-review-packet.md`).
 
 **Phase 2, progression:** the season has real art and sound, and:
 
@@ -40,9 +40,15 @@ Hold anywhere (or the space bar) to open the stomata. P pauses, M mutes. A link 
 ## How it's built
 
 - `src/core/`: the deterministic game. `season.ts` is a pure fixed-step (60 Hz) simulation. The same seed and the same inputs always give the same score, which later makes challenge links and server-side score checks possible. `weather.ts` plans six days per seed, and `dailySeed()` follows the Finnish date.
-- `src/app/`: the game shell (`main.ts`), the renderer (`render.ts`), synthesised sound (`audio.ts`), and text in FI/EN (`text.ts`).
+- `src/app/`: the Kasva! shell, split by screen in Phase 5:
+  - `main.ts`: start-up, the menu forest, playing a season, input and the frame loop
+  - `state.ts`: the shared `app` state, the renderer and sound
+  - `screens.ts`, `results.ts`, `share.ts`, `kisat.ts`, `about.ts`: one module per group of screens
+  - `storage.ts`: everything saved on the device, in one key (`kasva-world`), moved in from the older keys on first load
+  - `format.ts`: numbers and CO₂ amounts in the player's language
+  - `render.ts`, `audio.ts`, `text.ts`: the renderer, synthesised sound, and text in FI/EN
 - `src/core/forest/`: the Metsäni forest model: climate, soils, species, a stand of trees that compete for light and water, carbon stores that always add up, thinning and harvest, and wood products. See `docs/forest-model.md`, and `tests/forest/` for the conservation, calibration and determinism tests.
-- `src/app/forest/`: the Metsäni screens: setup (place, soil, trees, spacing), the forest view drawn side-on with seasons and a soil cutaway, the tree card, the five results, decisions, mills and the product shelf. Saved under `kasva-forest`.
+- `src/app/forest/`: the Metsäni screens: setup (place, soil, trees, spacing), the forest view drawn side-on with seasons and a soil cutaway, the tree card, the five results, and decisions (`metsani.ts`); sorting, mills and the product shelf (`factory.ts`). Saved as the `forest` part of the world save; old years are compacted before saving (`core/forest/compact.ts`).
 - `src/app/transfer.ts`: the transfer code, its QR code and the backup file (About screen). `src/app/pwa.ts`: offline copy, install offer and update notice.
 - `docs/metsani-teacher-guide.md` (a one-page lesson guide) and `docs/metsani-review-packet.md` (what the forest scientist, teacher and ecologist should check, and the classroom playtest protocol).
 - `src/app/scene/`: the code-drawn world: palette and moods, landscape layers, silver birch, Tikka, weather icons, HUD.
@@ -52,6 +58,7 @@ Hold anywhere (or the space bar) to open the stomata. P pauses, M mutes. A link 
 npm test               # vitest
 npm run balance        # average score of never / always / sunChaser / smart / expert bots
 npm run forest         # Metsäni: print 80–100-year forest runs
+npm run rotation-check # thinning response and 300-year production of each way of managing (for the reviewers)
 npm run bundle:single  # dist/kasva.html, one self-contained file (about 490 KB)
 # SHARE_URL=https://... npm run bundle:single  # challenge links point at the published page
 ```

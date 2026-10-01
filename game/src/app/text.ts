@@ -1,3 +1,4 @@
+import { num } from './format';
 /** Game text. Finnish needs a native-speaker check before classroom use. */
 export type Lang = 'fi' | 'en';
 
@@ -74,10 +75,10 @@ export const TEXT = {
       tukkipuu: { name: 'Tukkipuu', desc: 'Runko on niin paksu, että siitä voisi sahata lautaa.' },
       aarnipuu: { name: 'Aarnipuu', desc: 'Vanha ja mahtava puu, joka on varastoinut valtavasti hiiltä.' },
     },
-    rankChip: (name: string, kg: number) => `${name} · ${kg.toLocaleString('fi-FI', { maximumFractionDigits: 1 })} kg`,
+    rankChip: (name: string, kg: number) => `${name} · ${num(kg, 1, 'fi')} kg`,
     streak: (n: number) => `${n} pv putki`,
     snowCover: 'Lumipeite suojaa yhden väliin jääneen päivän tällä viikolla.',
-    xp: (kg: number, next: number | null) => next ? `${kg.toLocaleString('fi-FI', { maximumFractionDigits: 1 })} / ${next} kg CO₂` : `${kg.toLocaleString('fi-FI', { maximumFractionDigits: 1 })} kg CO₂`,
+    xp: (kg: number, next: number | null) => next ? `${num(kg, 1, 'fi')} / ${next} kg CO₂` : `${num(kg, 1, 'fi')} kg CO₂`,
     levelUp: 'Uusi taso!',
     levelUpTikka: 'Puusi on kasvanut! Katso metsää – jotain uutta on ilmestynyt.',
     continue: 'Jatka',
@@ -114,7 +115,7 @@ export const TEXT = {
     reroll: 'Uusi nimi',
     nickNote: 'Nimi on arvottu, joten se ei kerro sinusta mitään.',
     todayTitle: 'Päivän sää',
-    todayBest: (g: number, n: number) => `Paras tänään: ${g.toLocaleString('fi-FI')} g (${n} yritystä)`,
+    todayBest: (g: number, n: number) => `Paras tänään: ${num(g, 0, 'fi')} g (${n} yritystä)`,
     todayNone: 'Et ole vielä pelannut tämän päivän säätä.',
     challengeFriend: 'Haasta kaveri',
     received: 'Saadut haasteet',
@@ -214,10 +215,10 @@ export const TEXT = {
       tukkipuu: { name: 'Log tree', desc: 'The trunk is thick enough to saw into boards.' },
       aarnipuu: { name: 'Ancient tree', desc: 'An old, mighty tree that has stored a huge amount of carbon.' },
     },
-    rankChip: (name: string, kg: number) => `${name} · ${kg.toLocaleString('en-GB', { maximumFractionDigits: 1 })} kg`,
+    rankChip: (name: string, kg: number) => `${name} · ${num(kg, 1, 'en')} kg`,
     streak: (n: number) => `${n}-day streak`,
     snowCover: 'Snow cover protects one missed day this week.',
-    xp: (kg: number, next: number | null) => next ? `${kg.toLocaleString('en-GB', { maximumFractionDigits: 1 })} / ${next} kg CO₂` : `${kg.toLocaleString('en-GB', { maximumFractionDigits: 1 })} kg CO₂`,
+    xp: (kg: number, next: number | null) => next ? `${num(kg, 1, 'en')} / ${next} kg CO₂` : `${num(kg, 1, 'en')} kg CO₂`,
     levelUp: 'Level up!',
     levelUpTikka: 'Your tree has grown! Look at the forest – something new has appeared.',
     continue: 'Continue',
@@ -254,7 +255,7 @@ export const TEXT = {
     reroll: 'New name',
     nickNote: 'Your name is picked at random, so it says nothing about you.',
     todayTitle: "Today's weather",
-    todayBest: (g: number, n: number) => `Best today: ${g.toLocaleString('en-GB')} g (${n} tries)`,
+    todayBest: (g: number, n: number) => `Best today: ${num(g, 0, 'en')} g (${n} tries)`,
     todayNone: "You haven't played today's weather yet.",
     challengeFriend: 'Challenge a friend',
     received: 'Challenges received',

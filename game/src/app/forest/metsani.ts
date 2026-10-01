@@ -10,14 +10,15 @@
  * from last year's size to this year's during the summer. A question is
  * asked at the end of the year it belongs to, before the next one is stepped.
  */
+import { num } from '../format';
 import {
-  CO2_PER_C, ITEMS, PLANTABLE, SOILS, SPACING, SPECIES, applyChoice, bestBin, createForest, plant, presentAnimals,
-  applyZoom, canZoom, previewHarvest, recycledItems, results, shelf, standStats, stemVolume, stepYear, traceCount, traceItem,
+  CO2_PER_C, PLANTABLE, SOILS, SPACING, SPECIES, applyChoice, createForest, plant, presentAnimals,
+  applyZoom, canZoom, results, standStats, stemVolume, stepYear,
   yearReport, zoomSeason, type ZoomSeason,
   type AnimalId, type ChoiceId, type Decision, type Forest, type ItemId, type PlaceId, type Results, type SoilId,
   type SortBin, type SpeciesId, type Spacing, type Tree, type YearRecord, type YearReport,
 } from '../../core/forest';
-import { drawMills, itemIcon } from './mills';
+import { Factory, HARVESTS } from './factory';
 import { drawTikka } from '../scene/tikka';
 import type { Lang } from '../text';
 import { ForestScene, forestBudget, seasonOf } from './scene';
@@ -50,7 +51,7 @@ const PLACE_IDS: PlaceId[] = ['south', 'east', 'lapland', 'future'];
 const SOIL_IDS: SoilId[] = ['loam', 'sandy', 'clay', 'peat', 'rocky'];
 
 /** One forest on screen, with its own scene and playback state. */
-interface Lane {
+export interface Lane {
   f: Forest;
   scene: ForestScene;
   prev: Map<number, { h: number; d: number }>;
@@ -64,19 +65,8 @@ interface Lane {
   choice?: ChoiceId;
 }
 
-/** Choices that send wood to the mills, and so start the sorting game. */
-const HARVESTS = new Set<ChoiceId>(['thin', 'thinLight', 'clearcut', 'clearcutKeep', 'cc', 'removeFallen', 'removeHalf', 'removeBeetle']);
-/** How many trunks the child sorts by hand; the harvester does the rest. */
-const SORT_BY_HAND = 10;
-
-interface Sorting {
-  choice: ChoiceId;
-  trees: { id: number; sp: SpeciesId; d: number; h: number }[];
-  /** the trunks shown to the child */
-  shown: number[];
-  bins: Record<number, SortBin>;
-  residues: boolean;
-}
+/** Screens that pause the forest while open. */
+export type Overlay = 'sort' | 'mills' | 'shelf' | 'quiz' | null;
 
 /** A question on screen: Tikka's, or the child's own "What if?". */
 interface Asking { d: Decision | { kind: 'whatif'; year: number; choices: ChoiceId[] }; lane: number }
@@ -99,6 +89,7 @@ export class Metsani {
   private screen: 'setup' | 'view' = 'setup';
   private empty: Forest | null = null;
   private setupScene: ForestScene;
+  private factory: Factory;
   private asking: Asking | null = null;
   /** "What if?": the first pick waits here until the second is made */
   private compareOn = false;
@@ -106,17 +97,27 @@ export class Metsani {
   private planting = false;
   private reportTimer = 0;
   /** forest-to-factory screens: they pause the forest while open */
-  private overlay: 'sort' | 'mills' | 'shelf' | 'quiz' | null = null;
+  private overlay: Overlay = null;
   private quiz: { phase: 'before' | 'after'; i: number; answers: number[]; then: () => void } | null = null;
   /** this device's class-question stage, read once when Metsäni opens */
   private quizStage: 'before' | 'after' | 'done' | 'off' = 'off';
-  private sorting: Sorting | null = null;
-  private millsAnim = { t: 0, amounts: { saw: 0, pulp: 0, bio: 0 }, logs: 0 };
-  private tracing: { item: ItemId; k: number } | null = null;
 
   constructor(private host: MetsaniHost) {
     this.canvas = $<HTMLCanvasElement>('forest');
     this.setupScene = new ForestScene(this.canvas);
+    this.factory = new Factory({
+      t: () => this.t,
+      main: () => this.main,
+      lanes: () => this.lanes,
+      overlay: () => this.overlay,
+      setOverlay: (v) => { this.overlay = v; },
+      spacing: () => this.spacing,
+      reducedMotion: this.host.reducedMotion,
+      mix: () => this.mix(),
+      setPlaying: (on) => this.setPlaying(on),
+      afterChoice: () => this.afterChoice(),
+      renderSheet: () => this.renderSheet(),
+    });
     const s = this.save;
     if (s.current) { this.place = s.current.place; this.soil = s.current.soil; }
     this.species = new Set(s.species);
@@ -179,7 +180,7 @@ export class Metsani {
       lane.shown = results(lane.f);
       this.persist();
       const t = this.t;
-      const f = (x: number) => Math.abs(x).toLocaleString(this.host.lang() === 'fi' ? 'fi-FI' : 'en-GB', { maximumFractionDigits: 1 });
+      const f = (x: number) => num(Math.abs(x), 1);
       return mm > 0.05 ? t.zoomUp(f(mm)) : mm < -0.05 ? t.zoomDown(f(mm)) : t.zoomSame;
     });
   }
@@ -229,15 +230,15 @@ export class Metsani {
     const animals = m.animals.map(a => t.animals[a][0].toLowerCase()).join(', ');
     $('m-desc').textContent = t.describe((m.rec?.year ?? f.year - 1) + 1, t.seasons[season].toLowerCase(),
       `${t.places[f.place].name}, ${t.soils[f.soil].name.toLowerCase()}`, t.treesOf(f.trees.length, parts),
-      tallest.toLocaleString(this.host.lang() === 'fi' ? 'fi-FI' : 'en-GB', { maximumFractionDigits: 0 }), f.logs.length, animals);
+      num(tallest), f.logs.length, animals);
   }
 
   /** Escape goes one step back: sheet → card → view → setup → home. */
   escape() {
     if (this.overlay === 'quiz') return;
-    if (this.overlay === 'shelf') { if (this.tracing) { this.tracing = null; this.renderShelf(); } else this.closeShelf(); return; }
-    if (this.overlay === 'mills') { this.leaveMills(); return; }
-    if (this.overlay === 'sort') { this.cancelSort(); return; }
+    if (this.overlay === 'shelf') { if (this.factory.tracing) { this.factory.tracing = null; this.factory.renderShelf(); } else this.factory.closeShelf(); return; }
+    if (this.overlay === 'mills') { this.factory.leaveMills(); return; }
+    if (this.overlay === 'sort') { this.factory.cancelSort(); return; }
     if (this.asking && this.asking.d.kind === 'whatif') { this.closeSheet(); return; }
     if (this.asking && this.compareOn) { this.compareOn = false; this.pickA = null; this.renderSheet(); return; }
     if (this.planting) { this.planting = false; this.renderSheet(); return; }
@@ -489,7 +490,7 @@ export class Metsani {
       if (this.quizStage === 'after' && !this.overlay && !this.asking && !this.comparing && this.main.f.year >= AFTER_YEAR) {
         this.askQuiz('after', () => this.renderView());
       }
-      if (this.overlay === 'mills') this.animateMills(dt);
+      if (this.overlay === 'mills') this.factory.animateMills(dt);
       if (this.playing && !this.asking && !this.overlay) {
         this.p += (dt / YEAR_SECONDS) * SPEEDS[this.speed];
         if (this.p >= 1) {
@@ -610,7 +611,7 @@ export class Metsani {
 
   private renderResults() {
     const t = this.t;
-    const fmt = (n: number) => Math.round(n).toLocaleString(this.host.lang() === 'fi' ? 'fi-FI' : 'en-GB');
+    const fmt = (n: number) => num(Math.round(n));
     const leaves = (s: number) => '<span class="leaves" aria-hidden="true">' + Array.from({ length: 5 }, (_, i) =>
       `<i class="${s >= i + 1 ? 'on' : s >= i + 0.5 ? 'half' : ''}"></i>`).join('') + '</span>';
     const arrow = (d: -1 | 0 | 1 | undefined) => d === 1 ? '<em class="up" aria-hidden="true">▲</em>' : d === -1 ? '<em class="down" aria-hidden="true">▼</em>' : '';
@@ -640,7 +641,7 @@ export class Metsani {
   private explain(k: ResultKey, l: Lane): string {
     const t = this.t;
     const r = l.shown;
-    const fmt = (n: number) => Math.round(n).toLocaleString(this.host.lang() === 'fi' ? 'fi-FI' : 'en-GB');
+    const fmt = (n: number) => num(Math.round(n));
     if (!r) return `<p>${k === 'products' ? t.explain.products : t.explain.life.young}</p>`;
     switch (k) {
       case 'wood': return `<p>${t.explain.wood(fmt(r.wood.standing))}</p>`;
@@ -754,7 +755,7 @@ export class Metsani {
       return;
     }
     if (c === 'plant' && !this.planting) { this.planting = true; this.renderSheet(); return; }
-    if (HARVESTS.has(c) && !this.comparing && !this.sorting) { this.startSort(c); return; }
+    if (HARVESTS.has(c) && !this.comparing && !this.factory.sorting) { this.factory.startSort(c); return; }
     const lane = this.lanes[a.lane];
     applyChoice(lane.f, c, { mix: this.mix(), spacing: this.spacing });
     if (c === 'plant') this.save = { ...this.save, species: [...this.species], spacing: this.spacing };
@@ -803,200 +804,6 @@ export class Metsani {
     this.renderView();
   }
 
-  // ---------- forest to factory: sorting, mills, shelf ----------
-
-  private startSort(choice: ChoiceId) {
-    const f = this.main!.f;
-    const trees = previewHarvest(f, choice);
-    if (!trees.length) { this.finishHarvest(choice, {}, false); return; }
-    // show a spread of trunk sizes, thickest first, so both bins get used
-    const bySize = [...trees].sort((a, b) => b.d - a.d);
-    const step = Math.max(1, bySize.length / SORT_BY_HAND);
-    const shown = Array.from({ length: Math.min(SORT_BY_HAND, bySize.length) }, (_, i) => bySize[Math.floor(i * step)].id);
-    this.sorting = { choice, trees, shown, bins: {}, residues: false };
-    this.overlay = 'sort';
-    $('m-decide').hidden = true;
-    $('m-sort').hidden = false;
-    this.renderSort();
-    requestAnimationFrame(() => $('m-sort-title').focus());
-  }
-
-  private renderSort() {
-    const s = this.sorting;
-    if (!s) return;
-    const t = this.t;
-    const n1 = (x: number) => x.toLocaleString(this.host.lang() === 'fi' ? 'fi-FI' : 'en-GB', { maximumFractionDigits: 0 });
-    $('m-sort-title').textContent = t.sortTitle;
-    $('m-sort-intro').textContent = t.sortIntro;
-    const maxD = Math.max(...s.trees.map(x => x.d));
-    $('m-sort-list').innerHTML = s.shown.map((id, i) => {
-      const tr = s.trees.find(x => x.id === id)!;
-      const label = t.trunk(i + 1, t.species[tr.sp].name, n1(tr.d));
-      const size = 14 + 34 * (tr.d / maxD);
-      const bins = (['saw', 'pulp', 'energy'] as SortBin[]).map(bn =>
-        `<button type="button" class="bin bin-${bn}" data-tree="${id}" data-bin="${bn}" aria-pressed="${s.bins[id] === bn}">${t.bins[bn]}</button>`).join('');
-      return `<div class="trunk" role="group" aria-label="${label}"><span class="ring sp-${tr.sp}" style="width:${size}px;height:${size}px" aria-hidden="true"></span>` +
-        `<span class="tl">${t.species[tr.sp].name}<b>${n1(tr.d)} cm</b></span><span class="bins">${bins}</span></div>`;
-    }).join('');
-    const left = s.shown.filter(id => !s.bins[id]).length;
-    $('m-sort-rest').textContent = t.sortRest(s.trees.length - s.shown.length);
-    $('m-sort-left').textContent = left ? t.sortLeft(left) : '';
-    $('m-residues-label').textContent = t.residues;
-    $<HTMLInputElement>('m-residues').checked = s.residues;
-    $('btn-m-autosort').textContent = t.autoSort;
-    $('btn-m-load').textContent = t.loadTruck;
-    $<HTMLButtonElement>('btn-m-load').disabled = left > 0;
-    $('btn-m-sort-cancel').textContent = t.cancel;
-  }
-
-  private setBin(id: number, bin: SortBin) {
-    if (!this.sorting) return;
-    this.sorting.bins[id] = bin;
-    this.renderSort();
-    (document.querySelector(`[data-tree="${id}"][data-bin="${bin}"]`) as HTMLElement | null)?.focus();
-  }
-
-  private autoSort() {
-    const s = this.sorting;
-    if (!s) return;
-    for (const id of s.shown) { const tr = s.trees.find(x => x.id === id)!; s.bins[id] = bestBin(tr.sp, tr.d); }
-    this.renderSort();
-    $('btn-m-load').focus();
-  }
-
-  private cancelSort() {
-    this.sorting = null;
-    this.overlay = null;
-    $('m-sort').hidden = true;
-    $('m-decide').hidden = false;
-    this.renderSheet();
-  }
-
-  private loadTruck() {
-    const s = this.sorting;
-    if (!s || s.shown.some(id => !s.bins[id])) return;
-    const sort: Record<number, SortBin> = {};
-    for (const tr of s.trees) sort[tr.id] = s.bins[tr.id] ?? bestBin(tr.sp, tr.d);
-    this.finishHarvest(s.choice, sort, s.residues);
-  }
-
-  /** Carry out the harvest with the child's sorting, then show the trip to the mills. */
-  private finishHarvest(choice: ChoiceId, sort: Record<number, SortBin>, residues: boolean) {
-    const lane = this.main!;
-    const before = new Map(ITEMS.map(i => [i, lane.f.receipts.filter(r => r.item === i).reduce((a, r) => a + r.n, 0)]));
-    const h = applyChoice(lane.f, choice, { sort, residues, mix: this.mix(), spacing: this.spacing });
-    const s = this.sorting;
-    $('m-sort').hidden = true;
-    this.sorting = null;
-    if (!h || h.count === 0) { this.overlay = null; this.afterChoice(); return; }
-    // feedback on the trunks the child sorted
-    const t = this.t;
-    let right = 0;
-    const notes = new Set<string>();
-    for (const id of s?.shown ?? []) {
-      const tr = s!.trees.find(x => x.id === id)!;
-      const best = bestBin(tr.sp, tr.d);
-      const got = s!.bins[id];
-      if (got === best) right++;
-      else notes.add(got === 'energy' ? t.sortEnergy : got === 'saw' ? t.sortWrongSaw : t.sortWrongPulp);
-    }
-    const made = ITEMS.map(i => [i, lane.f.receipts.filter(r => r.item === i).reduce((a, r) => a + r.n, 0) - (before.get(i) ?? 0)] as const)
-      .filter(([, n]) => n >= 0.5);
-    const total = h.sawlogC + h.pulpwoodC + h.energywoodC || 1;
-    this.millsAnim = {
-      t: 0, logs: h.count,
-      amounts: { saw: h.sawlogC / total, pulp: h.pulpwoodC / total, bio: (h.energywoodC + h.residueC) / total },
-    };
-    $('m-mills-title').textContent = t.millsTitle;
-    $('m-mills-truck').textContent = t.truck((h.volume).toLocaleString(this.host.lang() === 'fi' ? 'fi-FI' : 'en-GB', { maximumFractionDigits: 1 }));
-    $('m-mills-sort').textContent = s && s.shown.length ? `${right} / ${s.shown.length} ${t.sortRight} ${[...notes].join(' ')}` : '';
-    $('m-mills-cards').innerHTML = (['sawmill', 'pulpmill', 'biorefinery'] as const).map(k =>
-      `<div class="millcard"><b>${t.mills[k][0]}</b><span>${t.mills[k][1]}</span></div>`).join('');
-    $('m-mills-made-title').textContent = t.madeNow;
-    $('m-mills-made').innerHTML = made.map(([i, n]) =>
-      `<div class="madeitem">${itemIcon(i, 36)}<span>${t.itemCount(Math.round(n), i)}</span></div>`).join('');
-    $('btn-m-mills-back').textContent = t.backToForest;
-    this.overlay = 'mills';
-    $('m-mills').hidden = false;
-    requestAnimationFrame(() => $('m-mills-title').focus());
-  }
-
-  private animateMills(dt: number) {
-    const a = this.millsAnim;
-    a.t = this.host.reducedMotion ? 1 : (a.t + dt / 5) % 1.6;
-    drawMills($<HTMLCanvasElement>('m-mills-canvas'), Math.min(1, a.t), a.amounts, a.logs);
-  }
-
-  private leaveMills() {
-    $('m-mills').hidden = true;
-    this.overlay = null;
-    this.afterChoice();
-  }
-
-  private shelfIndex = 0;
-  private shelfLane() { return this.lanes[this.shelfIndex] ?? this.main; }
-
-  private openShelf(lane = 0) {
-    this.shelfIndex = lane;
-    this.tracing = null;
-    this.overlay = 'shelf';
-    this.setPlaying(false);
-    $('m-shelf').hidden = false;
-    this.renderShelf();
-    requestAnimationFrame(() => $('m-shelf-title').focus());
-  }
-
-  private closeShelf() {
-    this.overlay = null;
-    this.tracing = null;
-    $('m-shelf').hidden = true;
-    $('m-results').querySelector<HTMLElement>('[data-result="products"]')?.focus();
-  }
-
-  private renderShelf() {
-    const lane = this.shelfLane();
-    if (!lane) return;
-    const f = lane.f;
-    const t = this.t;
-    const lang = this.host.lang();
-    const fmt = (n: number) => Math.round(n).toLocaleString(lang === 'fi' ? 'fi-FI' : 'en-GB');
-    $('m-shelf-title').textContent = t.shelfTitle;
-    $('btn-m-shelf-close').setAttribute('aria-label', t.close);
-    const items = shelf(f);
-    const tr = this.tracing ? traceItem(f, this.tracing.item, this.tracing.k) : null;
-    $('m-shelf-grid').hidden = !!tr;
-    $('m-trace').hidden = !tr;
-    $('m-shelf-intro').textContent = items.length ? t.shelfIntro : t.shelfEmpty;
-    $('m-recycle-row').hidden = !!tr;
-    $('m-recycle-label').textContent = t.recycleLabel;
-    $<HTMLInputElement>('m-recycle').checked = f.recycle;
-    const rec = recycledItems(f);
-    $('m-recycle-note').textContent = rec >= 1 ? t.recycleNote(fmt(rec)) : '';
-    if (!tr) {
-      $('m-shelf-grid').innerHTML = items.map(s =>
-        `<button type="button" class="shelfitem" data-item="${s.item}">${itemIcon(s.item, 44)}` +
-        `<b>${fmt(s.made)}</b><span>${t.items[s.item][1]}</span>` +
-        `<small>${s.item === 'sauna' ? t.made : `${t.inUse}: ${fmt(s.inUse)}`}</small></button>`).join('');
-      return;
-    }
-    const n = traceCount(f, tr.item);
-    const i = ((this.tracing!.k % n) + n) % n;
-    $('m-trace-title').textContent = t.traceTitle(t.items[tr.item][0]);
-    $('m-trace-steps').innerHTML = tr.steps.map((st, j) =>
-      `<li class="step step-${st}">${j === 0 ? itemIcon(tr.item, 28) : ''}<span>${st === 'item' ? t.items[tr.item][2] : t.steps[st]}</span></li>`).join('');
-    const tree = tr.tree;
-    $('m-trace-tree').textContent = t.traceTree(t.species[tree.sp].name, tree.born, tree.year, tree.age);
-    $('m-trace-size').textContent = `${t.card.height} ${tree.h.toFixed(1)} m · ${t.card.diameter} ${tree.d.toFixed(1)} cm`;
-    $('m-trace-made').textContent = t.traceMade(fmt(tr.count), t.items[tr.item][tr.count >= 1.5 ? 1 : 0]);
-    $('m-trace-of').textContent = t.traceOf(i + 1, n);
-    $('btn-m-trace-prev').textContent = t.prevTree;
-    $('btn-m-trace-next').textContent = t.nextTree;
-    $('btn-m-trace-prev').hidden = n < 2;
-    $('btn-m-trace-next').hidden = n < 2;
-    $('btn-m-trace-back').textContent = t.back;
-    drawRings($<HTMLCanvasElement>('m-trace-rings'), tree.rings);
-  }
-
   // ---------- trees ----------
 
   private select(sel: { id: number; lane: number } | null) {
@@ -1014,8 +821,7 @@ export class Metsani {
     if (!tree) return;
     const t = this.t;
     const sp = SPECIES[tree.sp];
-    const lang = this.host.lang();
-    const n1 = (x: number) => x.toLocaleString(lang === 'fi' ? 'fi-FI' : 'en-GB', { maximumFractionDigits: 1 });
+    const n1 = (x: number) => num(x, 1);
     const carbon = tree.c.wood + tree.c.foliage + tree.c.fine;
     const vol = stemVolume(sp, tree.d, tree.h);
     const light = tree.vigor > 0.75 ? t.card.light.good : tree.vigor > 0.45 ? t.card.light.some : t.card.light.poor;
@@ -1077,9 +883,9 @@ export class Metsani {
       }
       if (b.dataset.choice) { this.choose(b.dataset.choice as ChoiceId); return; }
       if (b.dataset.qa !== undefined) { this.answerQuiz(Number(b.dataset.qa)); return; }
-      if (b.dataset.bin) { this.setBin(Number(b.dataset.tree), b.dataset.bin as SortBin); return; }
-      if (b.dataset.item) { this.tracing = { item: b.dataset.item as ItemId, k: 0 }; this.renderShelf(); $('m-trace-title').focus(); return; }
-      if (b.dataset.shelf !== undefined) { this.openShelf(Number(b.dataset.shelf)); return; }
+      if (b.dataset.bin) { this.factory.setBin(Number(b.dataset.tree), b.dataset.bin as SortBin); return; }
+      if (b.dataset.item) { this.factory.tracing = { item: b.dataset.item as ItemId, k: 0 }; this.factory.renderShelf(); $('m-trace-title').focus(); return; }
+      if (b.dataset.shelf !== undefined) { this.factory.openShelf(Number(b.dataset.shelf)); return; }
       if (b.dataset.result) {
         const k = b.dataset.result as ResultKey;
         const lane = Number(b.dataset.lane ?? 0);
@@ -1109,21 +915,21 @@ export class Metsani {
           else { this.compareOn = false; this.pickA = null; this.planting = false; this.renderSheet(); }
           break;
         case 'btn-m-plant-go': if (this.species.size) { this.planting = true; this.choose('plant'); } break;
-        case 'btn-m-autosort': this.autoSort(); break;
-        case 'btn-m-load': this.loadTruck(); break;
-        case 'btn-m-sort-cancel': this.cancelSort(); break;
-        case 'btn-m-mills-back': this.leaveMills(); break;
-        case 'btn-m-shelf-close': this.closeShelf(); break;
-        case 'btn-m-trace-prev': if (this.tracing) { this.tracing.k--; this.renderShelf(); } break;
-        case 'btn-m-trace-next': if (this.tracing) { this.tracing.k++; this.renderShelf(); } break;
-        case 'btn-m-trace-back': this.tracing = null; this.renderShelf(); break;
+        case 'btn-m-autosort': this.factory.autoSort(); break;
+        case 'btn-m-load': this.factory.loadTruck(); break;
+        case 'btn-m-sort-cancel': this.factory.cancelSort(); break;
+        case 'btn-m-mills-back': this.factory.leaveMills(); break;
+        case 'btn-m-shelf-close': this.factory.closeShelf(); break;
+        case 'btn-m-trace-prev': if (this.factory.tracing) { this.factory.tracing.k--; this.factory.renderShelf(); } break;
+        case 'btn-m-trace-next': if (this.factory.tracing) { this.factory.tracing.k++; this.factory.renderShelf(); } break;
+        case 'btn-m-trace-back': this.factory.tracing = null; this.factory.renderShelf(); break;
       }
     });
     document.addEventListener('change', (e) => {
       if (!this.active) return;
       const el = e.target as HTMLInputElement;
-      if (el.id === 'm-residues' && this.sorting) this.sorting.residues = el.checked;
-      if (el.id === 'm-recycle' && this.shelfLane()) { this.shelfLane()!.f.recycle = el.checked; this.persist(); this.renderShelf(); }
+      if (el.id === 'm-residues' && this.factory.sorting) this.factory.sorting.residues = el.checked;
+      if (el.id === 'm-recycle' && this.factory.shelfLane()) { this.factory.shelfLane()!.f.recycle = el.checked; this.persist(); this.factory.renderShelf(); }
     });
     this.canvas.addEventListener('pointerdown', (e) => {
       if (!this.active || this.screen !== 'view') return;
@@ -1176,7 +982,7 @@ function face(cv: HTMLCanvasElement | null) {
 }
 
 /** The trunk's cross-section with one ring per year (widths from the model). */
-function drawRings(cv: HTMLCanvasElement, rings: number[]) {
+export function drawRings(cv: HTMLCanvasElement, rings: number[]) {
   const c = cv.getContext('2d')!;
   const S = cv.width;
   c.clearRect(0, 0, S, S);

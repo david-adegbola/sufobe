@@ -10,6 +10,7 @@
  *    prompt; iPad and iPhone get a short "Share → Add to Home Screen" card.
  *  - When a new version has been downloaded, the home screen offers "Update".
  */
+import { getPart, setPart } from './storage';
 const TEXT = {
   fi: {
     install: 'Asenna Kasva! – toimii ilman nettiä',
@@ -31,7 +32,6 @@ const TEXT = {
   },
 };
 
-const LATER_KEY = 'kasva-install-later';
 const enabled = typeof __PWA__ !== 'undefined' && __PWA__ && 'serviceWorker' in navigator;
 
 interface InstallPrompt extends Event { prompt(): Promise<void>; userChoice: Promise<{ outcome: string }> }
@@ -44,7 +44,7 @@ const standalone = () => matchMedia('(display-mode: standalone)').matches || (na
 const ios = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
 function laterUntil(): number {
-  try { return Number(JSON.parse(localStorage.getItem(LATER_KEY) ?? '0')) || 0; } catch { return 0; }
+  return Number(getPart<unknown>('install-later', 0)) || 0;
 }
 
 /** Update the home screen's install offer and update notice. Call whenever the home screen is drawn. */
@@ -102,7 +102,7 @@ export function initPwa(c: typeof ctx) {
     }
   });
   $('btn-install-later').addEventListener('click', () => {
-    try { localStorage.setItem(LATER_KEY, JSON.stringify(ctx.seasons() + 10)); } catch { /* storage blocked */ }
+    setPart('install-later', ctx.seasons() + 10);
     renderPwa();
     $('btn-play').focus();
   });
