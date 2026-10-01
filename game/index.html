@@ -253,6 +253,8 @@
       max-height: calc(100% - 20px); overflow-y: auto; padding: 14px; display: grid; gap: 10px; pointer-events: auto; z-index: 4; background: rgba(10, 40, 34, 0.96); }
     .moverlay h3 { margin: 0; font: 800 1.3rem/1.15 var(--display); color: var(--sun); }
     .moverlay h4 { margin: 0; font: 800 1rem/1.2 var(--display); color: var(--sun); }
+    .quizsum p { margin: 2px 0; font-size: 0.85rem; }
+    #m-view.quiz-only > :not(#m-quiz) { display: none !important; }
     .moverlay .head { display: flex; justify-content: space-between; align-items: center; }
     .moverlay .head .icon { width: 36px; height: 36px; }
     .check { display: flex; gap: 10px; align-items: flex-start; font-size: 0.88rem; cursor: pointer; }
@@ -296,7 +298,8 @@
 <body>
   <main>
   <canvas id="game" role="img" aria-label="Kasva" tabindex="-1"></canvas>
-  <canvas id="forest" role="img" aria-label="Metsäni" tabindex="0" hidden></canvas>
+  <canvas id="forest" role="img" aria-label="Metsäni" aria-describedby="m-desc" tabindex="0" hidden></canvas>
+  <p class="sr-only" id="m-desc"></p>
   <div class="sr-only" id="sr" aria-live="polite" aria-atomic="true"></div>
 
   <div class="hud-btns" id="hud-btns" hidden>
@@ -372,6 +375,7 @@
         <button type="button" class="btn ghost small" id="btn-share"></button>
         <button type="button" class="btn ghost small" id="btn-home"></button>
       </div>
+      <button type="button" class="btn" id="btn-forest-back" hidden></button>
     </div>
   </section>
 
@@ -444,6 +448,9 @@
       <div class="about">
         <h3 id="t-data" style="margin:6px 0 0;font:800 1.05rem/1.2 var(--display);color:var(--sun)"></h3>
         <label><input type="checkbox" id="opt-testlog"><span id="t-testlog"></span></label>
+        <label><input type="checkbox" id="opt-quiz"><span id="t-quiz"></span></label>
+        <div id="quiz-summary" class="quizsum" aria-live="polite"></div>
+        <div class="row" style="justify-content:flex-start"><button type="button" class="btn ghost small" id="btn-quiz-clear"></button></div>
         <div class="row" style="justify-content:flex-start"><button type="button" class="btn ghost small" id="btn-delete"></button></div>
         <div class="confirm" id="del-confirm" hidden role="alertdialog" aria-labelledby="t-delconfirm">
           <span id="t-delconfirm"></span>
@@ -515,6 +522,8 @@
       <p class="sub" id="m-card-sub"></p>
       <div class="grid" id="m-card-stats"></div>
       <div class="ringrow"><canvas id="m-rings" width="128" height="128" aria-hidden="true"></canvas><span id="m-card-note"></span></div>
+      <button type="button" class="btn small" id="btn-m-zoom" hidden></button>
+      <p class="note" id="m-zoom-note"></p>
     </aside>
     <section class="moverlay glass" id="m-sort" hidden role="dialog" aria-labelledby="m-sort-title">
       <h3 id="m-sort-title" tabindex="-1"></h3>
@@ -560,6 +569,13 @@
           <button type="button" class="btn small" id="btn-m-trace-back"></button>
         </div>
       </div>
+    </section>
+    <section class="moverlay glass" id="m-quiz" hidden role="dialog" aria-labelledby="m-quiz-title">
+      <h3 id="m-quiz-title" tabindex="-1"></h3>
+      <p class="note" id="m-quiz-note"></p>
+      <p class="note" id="m-quiz-of"></p>
+      <h4 id="m-quiz-q" tabindex="-1"></h4>
+      <div class="choices" id="m-quiz-options"></div>
     </section>
     <div class="mbottom glass" id="m-bottom">
       <div class="mctrl">

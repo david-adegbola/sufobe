@@ -25,6 +25,7 @@ Nothing is sent to any server by either app. All storage is the browser's `local
 | `kasva-forest` | Kasva! (Metsäni mode) | the current forest (place, soil, trees, yearly results, products made and the trees they came from, a random forest seed) and short summaries of up to 12 earlier forests | continuing and comparing forests between visits | same |
 | `kasva-lang`, `kasva-sound` | Kasva! | language, sound on/off | settings | same |
 | `kasva-testlog`, `kasva-greybox-log` | Kasva! | playtest log switch, and per-season results with timestamps | teacher and research playtests only. **Off by default**, and switching it off clears the log. | switch off, or delete |
+| `kasva-quiz-on`, `kasva-quiz` | Kasva! (Metsäni) | class question switch, and how many times each answer was chosen before and after (counts only: no names, no free text, no timestamps) | the teacher's before/after playtest. **Off by default.** | "Clear the class question results" in About, or delete all data |
 | `kasva-dbg` | Kasva! | test hook flag, set only by automated tests | development | same |
 | `mista-puu-tulee-tally` | classroom sim | anonymous before/after answer choices, no names | teacher's class summary | "Clear" button in the teacher panel |
 

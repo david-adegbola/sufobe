@@ -9,12 +9,13 @@ import {
   ACHIEVEMENTS, MAX_GROWTH, RANKS, STORY, applySeason, challengePlayed, challengeSent, choose, growthMods, migrate, rankIndex, rankProgress,
   type Growth, type Save, type SeasonMode, type SeasonOutcome,
 } from '../core/progress';
-import { DT, LIGHT_TICKS, STANDARD_TREE, clock, createSeason, result, step, type SeasonResult, type SeasonState } from '../core/season';
+import { DT, LIGHT_TICKS, STANDARD_TREE, clock, createSeason, result, step, type SeasonResult, type SeasonState, type TreeMods } from '../core/season';
 import { decodeChallenge, encodeChallenge, nickParts, randomNick, type Challenge } from '../core/share';
 import { dailySeed, planWeather, type Weather } from '../core/weather';
 import { Sound } from './audio';
 import { Metsani } from './forest/metsani';
 import { FOREST_TEXT } from './forest/text';
+import { QUIZ_UI, clearTally, quizOn, setQuizOn, summaryHtml } from './forest/quiz';
 import { ABOUT_UI, aboutSections } from './legal';
 import { renderPoster } from './poster';
 import { Renderer } from './render';
@@ -57,6 +58,10 @@ const metsani = new Metsani({
   lang: () => lang,
   announce: (s) => announce(s),
   exit: () => { canvas.hidden = false; toMenu(); },
+  zoomIn: (z, done) => {
+    canvas.hidden = false;
+    start({ mode: 'free', seed: z.seed, weather: z.weather, forest: { mods: z.mods, done } });
+  },
   reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
 });
 function openMetsani() {
@@ -66,7 +71,11 @@ function openMetsani() {
 }
 
 type Mode = 'menu' | 'play' | 'pause' | 'results';
-interface SeasonConfig { mode: SeasonMode; seed: string; weather?: Weather[]; from?: Challenge }
+interface SeasonConfig {
+  mode: SeasonMode; seed: string; weather?: Weather[]; from?: Challenge;
+  /** a summer for one birch from Metsäni: its tree, and what to do with the score */
+  forest?: { mods: TreeMods; done: (storedG: number) => string };
+}
 let mode: Mode = 'menu';
 let current: SeasonConfig = { mode: 'free', seed: 'menu' };
 let sim: SeasonState;
@@ -85,6 +94,8 @@ let linkSeed: string | null = /^#s-([A-Za-z0-9._~-]{1,40})$/.exec(location.hash)
 const linkChallenge: Challenge | null = decodeChallenge(location.hash);
 let challengeOutcome: { won: boolean; from: Challenge; mine: number } | null = null;
 let posterUrl: string | null = null;
+/** what a Metsäni zoom-in summer did to the birch, shown on the results */
+let forestMsg: string | null = null;
 let posterBlob: Blob | null = null;
 
 function nickName(code: string) {
@@ -268,7 +279,7 @@ function renderLog() {
 
 function start(cfg: SeasonConfig) {
   current = cfg;
-  const mods = cfg.mode === 'daily' ? STANDARD_TREE : growthMods(save.growth);
+  const mods = cfg.forest ? cfg.forest.mods : cfg.mode === 'daily' ? STANDARD_TREE : growthMods(save.growth);
   sim = createSeason(cfg.seed, cfg.weather, mods);
   mode = 'play';
   acc = 0;
@@ -276,6 +287,7 @@ function start(cfg: SeasonConfig) {
   shown = new Set();
   picked = null;
   challengeOutcome = null;
+  forestMsg = null;
   if (posterUrl) { URL.revokeObjectURL(posterUrl); posterUrl = null; posterBlob = null; }
   renderer.hud.shownScore = 0;
   renderer.hud.hint = null;
@@ -349,6 +361,10 @@ function finish() {
   lastResult = r;
   lastOutcome = outcome;
   fillResults(r, outcome, true, before);
+  // back from a Metsäni birch: say what this summer did to it
+  forestMsg = current.forest ? current.forest.done(r.storedG) : null;
+  fillResults(r, outcome, false);
+  forestReturn(!!current.forest);
   renderLog();
   renderHome();
   show('results');
@@ -398,6 +414,7 @@ function fillResults(r: SeasonResult, o: SeasonOutcome, animate: boolean, before
       ? x.challengeWin(who, f(challengeOutcome.mine), f(challengeOutcome.from.scoreG))
       : x.challengeLose(who, f(challengeOutcome.from.scoreG - challengeOutcome.mine));
   }
+  if (forestMsg) { banner.hidden = false; banner.classList.remove('lose'); banner.textContent = forestMsg; }
 
   // XP bar fills from where it was to where it is now (to the end on a rank-up)
   const after = rankProgress(save.co2LifetimeG);
@@ -635,6 +652,10 @@ function renderAbout() {
   $('t-data').textContent = u.dataTitle;
   $('t-testlog').textContent = u.testlog;
   $<HTMLInputElement>('opt-testlog').checked = testLogOn;
+  $('t-quiz').textContent = QUIZ_UI[lang].toggle;
+  $<HTMLInputElement>('opt-quiz').checked = quizOn();
+  $('quiz-summary').innerHTML = `<h4 style="margin:4px 0;font:800 0.95rem/1.2 var(--display)">${QUIZ_UI[lang].summaryTitle}</h4>${summaryHtml(lang)}`;
+  $('btn-quiz-clear').textContent = QUIZ_UI[lang].clear;
   $('btn-delete').textContent = u.del;
   $('t-delconfirm').textContent = u.delConfirm;
   $('btn-del-yes').textContent = u.delYes;
@@ -685,6 +706,24 @@ function renderChallenge(c: Challenge) {
   face($<HTMLCanvasElement>('c-face'));
 }
 
+/** After a Metsäni zoom-in, the results lead back to the forest instead of to the next season. */
+function forestReturn(on: boolean) {
+  $('btn-forest-back').hidden = !on;
+  $('btn-forest-back').textContent = FOREST_TEXT[lang].backToForest;
+  for (const id of ['btn-next', 'btn-again', 'btn-share']) $(id).hidden = on;
+}
+
+function backToForest() {
+  forestReturn(false);
+  lastResult = null;
+  mode = 'menu';
+  sim = menuSim;
+  show(null, false);
+  canvas.hidden = true;
+  current = { mode: 'free', seed: 'menu' };
+  metsani.resume();
+}
+
 function pause(on: boolean) {
   if (on && mode === 'play') { mode = 'pause'; holding = false; sound.setBreathing(false); show('pause'); }
   else if (!on && mode === 'pause') { mode = 'play'; show(null); }
@@ -728,6 +767,7 @@ window.addEventListener('keyup', (e) => { if (e.code === 'Space') press(false); 
 window.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   if (metsani.active) { metsani.escape(); return; }
+  if (current.forest && mode === 'results' && visible === 'results') { backToForest(); return; }
   if (mode === 'play') pause(true);
   else if (mode === 'pause') pause(false);
   else if (visible === 'share' || visible === 'levelup') show('results');
@@ -737,6 +777,7 @@ window.addEventListener('keydown', (e) => {
 });
 document.addEventListener('change', (e) => {
   const el = e.target as HTMLInputElement;
+  if (el.id === 'opt-quiz') { setQuizOn(el.checked); renderAbout(); return; }
   if (el.id === 'opt-testlog') {
     testLogOn = el.checked;
     store(TESTLOG_KEY, testLogOn);
@@ -760,6 +801,7 @@ document.addEventListener('click', (e) => {
     case 'btn-play': case 'btn-next': start(nextSeason()); break;
     case 'btn-daily': start(dailyConfig()); linkSeed = null; break;
     case 'btn-metsani': openMetsani(); break;
+    case 'btn-forest-back': backToForest(); break;
     case 'btn-again': start({ ...current }); break;
     case 'btn-home': case 'btn-cards-close': toMenu(); break;
     case 'btn-cards': show('cards'); renderCards(); break;
@@ -767,7 +809,7 @@ document.addEventListener('click', (e) => {
     case 'btn-pause': pause(true); break;
     case 'btn-resume': pause(false); break;
     case 'btn-mute': case 'btn-radio': toggleMute(); break;
-    case 'btn-about': show('about'); break;
+    case 'btn-about': renderAbout(); show('about'); break;
     case 'btn-about-close': toMenu(); break;
     case 'btn-delete': $('del-confirm').hidden = false; $('btn-del-no').focus(); break;
     case 'btn-del-no': $('del-confirm').hidden = true; $('btn-delete').focus(); break;
@@ -784,6 +826,7 @@ document.addEventListener('click', (e) => {
     case 'btn-reroll': save = { ...save, nick: randomNick() }; persist(); renderKisat(); sound.pop(2, false); break;
     case 'btn-take': if (linkChallenge) { const c = linkChallenge; start({ mode: 'daily', seed: c.seed, from: c }); } break;
     case 'btn-clear-log': store(LOG_KEY, []); renderLog(); break;
+    case 'btn-quiz-clear': clearTally(); renderAbout(); break;
   }
 });
 

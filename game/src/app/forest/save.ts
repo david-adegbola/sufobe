@@ -28,6 +28,8 @@ export interface ForestSave {
   species: SpeciesId[];
   spacing: Spacing;
   past: ForestSummary[];
+  /** Tikka's tips already shown (each is shown once) */
+  tips?: string[];
 }
 
 export function emptySave(): ForestSave {

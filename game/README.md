@@ -41,6 +41,7 @@ Hold anywhere (or the space bar) to open the stomata. P pauses, M mutes. A link 
 - `src/app/`: the game shell (`main.ts`), the renderer (`render.ts`), synthesised sound (`audio.ts`), and text in FI/EN (`text.ts`).
 - `src/core/forest/`: the Metsäni forest model (F0, no UI yet): climate, soils, species, a stand of trees that compete for light and water, carbon stores that always add up, thinning and harvest, and wood products. See `docs/forest-model.md`, and `tests/forest/` for the conservation, calibration and determinism tests.
 - `src/app/forest/`: the Metsäni screens (F1): setup (place, soil, trees, spacing), the forest view drawn side-on with seasons and a soil cutaway, the tree card, and the five results. Saved under `kasva-forest`.
+- `docs/metsani-teacher-guide.md` (a one-page lesson guide) and `docs/metsani-review-packet.md` (what the forest scientist, teacher and ecologist should check, and the classroom playtest protocol).
 - `src/app/scene/`: the code-drawn world: palette and moods, landscape layers, silver birch, Tikka, weather icons, HUD.
 - `tests/season.test.ts`: determinism, the rules (no catching in the dark, heat drains water faster, score = caught − breathed out) and balance. **The science-smart bot must beat holding all the time by more than 25%.**
 

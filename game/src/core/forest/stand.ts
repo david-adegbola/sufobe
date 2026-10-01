@@ -42,6 +42,8 @@ export interface Tree {
   keep: boolean;
   /** year a moose last browsed this sapling */
   browsed?: number;
+  /** year the child zoomed into this birch with Kasva! */
+  zoomed?: number;
 }
 
 /** Why a tree died. */

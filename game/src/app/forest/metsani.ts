@@ -12,7 +12,8 @@
  */
 import {
   CO2_PER_C, ITEMS, PLANTABLE, SOILS, SPACING, SPECIES, applyChoice, bestBin, createForest, plant, presentAnimals,
-  previewHarvest, recycledItems, results, shelf, stemVolume, stepYear, traceCount, traceItem, yearReport,
+  applyZoom, canZoom, previewHarvest, recycledItems, results, shelf, standStats, stemVolume, stepYear, traceCount, traceItem,
+  yearReport, zoomSeason, type ZoomSeason,
   type AnimalId, type ChoiceId, type Decision, type Forest, type ItemId, type PlaceId, type Results, type SoilId,
   type SortBin, type SpeciesId, type Spacing, type Tree, type YearRecord, type YearReport,
 } from '../../core/forest';
@@ -22,6 +23,7 @@ import type { Lang } from '../text';
 import { ForestScene, seasonOf } from './scene';
 import { addPast, loadForest, storeForest, type ForestSave } from './save';
 import { FOREST_TEXT } from './text';
+import { AFTER_YEAR, QUIZ, QUIZ_UI, loadTally, quizOn, record, saveTally } from './quiz';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -37,8 +39,12 @@ export interface MetsaniHost {
   lang(): Lang;
   announce(text: string): void;
   exit(): void;
+  /** play a Kasva! summer for one birch; `done` gets the score and returns a line for the results */
+  zoomIn(z: ZoomSeason, done: (storedG: number) => string): void;
   reducedMotion: boolean;
 }
+
+type TipKey = 'start' | 'results' | 'fast' | 'zoom' | 'whatIf' | 'shelf';
 
 const PLACE_IDS: PlaceId[] = ['south', 'east', 'lapland', 'future'];
 const SOIL_IDS: SoilId[] = ['loam', 'sandy', 'clay', 'peat', 'rocky'];
@@ -100,7 +106,10 @@ export class Metsani {
   private planting = false;
   private reportTimer = 0;
   /** forest-to-factory screens: they pause the forest while open */
-  private overlay: 'sort' | 'mills' | 'shelf' | null = null;
+  private overlay: 'sort' | 'mills' | 'shelf' | 'quiz' | null = null;
+  private quiz: { phase: 'before' | 'after'; i: number; answers: number[]; then: () => void } | null = null;
+  /** this device's class-question stage, read once when Metsäni opens */
+  private quizStage: 'before' | 'after' | 'done' | 'off' = 'off';
   private sorting: Sorting | null = null;
   private millsAnim = { t: 0, amounts: { saw: 0, pulp: 0, bio: 0 }, logs: 0 };
   private tracing: { item: ItemId; k: number } | null = null;
@@ -123,6 +132,7 @@ export class Metsani {
 
   enter() {
     this.active = true;
+    this.quizStage = quizOn() ? loadTally().stage : 'off';
     this.canvas.hidden = false;
     this.setupScene.resize();
     if (this.save.current) this.showView(this.save.current); else this.showSetup();
@@ -137,8 +147,94 @@ export class Metsani {
     this.host.exit();
   }
 
+  /** Step aside for a Kasva! summer, keeping everything as it is. */
+  private suspend() {
+    this.persist();
+    this.active = false;
+    this.setPlaying(false);
+    this.canvas.hidden = true;
+    $('m-view').hidden = true;
+  }
+
+  /** Come back from a Kasva! summer. */
+  resume() {
+    this.active = true;
+    this.canvas.hidden = false;
+    $('m-view').hidden = false;
+    for (const l of this.lanes) l.scene.resize();
+    this.renderView();
+    requestAnimationFrame(() => $('m-card').hidden ? $('m-year').focus() : $('m-card-title').focus());
+  }
+
+  private zoom() {
+    const sel = this.selected;
+    const lane = sel ? this.lanes[sel.lane] : undefined;
+    const tree = lane?.f.trees.find(t => t.id === sel!.id);
+    if (!lane || !tree || !lane.rec || !canZoom(tree, lane.rec)) return;
+    const rec = lane.rec;
+    const z = zoomSeason(lane.f, tree, rec);
+    this.suspend();
+    this.host.zoomIn(z, (g) => {
+      const mm = applyZoom(lane.f, tree.id, g, z.expectedG, rec.year);
+      lane.shown = results(lane.f);
+      this.persist();
+      const t = this.t;
+      const f = (x: number) => Math.abs(x).toLocaleString(this.host.lang() === 'fi' ? 'fi-FI' : 'en-GB', { maximumFractionDigits: 1 });
+      return mm > 0.05 ? t.zoomUp(f(mm)) : mm < -0.05 ? t.zoomDown(f(mm)) : t.zoomSame;
+    });
+  }
+
+  // ---------- Tikka's tips and the spoken description ----------
+
+  /** Show one of Tikka's tips, once ever. Returns false if already seen or the card is busy. */
+  private tip(key: TipKey): boolean {
+    const seen = this.save.tips ?? [];
+    if (seen.includes(key) || !$('m-report').hidden) return false;
+    this.save = { ...this.save, tips: [...seen, key] };
+    storeForest(this.save);
+    $('m-report-title').textContent = this.t.tikka;
+    $('m-report-body').innerHTML = `<p>${this.t.tips[key]}</p>`;
+    $('btn-m-report-close').textContent = this.t.reportClose;
+    $('m-report').hidden = false;
+    face($<HTMLCanvasElement>('m-report-face'));
+    this.reportTimer = 12;
+    this.host.announce(this.t.tips[key]);
+    return true;
+  }
+
+  /** The tip that fits this moment, if any. */
+  private maybeTip() {
+    const m = this.main;
+    if (!m || this.comparing) return;
+    const y = m.f.year;
+    if (y <= 1) { this.tip('start'); return; }
+    if (y >= 3 && this.tip('results')) return;
+    if (y >= 5 && this.tip('fast')) return;
+    if (m.f.harvests.some(h => h.harvest.count > 0) && this.tip('shelf')) return;
+    if (y >= 6 && m.f.trees.some(t => t.sp === 'birch' && t.h >= 1.3) && this.tip('zoom')) return;
+    if (y >= 15) this.tip('whatIf');
+  }
+
+  /** A short text of what the forest looks like, for screen readers. */
+  private describe() {
+    const m = this.main;
+    if (!m) return;
+    const t = this.t;
+    const f = m.f;
+    const counts = new Map<SpeciesId, number>();
+    for (const tr of f.trees) counts.set(tr.sp, (counts.get(tr.sp) ?? 0) + 1);
+    const parts = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([sp, n]) => `${t.species[sp].name.toLowerCase()} ${n}`);
+    const tallest = standStats(f.trees).domH;
+    const { season } = seasonOf(Math.min(0.999, this.p));
+    const animals = m.animals.map(a => t.animals[a][0].toLowerCase()).join(', ');
+    $('m-desc').textContent = t.describe((m.rec?.year ?? f.year - 1) + 1, t.seasons[season].toLowerCase(),
+      `${t.places[f.place].name}, ${t.soils[f.soil].name.toLowerCase()}`, t.treesOf(f.trees.length, parts),
+      tallest.toLocaleString(this.host.lang() === 'fi' ? 'fi-FI' : 'en-GB', { maximumFractionDigits: 0 }), f.logs.length, animals);
+  }
+
   /** Escape goes one step back: sheet → card → view → setup → home. */
   escape() {
+    if (this.overlay === 'quiz') return;
     if (this.overlay === 'shelf') { if (this.tracing) { this.tracing = null; this.renderShelf(); } else this.closeShelf(); return; }
     if (this.overlay === 'mills') { this.leaveMills(); return; }
     if (this.overlay === 'sort') { this.cancelSort(); return; }
@@ -230,7 +326,8 @@ export class Metsani {
     plant(f, this.mix(), this.spacing);
     this.save = { ...this.save, current: f, species: [...this.species], spacing: this.spacing };
     this.persist();
-    this.showView(f);
+    if (this.quizStage === 'before') this.askQuiz('before', () => this.showView(f));
+    else this.showView(f);
   }
 
   private summary(f: Forest) {
@@ -263,7 +360,7 @@ export class Metsani {
     this.renderView();
     // a question left open when the forest was saved comes back first
     if (f.pending) { this.p = 0.999; this.ask({ d: f.pending, lane: 0 }); }
-    else { this.beginYear(); this.setPlaying(true); }
+    else { this.beginYear(); this.setPlaying(true); this.maybeTip(); }
     requestAnimationFrame(() => $('m-year').focus());
   }
 
@@ -294,11 +391,56 @@ export class Metsani {
     if (!quiet) {
       this.host.announce(this.t.yearDone(m.f.year, Math.round(m.shown!.wood.standing)));
       this.showReport();
+      if ($('m-report').hidden) this.maybeTip();
     }
     this.renderView();
     const i = this.lanes.findIndex(l => l.f.pending);
     if (i >= 0) { this.ask({ d: this.lanes[i].f.pending!, lane: i }); return false; }
     return true;
+  }
+
+  // ---------- the before/after class question ----------
+
+  private askQuiz(phase: 'before' | 'after', then: () => void) {
+    this.quiz = { phase, i: 0, answers: [], then };
+    this.overlay = 'quiz';
+    // the questions sit inside the forest view; before the first forest only they are shown
+    $('m-setup').hidden = true;
+    $('m-view').hidden = false;
+    $('m-view').classList.toggle('quiz-only', phase === 'before');
+    $('m-quiz').hidden = false;
+    this.renderQuiz();
+    requestAnimationFrame(() => $('m-quiz-title').focus());
+  }
+
+  private renderQuiz() {
+    const q = this.quiz;
+    if (!q) return;
+    const lang = this.host.lang();
+    const u = QUIZ_UI[lang];
+    const item = QUIZ[lang][q.i];
+    $('m-quiz-title').textContent = u.title(q.phase);
+    $('m-quiz-note').textContent = u.note;
+    $('m-quiz-of').textContent = u.of(q.i + 1, QUIZ[lang].length);
+    $('m-quiz-q').textContent = item.q;
+    $('m-quiz-options').innerHTML = item.options.map((o, k) => `<button type="button" class="choice" data-qa="${k}"><b>${o}</b></button>`).join('');
+  }
+
+  private answerQuiz(k: number) {
+    const q = this.quiz;
+    if (!q) return;
+    q.answers.push(k);
+    q.i++;
+    if (q.i < QUIZ.fi.length) { this.renderQuiz(); $('m-quiz-q').focus(); return; }
+    const tally = record(loadTally(), q.phase, q.answers);
+    saveTally(tally);
+    this.quizStage = tally.stage;
+    this.host.announce(QUIZ_UI[this.host.lang()].thanks);
+    this.quiz = null;
+    this.overlay = null;
+    $('m-quiz').hidden = true;
+    $('m-view').classList.remove('quiz-only');
+    q.then();
   }
 
   private jump(years: number) {
@@ -342,6 +484,10 @@ export class Metsani {
       if (this.reportTimer <= 0 && !this.asking) $('m-report').hidden = true;
     }
     if (this.screen === 'view' && this.main) {
+      // the "after" class question, once the forest is 30 years old and nothing else is open
+      if (this.quizStage === 'after' && !this.overlay && !this.asking && !this.comparing && this.main.f.year >= AFTER_YEAR) {
+        this.askQuiz('after', () => this.renderView());
+      }
       if (this.overlay === 'mills') this.animateMills(dt);
       if (this.playing && !this.asking && !this.overlay) {
         this.p += (dt / YEAR_SECONDS) * SPEEDS[this.speed];
@@ -454,6 +600,7 @@ export class Metsani {
     $('m-same-weather').hidden = !this.comparing;
     $('m-same-weather').textContent = t.sameWeather;
     this.lastClock = '';
+    this.describe();
     this.renderControls();
     this.renderResults();
     this.renderCard();
@@ -623,6 +770,7 @@ export class Metsani {
     applyChoice(twin.f, cb, { mix: this.mix(), spacing: this.spacing });
     a.choice = ca;
     twin.choice = cb;
+    if (!(this.save.tips ?? []).includes('whatIf')) this.save = { ...this.save, tips: [...(this.save.tips ?? []), 'whatIf'] };
     this.lanes = [a, twin];
     this.afterChoice();
   }
@@ -883,6 +1031,10 @@ export class Metsani {
     $('m-card-note').textContent = tree.d > 0 ? t.card.rings : t.card.seedling;
     $('btn-m-card-close').setAttribute('aria-label', t.card.close);
     drawRings($<HTMLCanvasElement>('m-rings'), tree.rings);
+    const zoomable = !this.comparing && lane === this.main && canZoom(tree, lane?.rec);
+    $('btn-m-zoom').hidden = !zoomable;
+    $('btn-m-zoom').textContent = t.zoomButton;
+    $('m-zoom-note').textContent = zoomable ? '' : tree.sp !== 'birch' ? t.zoomOnlyBirch : tree.zoomed === lane?.rec?.year ? t.zoomUsed : '';
   }
 
   /** Arrow keys move between the trees of the first forest when the canvas has focus. */
@@ -923,6 +1075,7 @@ export class Metsani {
         return;
       }
       if (b.dataset.choice) { this.choose(b.dataset.choice as ChoiceId); return; }
+      if (b.dataset.qa !== undefined) { this.answerQuiz(Number(b.dataset.qa)); return; }
       if (b.dataset.bin) { this.setBin(Number(b.dataset.tree), b.dataset.bin as SortBin); return; }
       if (b.dataset.item) { this.tracing = { item: b.dataset.item as ItemId, k: 0 }; this.renderShelf(); $('m-trace-title').focus(); return; }
       if (b.dataset.shelf !== undefined) { this.openShelf(Number(b.dataset.shelf)); return; }
@@ -948,6 +1101,7 @@ export class Metsani {
         case 'btn-m-keep-b': this.keep(1); break;
         case 'btn-m-card-close': this.select(null); this.canvas.focus(); break;
         case 'btn-m-report-close': $('m-report').hidden = true; break;
+        case 'btn-m-zoom': this.zoom(); break;
         case 'btn-m-compare': this.compareOn = true; this.pickA = null; this.renderSheet(); break;
         case 'btn-m-decide-cancel':
           if (this.asking?.d.kind === 'whatif') this.closeSheet();

@@ -1,4 +1,4 @@
-# Metsäni forest model (F0–F3)
+# Metsäni forest model (F0–F4)
 
 The forest core behind the Metsäni mode. It runs without the DOM, is deterministic, and is checked by `tests/forest/`. There is no user interface yet. The screens come in F1.
 
@@ -244,6 +244,16 @@ Branches and tops can also be collected for the biorefinery. That gives heat now
 - **Recycling:** it keeps paper carbon in use longer and makes boxes without new trees; fibre is never reused more than 6 times.
 - **Item counts:** they add up exactly to the carbon in products made.
 - **Carbon:** conservation also checks that product lots add up to the products store.
+
+## F4: zooming into a birch (`zoom.ts`)
+
+From a birch's tree card, the child can play one Kasva! summer as that birch:
+- The summer's weather comes from that forest year: a drought summer brings two heatwave days, and a wet one brings two rain days.
+- The soil sets the birch's water store, from 0.7 on rocky soil up to 1.25 times a standard tree.
+- The child's score is compared with a careful scripted player in the same summer. The difference changes that birch's ring for the year by up to ±40 %. The carbon for the extra wood comes from the air (or goes back to it), so conservation holds.
+- It can be done once per birch per year, and only for birches, because Kasva! is a birch's summer.
+
+The tests are in `tests/forest/zoom.test.ts`.
 
 ## Known simplifications (on purpose, from the plan)
 
