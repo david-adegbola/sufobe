@@ -146,12 +146,91 @@
     .section h3 { margin: 0; font: 800 1.05rem/1.2 var(--display); color: var(--sun); }
     .nick { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; }
     .nick b { font: 800 1.4rem/1.1 var(--display); }
+
+    /* ---------- Metsäni ---------- */
+    canvas#forest { position: fixed; inset: 0; width: 100%; height: 100%; display: block; background: #071f1b; touch-action: none; }
+    #m-setup .panel { width: min(100%, 760px); text-align: left; justify-items: stretch; }
+    #m-setup h2 { margin: 0; }
+    .mlogo { font: 800 clamp(2.6rem, 12vw, 4rem)/0.9 var(--display); font-stretch: 75%; text-transform: uppercase; color: var(--sun); -webkit-text-stroke: 2px var(--deep); paint-order: stroke fill; text-shadow: 0 5px 0 var(--deep-2); transform: rotate(-3deg); justify-self: center; }
+    .mstep { margin: 6px 0 0; font: 800 1.1rem/1.2 var(--display); color: var(--sun); }
+    .mgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+    .mcard { text-align: left; background: rgba(255,255,255,0.07); border: 1.5px solid var(--line); border-radius: 14px; padding: 10px 12px; color: var(--paper); cursor: pointer;
+      display: grid; gap: 4px; align-content: start; font: 500 0.82rem/1.3 var(--body); touch-action: manipulation; }
+    .mcard b { font: 800 1rem/1.15 var(--display); }
+    .mcard:hover { border-color: var(--sun); }
+    .mcard[aria-pressed="true"] { border-color: var(--sun); background: rgba(255, 200, 61, 0.18); box-shadow: inset 0 0 0 1.5px var(--sun); }
+    .mcard[aria-pressed="true"] b::after { content: " ✓"; color: var(--sun); }
+    .swatch { display: block; height: 30px; border-radius: 8px; border-top: 6px solid #3f2c1d; }
+    .s-sandy { background: radial-gradient(#f1e2bc 1px, transparent 1.5px) 0 0/6px 6px, #d8bf8a; }
+    .s-clay { background: repeating-linear-gradient(#8c7a6a 0 5px, #776656 5px 7px); }
+    .s-peat { background: repeating-linear-gradient(60deg, #4a3324 0 4px, #6b4a32 4px 5px); border-top-color: #2e2016; }
+    .s-loam { background: radial-gradient(circle at 30% 60%, #9b9690 3px, transparent 4px), radial-gradient(#8a6845 1px, transparent 1.5px) 0 0/7px 7px, #6e4f33; }
+    .s-rocky { background: linear-gradient(#6e5a40 0 35%, #8e9296 35%); }
+    .meters { display: grid; gap: 1px; font-size: 0.75rem; color: var(--muted); }
+    .meters em { font-style: normal; color: var(--sun); letter-spacing: 1px; }
+    .meters em.w { color: #7cc4ec; }
+    .sp-icon { display: block; width: 34px; height: 40px; }
+    .sp-spruce { background: linear-gradient(#5b4636, #5b4636) 50% 100%/4px 10px no-repeat; clip-path: polygon(50% 0, 88% 78%, 55% 78%, 55% 100%, 45% 100%, 45% 78%, 12% 78%); background-color: #2c5a3c; }
+    .sp-pine { background: radial-gradient(ellipse 45% 22% at 50% 22%, #47703d 98%, transparent) , linear-gradient(90deg, transparent 45%, #d07a3c 45% 55%, transparent 55%); }
+    .sp-birch { background: radial-gradient(ellipse 38% 32% at 50% 32%, #6fa344 98%, transparent), linear-gradient(90deg, transparent 45%, #efece2 45% 55%, transparent 55%); }
+    .segs { display: flex; gap: 6px; flex-wrap: wrap; }
+    .seg { font: 800 0.95rem/1.1 var(--display); background: rgba(255,255,255,0.07); color: var(--paper); border: 1.5px solid var(--line); border-radius: 12px; padding: 8px 14px; cursor: pointer; display: grid; gap: 2px; text-align: left; }
+    .seg small { font: 500 0.72rem/1 var(--body); color: var(--muted); }
+    .seg[aria-pressed="true"] { border-color: var(--sun); background: rgba(255, 200, 61, 0.18); }
+    .btn[disabled] { opacity: 0.45; cursor: default; transform: none; }
+
+    #m-view { position: fixed; inset: 0; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between;
+      padding: calc(env(safe-area-inset-top, 0px) + 10px) 10px calc(env(safe-area-inset-bottom, 0px) + 10px); }
+    #m-view > * { pointer-events: auto; }
+    .mtop { display: grid; gap: 6px; }
+    .mtop .bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .myear { font: 800 1.25rem/1 var(--display); background: var(--glass); border: 1.5px solid var(--line); border-radius: 999px; padding: 9px 16px; }
+    .mwhere { font-size: 0.8rem; background: var(--glass); border-radius: 999px; padding: 6px 12px; color: var(--muted); }
+    .mdrought { font: 800 0.8rem/1 var(--display); background: #f2b13d; color: #2a1a03; border-radius: 999px; padding: 6px 10px; }
+    .timeline { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); max-width: 520px; background: var(--glass); border-radius: 999px; overflow: hidden; font: 700 0.7rem/1 var(--body); }
+    .timeline span { padding: 5px 0; text-align: center; color: var(--muted); }
+    .timeline span:nth-child(1) { background: rgba(184,216,107,0.25); } .timeline span:nth-child(2) { background: rgba(111,163,68,0.3); }
+    .timeline span:nth-child(3) { background: rgba(232,184,58,0.3); } .timeline span:nth-child(4) { background: rgba(220,235,245,0.22); }
+    .timeline i { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1.5px; background: var(--sun); box-shadow: 0 0 6px var(--sun); }
+    .mbottom { display: grid; gap: 8px; padding: 10px; border-radius: 18px; width: min(100%, 760px); margin: 0 auto; }
+    .mctrl { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .mctrl .icon[aria-pressed="true"] { background: var(--sun); color: var(--deep); }
+    .mctrl .icon.wide { width: auto; padding: 0 14px; border-radius: 999px; font-size: 0.9rem; }
+    .mresults { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
+    .res { background: rgba(255,255,255,0.08); border: 1.5px solid transparent; border-radius: 12px; padding: 6px 3px 7px; color: var(--paper); cursor: pointer;
+      display: grid; gap: 2px; justify-items: center; font: 500 0.66rem/1.1 var(--body); touch-action: manipulation; min-height: 64px; }
+    .res .rl { font: 800 0.72rem/1 var(--display); text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); }
+    .res b { font: 800 1.15rem/1 var(--display); font-variant-numeric: tabular-nums; }
+    .res small { color: var(--muted); }
+    .res[aria-expanded="true"] { border-color: var(--sun); background: rgba(255,200,61,0.16); }
+    .leaves { display: inline-flex; gap: 1px; }
+    .leaves i { width: 10px; height: 10px; border-radius: 0 70% 0 70%; background: rgba(255,255,255,0.2); }
+    .leaves i.on { background: #8fcf5a; } .leaves i.half { background: linear-gradient(90deg, #8fcf5a 50%, rgba(255,255,255,0.2) 50%); }
+    .res-health .leaves i.on { background: #ff8a7a; } .res-health .leaves i.half { background: linear-gradient(90deg, #ff8a7a 50%, rgba(255,255,255,0.2) 50%); }
+    .mexplain { font-size: 0.88rem; line-height: 1.4; background: rgba(255,255,255,0.07); border-radius: 12px; padding: 8px 12px; }
+    .mexplain p { margin: 0 0 4px; }
+    .cbar { display: flex; height: 10px; border-radius: 999px; overflow: hidden; margin-top: 6px; }
+    .cb-trees { background: #f2a93b; } .cb-dead { background: #a57a45; } .cb-soil { background: #6e4f33; } .cb-products { background: #ffc83d; }
+    .mcard-tree { position: fixed; right: 10px; top: calc(env(safe-area-inset-top, 0px) + 96px); width: min(330px, calc(100% - 20px)); padding: 12px 14px; display: grid; gap: 8px; pointer-events: auto; }
+    .mcard-tree h3 { margin: 0; font: 800 1.4rem/1 var(--display); color: var(--sun); }
+    .mcard-tree .head { display: flex; justify-content: space-between; align-items: center; }
+    .mcard-tree .head .icon { width: 36px; height: 36px; }
+    .mcard-tree .sub { margin: 0; font-size: 0.8rem; color: var(--muted); }
+    .mcard-tree .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 0.82rem; }
+    .mcard-tree .grid div { display: flex; justify-content: space-between; gap: 6px; border-bottom: 1px solid rgba(255,255,255,0.1); padding: 2px 0; }
+    .mcard-tree .grid b { font-family: var(--display); }
+    .mcard-tree .ringrow { display: flex; gap: 10px; align-items: center; font-size: 0.78rem; color: var(--muted); }
+    .mcard-tree canvas { width: 64px; height: 64px; flex: 0 0 auto; }
+    @media (max-width: 520px) { .mcard-tree { gap: 5px; padding: 10px 12px; } .mcard-tree .grid { font-size: 0.76rem; } .mcard-tree canvas { width: 52px; height: 52px; } }
+    .mhint { align-self: center; font: 700 1.2rem/1.1 var(--hand); background: #fffdf6; color: var(--ink); border-radius: 14px; padding: 6px 12px; }
+    @media (max-width: 520px) { .res b { font-size: 0.95rem; } .res .rl { font-size: 0.6rem; } .mresults { gap: 3px; } }
     @media (prefers-reduced-motion: reduce) { .btn { transition: none; } .levelup .ripple, .rankname { animation: none; } .xp .bar span { transition: none; } }
   </style>
 </head>
 <body>
   <main>
   <canvas id="game" role="img" aria-label="Kasva" tabindex="-1"></canvas>
+  <canvas id="forest" role="img" aria-label="Metsäni" tabindex="0" hidden></canvas>
   <div class="sr-only" id="sr" aria-live="polite" aria-atomic="true"></div>
 
   <div class="hud-btns" id="hud-btns" hidden>
@@ -181,6 +260,7 @@
       <div class="row">
         <button type="button" class="btn" id="btn-play"></button>
         <button type="button" class="btn ghost" id="btn-daily"></button>
+        <button type="button" class="btn ghost" id="btn-metsani"></button>
       </div>
       <div class="row">
         <button type="button" class="btn ghost small" id="btn-kisat"></button>
@@ -305,6 +385,57 @@
         </div>
       </div>
       <button type="button" class="btn ghost small" id="btn-about-close"></button>
+    </div>
+  </section>
+
+
+  <section class="screen" id="m-setup" hidden>
+    <div class="panel glass">
+      <h2 class="mlogo" id="m-setup-title" tabindex="-1"></h2>
+      <p class="note" id="m-tagline" style="text-align:center;font-size:0.95rem"></p>
+      <button type="button" class="btn" id="btn-m-continue" hidden></button>
+      <h3 class="mstep" id="m-step-place"></h3>
+      <div class="mgrid" id="m-places"></div>
+      <h3 class="mstep" id="m-step-soil"></h3>
+      <div class="mgrid" id="m-soils"></div>
+      <h3 class="mstep" id="m-step-trees"></h3>
+      <div class="mgrid" id="m-species"></div>
+      <h3 class="mstep" id="m-spacing-title" style="font-size:0.95rem"></h3>
+      <div class="segs" id="m-spacing"></div>
+      <p class="note" id="m-pick-note" role="status"></p>
+      <div class="row"><button type="button" class="btn" id="btn-m-plant"></button></div>
+      <p class="note" id="m-replace" style="text-align:center"></p>
+      <div class="section"><h3 id="m-earlier-title"></h3><div class="list" id="m-earlier"></div></div>
+      <div class="row"><button type="button" class="btn ghost small" id="btn-m-setup-back"></button></div>
+    </div>
+  </section>
+
+  <section id="m-view" hidden>
+    <div class="mtop">
+      <div class="bar">
+        <button type="button" class="icon" id="btn-m-back">←</button>
+        <span class="myear" id="m-year" tabindex="-1"></span>
+        <span class="mwhere" id="m-where"></span>
+        <span class="mdrought" id="m-drought" hidden></span>
+      </div>
+      <div class="timeline" aria-hidden="true"><div id="m-seasons" style="display:contents"></div><i id="m-marker"></i></div>
+    </div>
+    <p class="mhint" id="m-tap-hint" hidden></p>
+    <aside class="mcard-tree glass" id="m-card" hidden aria-labelledby="m-card-title">
+      <div class="head"><h3 id="m-card-title"></h3><button type="button" class="icon" id="btn-m-card-close">✕</button></div>
+      <p class="sub" id="m-card-sub"></p>
+      <div class="grid" id="m-card-stats"></div>
+      <div class="ringrow"><canvas id="m-rings" width="128" height="128" aria-hidden="true"></canvas><span id="m-card-note"></span></div>
+    </aside>
+    <div class="mbottom glass" id="m-bottom">
+      <div class="mctrl">
+        <button type="button" class="icon" id="btn-m-play">II</button>
+        <button type="button" class="icon" id="btn-m-normal"></button>
+        <button type="button" class="icon" id="btn-m-fast"></button>
+        <button type="button" class="icon wide" id="btn-m-jump"></button>
+      </div>
+      <div class="mresults" id="m-results"></div>
+      <div class="mexplain" id="m-explain" hidden role="region" aria-live="polite"></div>
     </div>
   </section>
 

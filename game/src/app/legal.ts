@@ -24,7 +24,7 @@ export function aboutSections(lang: Lang): Section[] {
   if (lang === 'fi') return [
     { id: 'privacy', title: 'Tietosuoja', body: [
       'Lyhyesti: Kasva! ei kerää sinusta tietoja. Ei tilejä, nimiä, sähköposteja, evästeitä, analytiikkaa eikä mainoksia. Mitään ei lähetetä palvelimelle.',
-      'Mitä tallennetaan ja missä: pelin edistyminen tallentuu vain tämän laitteen selaimeen (localStorage). Siihen kuuluu: kerätyn hiilen määrä, pelatut kesät, merkit, kasvuvalinnat, päiväputki, päivän sään parhaat tulokset, arvottu nimimerkki (kaksi merkkiä), haasteiden historia sekä kieli- ja ääniasetus. Pelitestin loki tallentuu vain, jos opettaja kytkee sen päälle.',
+      'Mitä tallennetaan ja missä: pelin edistyminen tallentuu vain tämän laitteen selaimeen (localStorage). Siihen kuuluu: kerätyn hiilen määrä, pelatut kesät, merkit, kasvuvalinnat, päiväputki, päivän sään parhaat tulokset, arvottu nimimerkki (kaksi merkkiä), haasteiden historia sekä kieli- ja ääniasetus. Metsäni-tilassa tallentuu myös metsäsi (puut, vuodet ja tulokset) ja lyhyet yhteenvedot aiemmista metsistäsi. Pelitestin loki tallentuu vain, jos opettaja kytkee sen päälle.',
       'Miksi: jotta peli muistaa edistymisesi ja asetuksesi, kun palaat. Tallennusta käytetään vain pelin omaan toimintaan, ei seurantaan eikä mainontaan.',
       'Kolmannet osapuolet: peli ei lataa ulkopuolisia palveluita; myös fontit ovat pelin sisällä. Sivua palveleva verkkopalvelu (nyt claude.ai) käsittelee tavalliset verkkopyynnöt omien tietosuojaehtojensa mukaan.',
       'Haastelinkit ja kuvat: kun jaat haastelinkin tai tulosjulisteen, siinä näkyvät nimimerkkisi, tuloksesi ja sää. Se menee vain sinne, minne itse sen lähetät, ja sen sovelluksen ehdot koskevat jakoa.',
@@ -53,7 +53,7 @@ export function aboutSections(lang: Lang): Section[] {
   return [
     { id: 'privacy', title: 'Privacy', body: [
       'In short: Kasva! does not collect data about you. No accounts, names, emails, cookies, analytics or ads. Nothing is sent to a server.',
-      'What is stored, and where: your progress is kept only in this device\'s browser (localStorage). That means: carbon stored, seasons played, badges, growth choices, daily streak, best scores for each day\'s weather, a random nickname (two characters), your challenge history, and your language and sound settings. A playtest log is stored only if a teacher switches it on.',
+      'What is stored, and where: your progress is kept only in this device\'s browser (localStorage). That means: carbon stored, seasons played, badges, growth choices, daily streak, best scores for each day\'s weather, a random nickname (two characters), your challenge history, and your language and sound settings. In Metsäni it also keeps your forest (its trees, years and results) and short summaries of your earlier forests. A playtest log is stored only if a teacher switches it on.',
       'Why: so the game remembers your progress and settings when you come back. It is used only for the game itself, never for tracking or advertising.',
       'Third parties: the game loads no outside services; even the fonts are built in. The website serving the page (currently claude.ai) handles normal web requests under its own privacy policy.',
       'Challenge links and pictures: when you share a challenge link or poster, it shows your nickname, score and weather. It only goes where you send it, and that app\'s terms apply.',
@@ -88,7 +88,7 @@ export const ABOUT_UI = {
     dataTitle: 'Tiedot tällä laitteella',
     testlog: 'Pelitestin loki (opettajalle): tallentaa jokaisen kesän tuloksen tälle laitteelle. Pois päältä oletuksena.',
     del: 'Poista kaikki tiedot tältä laitteelta',
-    delConfirm: 'Poistetaanko varmasti? Edistyminen, merkit, nimimerkki ja haasteet katoavat, eikä niitä voi palauttaa.',
+    delConfirm: 'Poistetaanko varmasti? Edistyminen, merkit, nimimerkki, haasteet ja metsät katoavat, eikä niitä voi palauttaa.',
     delYes: 'Kyllä, poista',
     delNo: 'Peruuta',
     deleted: 'Tiedot poistettu.',
@@ -106,7 +106,7 @@ export const ABOUT_UI = {
     dataTitle: 'Data on this device',
     testlog: 'Playtest log (for teachers): stores the result of every season on this device. Off by default.',
     del: 'Delete all data from this device',
-    delConfirm: 'Delete for sure? Progress, badges, nickname and challenges will be gone and cannot be restored.',
+    delConfirm: 'Delete for sure? Progress, badges, nickname, challenges and forests will be gone and cannot be restored.',
     delYes: 'Yes, delete',
     delNo: 'Cancel',
     deleted: 'Data deleted.',

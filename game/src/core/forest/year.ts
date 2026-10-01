@@ -57,13 +57,15 @@ export function waterBalance(f: Forest, w: { snowWater: number; summerRain: numb
   return { springWater, water: Math.min(1, supply / demand) };
 }
 
-function sdi(trees: Tree[], haFactor: number): number {
+/** Reineke stand density index: trees/ha converted to a 25 cm mean diameter. */
+export function sdi(trees: Tree[], haFactor: number): number {
   let s = 0;
   for (const t of trees) if (t.d > 0) s += Math.pow(t.d / 25, 1.605);
   return s * haFactor;
 }
 
-function sdiLimit(trees: Tree[]): number {
+/** The self-thinning limit for this mix of species. */
+export function sdiLimit(trees: Tree[]): number {
   let sum = 0;
   let n = 0;
   for (const t of trees) if (t.d > 0) { sum += TUNING.sdiMax[t.sp]; n++; }
@@ -174,4 +176,10 @@ export function run(f: Forest, years: number): Forest {
 /** Carbon in the trees, recomputed from the trees themselves. */
 export function treesCarbon(f: Forest): number {
   return f.trees.reduce((s, t) => s + treeCarbon(t), 0);
+}
+
+/** How full the stand is: 0 = open, 1 = at the self-thinning limit. */
+export function relativeDensity(trees: Tree[]): number {
+  const lim = sdiLimit(trees);
+  return Number.isFinite(lim) ? sdi(trees, HA_FACTOR) / lim : 0;
 }

@@ -13,6 +13,8 @@ import { DT, LIGHT_TICKS, STANDARD_TREE, clock, createSeason, result, step, type
 import { decodeChallenge, encodeChallenge, nickParts, randomNick, type Challenge } from '../core/share';
 import { dailySeed, planWeather, type Weather } from '../core/weather';
 import { Sound } from './audio';
+import { Metsani } from './forest/metsani';
+import { FOREST_TEXT } from './forest/text';
 import { ABOUT_UI, aboutSections } from './legal';
 import { renderPoster } from './poster';
 import { Renderer } from './render';
@@ -49,6 +51,19 @@ renderer.hud.reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matc
 renderer.setRank(rankIndex(save.co2LifetimeG));
 const sound = new Sound();
 sound.muted = !load<boolean>(SOUND_KEY, true);
+
+// Metsäni: the forest mode lives in its own module and canvas
+const metsani = new Metsani({
+  lang: () => lang,
+  announce: (s) => announce(s),
+  exit: () => { canvas.hidden = false; toMenu(); },
+  reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
+});
+function openMetsani() {
+  show(null, false);
+  canvas.hidden = true;
+  metsani.enter();
+}
 
 type Mode = 'menu' | 'play' | 'pause' | 'results';
 interface SeasonConfig { mode: SeasonMode; seed: string; weather?: Weather[]; from?: Challenge }
@@ -179,6 +194,8 @@ function renderText() {
   $('btn-play').textContent = x.play;
   $('btn-daily').textContent = x.daily;
   $('btn-cards').textContent = x.cards;
+  $('btn-metsani').textContent = FOREST_TEXT[lang].homeButton;
+  if (metsani.active) metsani.rerender();
   $('btn-radio').innerHTML = sound.muted ? '♪̸' : '♪';
   $('btn-radio').setAttribute('aria-label', ui().sound);
   $('t-howto').innerHTML = x.howto.map((h, i) => `<span><i>${i + 1}</i>${h}</span>`).join('');
@@ -701,6 +718,7 @@ canvas.addEventListener('pointercancel', () => press(false));
 canvas.addEventListener('lostpointercapture', () => press(false));
 window.addEventListener('contextmenu', (e) => e.preventDefault());
 window.addEventListener('keydown', (e) => {
+  if (metsani.active) return;
   if (e.code === 'Space') { e.preventDefault(); sound.unlock(); if (!e.repeat) press(true); }
   if (e.code === 'KeyP') pause(mode === 'play');
   if (e.code === 'KeyM') toggleMute();
@@ -709,6 +727,7 @@ window.addEventListener('keyup', (e) => { if (e.code === 'Space') press(false); 
 // Escape always goes one step back
 window.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
+  if (metsani.active) { metsani.escape(); return; }
   if (mode === 'play') pause(true);
   else if (mode === 'pause') pause(false);
   else if (visible === 'share' || visible === 'levelup') show('results');
@@ -725,20 +744,22 @@ document.addEventListener('change', (e) => {
     renderLog();
   }
 });
-window.addEventListener('blur', () => { press(false); pause(true); });
-document.addEventListener('visibilitychange', () => { if (document.hidden) pause(true); });
-window.addEventListener('resize', () => renderer.resize());
+window.addEventListener('blur', () => { press(false); pause(true); metsani.pause(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { pause(true); metsani.pause(); } });
+window.addEventListener('resize', () => { renderer.resize(); metsani.resize(); });
 
 document.addEventListener('click', (e) => {
   const b = (e.target as HTMLElement).closest('button');
   if (!b) return;
   sound.unlock();
   if (b.dataset.lang) { lang = b.dataset.lang as Lang; store(LANG_KEY, lang); renderText(); return; }
+  if (metsani.active) return; // Metsäni handles its own buttons
   if (b.dataset.grow) { pickGrowth(b.dataset.grow as Growth); return; }
   if (b.dataset.badge) { show('cards'); renderCards(b.dataset.badge); return; }
   switch (b.id) {
     case 'btn-play': case 'btn-next': start(nextSeason()); break;
     case 'btn-daily': start(dailyConfig()); linkSeed = null; break;
+    case 'btn-metsani': openMetsani(); break;
     case 'btn-again': start({ ...current }); break;
     case 'btn-home': case 'btn-cards-close': toMenu(); break;
     case 'btn-cards': show('cards'); renderCards(); break;
@@ -772,6 +793,11 @@ let last = performance.now();
 function frame(now: number) {
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
+  if (metsani.active) {
+    metsani.update(dt);
+    requestAnimationFrame(frame);
+    return;
+  }
   if (mode === 'play') {
     acc += dt;
     while (acc >= DT && mode === 'play') {
@@ -815,5 +841,6 @@ if (location.hash === '#dbg' || load<number>('kasva-dbg', 0) === 1) {
     skip(ticks: number, hold = false) { for (let i = 0; i < ticks && !sim.done; i++) { step(sim, hold); if (sim.done) finish(); } },
     state: () => ({ tick: sim.tick, water: sim.water, mode, save }),
     setSave(s: unknown) { save = migrate(s); persist(); renderer.setRank(rankIndex(save.co2LifetimeG)); renderText(); },
+    metsani: { open: openMetsani, ...metsani.debug() },
   };
 }

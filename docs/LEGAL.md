@@ -22,6 +22,7 @@ Nothing is sent to any server by either app. All storage is the browser's `local
 | Key | App | Contents | Needed for | Removable |
 |---|---|---|---|---|
 | `kasva-save` | Kasva! | carbon total, seasons played, badges, growth choices, streak days, best score per daily seed, random 2-character nickname code, challenge history (nickname codes, seeds, scores, dates) | progress between visits | "Delete all data" on the About screen, or clearing browser data |
+| `kasva-forest` | Kasva! (Metsäni mode) | the current forest (place, soil, trees, yearly results, a random forest seed) and short summaries of up to 12 earlier forests | continuing and comparing forests between visits | same |
 | `kasva-lang`, `kasva-sound` | Kasva! | language, sound on/off | settings | same |
 | `kasva-testlog`, `kasva-greybox-log` | Kasva! | playtest log switch, and per-season results with timestamps | teacher and research playtests only. **Off by default**, and switching it off clears the log. | switch off, or delete |
 | `kasva-dbg` | Kasva! | test hook flag, set only by automated tests | development | same |

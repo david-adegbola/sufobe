@@ -1,0 +1,190 @@
+/**
+ * Metsäni words, Finnish and English. Short sentences for ages 10–12, with
+ * real Finnish forestry terms where a child could meet them.
+ * Claims follow docs/forest-model.md: simplified, never presented as exact.
+ */
+import type { HealthReason, LifeReason, PlaceId, SoilId, SpeciesId, Spacing } from '../../core/forest';
+import type { Lang } from '../text';
+
+type Season = 'spring' | 'summer' | 'autumn' | 'winter';
+
+const fi = {
+  title: 'Metsäni',
+  homeButton: 'Metsäni',
+  tagline: 'Kasvata oma metsä vuosi vuodelta.',
+  stepPlace: '1 · Missä metsäsi kasvaa?',
+  stepSoil: '2 · Millainen maaperä?',
+  stepTrees: '3 · Mitä istutat?',
+  spacingTitle: 'Kuinka tiheään?',
+  plant: 'Istuta!',
+  back: 'Takaisin',
+  continueForest: (y: number) => `Jatka metsää (vuosi ${y})`,
+  newForest: 'Uusi metsä',
+  pickOne: 'Valitse ainakin yksi puulaji.',
+  earlier: 'Aiemmat metsäsi',
+  earlierNote: 'Vertaa: missä metsä kasvoi parhaiten?',
+  noEarlier: 'Ei vielä aiempia metsiä.',
+  replaceWarn: 'Uusi metsä korvaa nykyisen. Nykyinen tallentuu vertailulistaan.',
+  places: {
+    south: { name: 'Etelä-Suomi', words: 'pitkä kesä · leuto talvi · vähän lunta' },
+    east: { name: 'Itä-Suomi', words: 'keskipitkä kesä · luminen talvi · Kasva!-pelin koti' },
+    lapland: { name: 'Lappi', words: 'lyhyt kesä · yötön yö · paljon lunta' },
+    future: { name: 'Lämpimämpi tulevaisuus', words: 'pitkä kesä · kuivempi · vähemmän lunta' },
+  } as Record<PlaceId, { name: string; words: string }>,
+  soils: {
+    sandy: { name: 'Hiekka', words: 'Vesi valuu läpi nopeasti. Mänty pärjää.' },
+    clay: { name: 'Savi', words: 'Pitää vettä ja ravinteita, keväällä märkä.' },
+    peat: { name: 'Turve (suo)', words: 'Märkä ja kylmä. Valtava hiilivarasto.' },
+    loam: { name: 'Multava moreeni', words: 'Monipuolinen. Kuusi ja koivu viihtyvät.' },
+    rocky: { name: 'Kallio', words: 'Ohut maa kallion päällä. Mänty pärjää parhaiten.' },
+  } as Record<SoilId, { name: string; words: string }>,
+  meterWater: 'vesi',
+  meterFood: 'ravinteet',
+  species: {
+    pine: { name: 'Mänty', words: 'kestää kuivuutta, tarvitsee valoa' },
+    spruce: { name: 'Kuusi', words: 'sietää varjoa, tarvitsee vettä ja ravinteita' },
+    birch: { name: 'Koivu', words: 'nopea alussa, pudottaa lehtensä' },
+  } as Record<SpeciesId, { name: string; words: string }>,
+  spacing: { sparse: 'Harva', normal: 'Tavallinen', dense: 'Tiheä' } as Record<Spacing, string>,
+  perHa: (n: number) => `${n} puuta / ha`,
+  seasons: { spring: 'Kevät', summer: 'Kesä', autumn: 'Syksy', winter: 'Talvi' } as Record<Season, string>,
+  year: (y: number) => `Vuosi ${y}`,
+  play: 'Jatka',
+  pause: 'Tauko',
+  speedNormal: 'Normaali nopeus',
+  speedFast: 'Nopeasti',
+  jump10: '+10 vuotta',
+  drought: 'Kuiva kesä',
+  results: {
+    wood: 'Puu', carbon: 'Hiili', life: 'Elämä', health: 'Terveys', products: 'Tuotteet',
+  },
+  woodValue: (m3: number) => `${m3} m³/ha`,
+  carbonValue: (t: number) => `${t} t CO₂/ha`,
+  productsNone: 'ei vielä',
+  explain: {
+    wood: (m3: string) => `Metsässäsi on puuta noin ${m3} kuutiometriä hehtaarilla. Paksut, suorat rungot ovat tukkeja, ohuet kuitupuuta.`,
+    carbon: (removed: string, trees: string, soil: string) =>
+      `Metsäsi on ottanut ilmasta yhteensä ${removed} t hiilidioksidia hehtaarilla. Puissa on hiiltä ${trees} t CO₂:ta vastaava määrä ja maaperässä ${soil} t.`,
+    carbonNeg: 'Nuoressa metsässä maaperä vapauttaa vielä enemmän hiilidioksidia kuin pienet taimet ottavat. Se kääntyy, kun puut kasvavat.',
+    life: {
+      young: 'Metsä on vielä nuori. Elämä lisääntyy, kun puut vanhenevat ja lahopuuta kertyy.',
+      oneSpecies: 'Yksi puulaji tarjoaa kodin harvoille lajeille. Sekametsässä on enemmän elämää.',
+      mixed: 'Monta puulajia ja lehtipuita: sekametsä tarjoaa ruokaa ja suojaa monille lajeille.',
+      deadwood: 'Lahopuu on koti monille sienille, kovakuoriaisille ja tikoille.',
+      oldTrees: 'Isot, vanhat puut ovat tärkeitä koloissa pesiville linnuille ja liito-oravalle.',
+    } as Record<LifeReason, string>,
+    health: {
+      fine: 'Puut voivat hyvin: vettä riittää ja tilaa on.',
+      drought: 'Kesä oli kuiva. Puilta loppui vesi, ja ne kasvoivat vähemmän.',
+      crowded: 'Metsä on liian tiheä. Puut kilpailevat valosta ja vedestä, ja heikoimmat kuolevat.',
+      dying: 'Moni puu kuoli tänä vuonna. Kuolleista tulee lahopuuta.',
+    } as Record<HealthReason, string>,
+    products: 'Kun harvennat tai hakkaat metsää, puusta tulee lautoja, paperia ja energiaa. Hakkuut tulevat peliin seuraavassa vaiheessa.',
+  },
+  scoreOf: (s: number) => `${s} / 5`,
+  tapTree: 'Napauta puuta nähdäksesi sen tiedot.',
+  card: {
+    planted: (y: number, age: number) => `Istutettu vuonna ${y} · ikä ${age} v`,
+    height: 'Pituus', diameter: 'Rungon paksuus', wood: 'Runkopuuta', carbon: 'Hiiltä', co2: 'Ilmasta otettu CO₂',
+    rings: 'Vuosilustot: leveä lusto = hyvä kasvuvuosi',
+    light: { good: 'Saa paljon valoa', some: 'Osittain varjossa', poor: 'Varjossa, kasvaa hitaasti' },
+    seedling: 'Taimi on vielä alle 1,3 metriä, joten paksuutta ei mitata.',
+    close: 'Sulje',
+  },
+  canvasLabel: 'Metsäsi sivulta nähtynä: puut, maaperän leikkaus, vesi ja juuret.',
+  yearDone: (y: number, vol: number) => `Vuosi ${y} päättyi. Puuta ${vol} kuutiometriä hehtaarilla.`,
+  summary: (y: number, vol: number, co2: number) => `${y} v · ${vol} m³/ha · ${co2} t CO₂/ha`,
+  speciesList: (names: string[]) => names.join(' + '),
+};
+
+type ForestText = typeof fi;
+
+const en: ForestText = {
+  title: 'Metsäni',
+  homeButton: 'My forest',
+  tagline: 'Grow your own forest, year after year.',
+  stepPlace: '1 · Where does your forest grow?',
+  stepSoil: '2 · What kind of soil?',
+  stepTrees: '3 · What will you plant?',
+  spacingTitle: 'How close together?',
+  plant: 'Plant!',
+  back: 'Back',
+  continueForest: (y: number) => `Continue forest (year ${y})`,
+  newForest: 'New forest',
+  pickOne: 'Pick at least one tree species.',
+  earlier: 'Your earlier forests',
+  earlierNote: 'Compare: where did the forest grow best?',
+  noEarlier: 'No earlier forests yet.',
+  replaceWarn: 'A new forest replaces the current one. The current one is kept in the comparison list.',
+  places: {
+    south: { name: 'Southern Finland', words: 'long summer · mild winter · little snow' },
+    east: { name: 'Eastern Finland', words: 'medium summer · snowy winter · Kasva!’s home' },
+    lapland: { name: 'Lapland', words: 'short summer · midnight sun · deep snow' },
+    future: { name: 'Warmer future', words: 'long summer · drier · less snow' },
+  },
+  soils: {
+    sandy: { name: 'Sand', words: 'Water drains away fast. Pine copes.' },
+    clay: { name: 'Clay', words: 'Holds water and food, soggy in spring.' },
+    peat: { name: 'Peat (bog)', words: 'Wet and cold. A huge carbon store.' },
+    loam: { name: 'Loamy till', words: 'The all-rounder. Spruce and birch thrive.' },
+    rocky: { name: 'Rocky', words: 'Thin soil on rock. Pine copes best.' },
+  },
+  meterWater: 'water',
+  meterFood: 'food',
+  species: {
+    pine: { name: 'Pine', words: 'copes with drought, needs light' },
+    spruce: { name: 'Spruce', words: 'copes with shade, needs water and food' },
+    birch: { name: 'Birch', words: 'fast starter, drops its leaves' },
+  },
+  spacing: { sparse: 'Sparse', normal: 'Normal', dense: 'Dense' },
+  perHa: (n: number) => `${n} trees / ha`,
+  seasons: { spring: 'Spring', summer: 'Summer', autumn: 'Autumn', winter: 'Winter' },
+  year: (y: number) => `Year ${y}`,
+  play: 'Play',
+  pause: 'Pause',
+  speedNormal: 'Normal speed',
+  speedFast: 'Fast',
+  jump10: '+10 years',
+  drought: 'Dry summer',
+  results: { wood: 'Wood', carbon: 'Carbon', life: 'Life', health: 'Health', products: 'Products' },
+  woodValue: (m3: number) => `${m3} m³/ha`,
+  carbonValue: (t: number) => `${t} t CO₂/ha`,
+  productsNone: 'none yet',
+  explain: {
+    wood: (m3: string) => `Your forest holds about ${m3} cubic metres of wood per hectare. Thick, straight trunks are sawlogs (tukki); thin ones are pulpwood (kuitupuu).`,
+    carbon: (removed: string, trees: string, soil: string) =>
+      `Your forest has taken ${removed} t of carbon dioxide per hectare out of the air. The trees hold carbon worth ${trees} t of CO₂, and the soil ${soil} t.`,
+    carbonNeg: 'In a young forest the soil still releases more carbon dioxide than the small seedlings take in. That turns around as the trees grow.',
+    life: {
+      young: 'The forest is still young. Life increases as the trees get older and deadwood gathers.',
+      oneSpecies: 'One tree species gives a home to few others. A mixed forest holds more life.',
+      mixed: 'Several tree species and broadleaves: a mixed forest gives food and shelter to many species.',
+      deadwood: 'Deadwood is home to many fungi, beetles and woodpeckers.',
+      oldTrees: 'Big old trees matter to birds that nest in holes, and to the flying squirrel.',
+    },
+    health: {
+      fine: 'The trees are doing well: enough water and enough room.',
+      drought: 'The summer was dry. The trees ran short of water and grew less.',
+      crowded: 'The forest is too dense. The trees compete for light and water, and the weakest die.',
+      dying: 'Many trees died this year. They become deadwood.',
+    },
+    products: 'When you thin or harvest, the wood becomes boards, paper and energy. Harvesting comes to the game in the next stage.',
+  },
+  scoreOf: (s: number) => `${s} / 5`,
+  tapTree: 'Tap a tree to see its details.',
+  card: {
+    planted: (y: number, age: number) => `Planted in year ${y} · age ${age}`,
+    height: 'Height', diameter: 'Trunk width', wood: 'Stem wood', carbon: 'Carbon', co2: 'CO₂ taken from the air',
+    rings: 'Tree rings: a wide ring = a good growing year',
+    light: { good: 'Gets plenty of light', some: 'Partly shaded', poor: 'In the shade, growing slowly' },
+    seedling: 'The seedling is still under 1.3 metres, so its trunk width is not measured.',
+    close: 'Close',
+  },
+  canvasLabel: 'Your forest from the side: trees, a cut through the soil, water and roots.',
+  yearDone: (y: number, vol: number) => `Year ${y} is over. ${vol} cubic metres of wood per hectare.`,
+  summary: (y: number, vol: number, co2: number) => `${y} yrs · ${vol} m³/ha · ${co2} t CO₂/ha`,
+  speciesList: (names: string[]) => names.join(' + '),
+};
+
+export const FOREST_TEXT: Record<Lang, ForestText> = { fi, en };
+export type { Season };

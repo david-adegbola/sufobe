@@ -7,3 +7,4 @@ export * from './stand';
 export * from './year';
 export * from './manage';
 export * from './wood';
+export * from './indicators';
