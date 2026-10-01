@@ -87,8 +87,8 @@ Read `forest-model.md` first (about 15 minutes). Then:
 
 ## 5. Privacy and publishing (the person publishing the game)
 
-- [ ] Fill in the operator name and contact (`game/src/app/legal.ts`, `OPERATOR`).
-- [ ] Name the host where the game will be published (`legal.ts`, the "Third parties" paragraph).
+- [x] Fill in the operator name and contact (`game/src/app/legal.ts`, `OPERATOR`).
+- [x] Name the host where the game will be published (`legal.ts`, the "Third parties" paragraph): GitHub Pages.
 - [ ] Optionally, state the governing law for the terms.
 - [ ] Re-read `docs/LEGAL.md`. Have someone qualified check the reasoning before use in schools.
 - [ ] On a real iPad and an Android tablet, open the offline web build (`npm run build`, see the README's *Publish*), play two seasons, install it, switch on flight mode, and check that it still opens and plays.

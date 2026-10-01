@@ -8,8 +8,8 @@ This is not legal advice. The reasoning below should be checked by someone quali
 
 | Needed | Where it goes | Why |
 |---|---|---|
-| **Operator name**: the person or organisation responsible for the game | `OPERATOR.name` in `game/src/app/legal.ts` | The privacy notice must say who is responsible (GDPR art. 13 asks for the controller's identity, even when little or no personal data is processed). |
-| **Contact** for privacy questions: an email address or web form | `OPERATOR.contact` in the same file | People must be able to ask questions or make requests. |
+| ~~Operator name~~ | done: David Adegbola, `OPERATOR.name` in `game/src/app/legal.ts` | The privacy notice must say who is responsible (GDPR art. 13 asks for the controller's identity, even when little or no personal data is processed). |
+| ~~Contact for privacy questions~~ | done: adavidadegbola@gmail.com, `OPERATOR.contact` in the same file | People must be able to ask questions or make requests. |
 | ~~Where the game will be hosted publicly~~ | done: GitHub Pages, named in the "Third parties" paragraph in `legal.ts` | Update it if the game moves to another host. |
 | *(Optional)* **Governing law / jurisdiction** for the terms | the terms section in `legal.ts` | Left out on purpose rather than guessed. |
 

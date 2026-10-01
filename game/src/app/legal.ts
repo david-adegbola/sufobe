@@ -6,12 +6,11 @@
 import type { Lang } from './text';
 
 /**
- * Operator details. These are deliberately empty: they must come from the
- * person publishing the game, not be invented. See docs/LEGAL.md.
+ * Operator details, as given by the person publishing the game. See docs/LEGAL.md.
  */
 export const OPERATOR = {
-  name: '',     // e.g. the person or organisation responsible for the game
-  contact: '',  // an email address or web form for privacy questions
+  name: 'David Adegbola',             // the person responsible for the game
+  contact: 'adavidadegbola@gmail.com', // for privacy questions
 };
 
 interface Section { id: string; title: string; body: string[] }
