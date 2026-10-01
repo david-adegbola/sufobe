@@ -1,4 +1,4 @@
-# Metsäni forest model (F0)
+# Metsäni forest model (F0–F2)
 
 The forest core behind the Metsäni mode. It runs without the DOM, is deterministic, and is checked by `tests/forest/`. There is no user interface yet. The screens come in F1.
 
@@ -79,16 +79,16 @@ Harvesting: stems go to the mills. Branches, needles, fine roots and stem tops s
 
 These ranges are wide on purpose. They check direction and rough size, and they get narrowed once Luke tables are in.
 
-| Check (80 years, no management, 2000 planted/ha) | Range | Model now |
+| Check (80 years, no management, 2000 planted/ha, one seed, with storms and beetles) | Range | Model now |
 |---|---|---|
-| Spruce on loam, east: volume | 350–600 m³/ha | ≈ 490 |
+| Spruce on loam, east: volume | 350–600 m³/ha | ≈ 410 |
 | Spruce on loam, east: dominant height | 20–28 m | ≈ 24 |
-| Spruce on loam, east: basal area | 30–50 m²/ha | ≈ 43 |
-| Spruce on loam, east: trees left | < 1200/ha | ≈ 750 |
-| Pine on sand, east: volume | 200–420 m³/ha | ≈ 310 |
+| Spruce on loam, east: basal area | 30–50 m²/ha | ≈ 36 |
+| Spruce on loam, east: trees left | < 1200/ha | ≈ 650 |
+| Pine on sand, east: volume | 200–420 m³/ha | ≈ 300 |
 | Pine on sand, east: dominant height | 15–22 m | ≈ 19 |
-| Pine on sand, Lapland: volume | 40–180 m³/ha | ≈ 110 |
-| Spruce on loam, east: tree carbon | 80–220 t C/ha | ≈ 165 |
+| Pine on sand, Lapland: volume | 40–180 m³/ha | ≈ 60 |
+| Spruce on loam, east: tree carbon | 80–220 t C/ha | ≈ 136 |
 
 Directions tested, averaged over four seeds:
 
@@ -119,6 +119,82 @@ Directions tested, averaged over four seeds:
 
 (carbon columns in t C/ha; CO2rm = t CO₂/ha removed from the air so far.) After the clear-cut, CO₂ removed falls from 436 to 169. Most of the harvest went to paper and energy, which return to the air within a few years. Only the sawn wood keeps its carbon for decades. That is the trade-off the "Carbon" result will show the child.
 
+## F2: disturbances, choices, animals
+
+### Things that happen (`events.ts`)
+
+| Event | Rule in the game | Verify |
+|---|---|---|
+| Storm | A damaging storm comes with a small yearly chance per place (south 8 %, east 7 %, Lapland 5 %, warmer future 11 %). Each tree taller than 8 m may fall. The chance grows with height² and the storm's strength, and depends on species (spruce 1, aspen 0.6, birch 0.5, pine 0.45). It is higher on peat and rocky soil (× 1.4) and clay (× 1.1), for 5 years after a thinning or continuous-cover cut (× 2), and when fewer than 10 trees are left standing (× 2.5). | storm frequency, species and soil factors (Luke, FMI) |
+| Spruce bark beetle (kirjanpainaja) | Needs at least 3 spruces ≥ 15 cm and enough summer warmth (none in Lapland). Breeds only after a drought this year or last, or in fresh dead spruce (storm-felled or beetle-killed in the last year). Risk rises with each of these; an outbreak kills a share of the big spruces, bigger ones first. | risk factors, outbreak sizes (Luke) |
+| Moose (hirvi) | In a moose year (about every other year), each pine, birch or aspen sapling 0.5–3.5 m tall has a 35 % chance of being browsed. A browsed sapling keeps only 30 % of that summer's height growth, and 5 % of browsed saplings die. Spruce is not browsed. | browsing rates |
+| Natural seeding | After "let nature seed", seedlings arrive for 10 years while the stand is open (G < 10 m²/ha), aiming at 2400 per ha. The mix depends on soil: on loam and clay, birch 50 %, spruce 30 %, pine 10 %, aspen 10 %; on sand and rock, pine first; kept trees add their own species. | regeneration densities and mixes (Tapio) |
+| Continuous cover | After cutting the biggest trees, 2–4 seedlings a year (mostly spruce) come up while G < 22. | ingrowth rates |
+
+Dead trees of 8 cm or more stay visible as **logs** (storm) or **standing snags** (other causes). Snags fall after 6–11 years. Their carbon is part of the deadwood store and rots at the same pace. A fresh log can be taken to the mills: its stem carbon moves from deadwood to products. Storm-felled logs taken out within a year still give some sawlogs.
+
+### Tikka's questions (`decisions.ts`)
+
+At most one question a year, in this order:
+1. **What grows here next?** (after a final harvest; plant or let nature seed). This is the only question without a do-nothing answer. The game tells the child that the Forest Act requires a new forest after a final harvest (**verify** wording with a forestry teacher).
+2. **Storm** (2 or more trees fell): take out, take half, or leave as deadwood.
+3. **Beetles**: cut out the beetle trees or leave them.
+4. **Dense young stand** (dominant height 2.5–8 m, 2100 or more saplings per ha; asked once): tend or do nothing.
+5. **Mature** (mean diameter ≥ 28 cm or trees ≥ 85 years, dominant height ≥ 18 m; every 15 years): final harvest; final harvest keeping 2 trees on the plot; continuous cover; or let it grow old.
+6. **Crowded** (relative density ≥ 0.65, dominant height ≥ 11 m, mean diameter ≥ 12 cm, 15 years since the last cut; every 8 years): thin to 19 m²/ha, thin lightly to 23, or do nothing.
+
+**Verify:**
+- The thinning thresholds and targets against Tapio's thinning models.
+- Keeping 2 trees on the 20 × 20 m plot equals 50 trees/ha, more than the usual 5–10/ha. It was chosen so the kept trees are visible.
+
+### Animals (`animals.ts`)
+
+Each animal appears when its rule is met, and is listed as seen from then on. The thresholds are game choices for an ecologist to check:
+
+| Animal | Rule |
+|---|---|
+| moose (hirvi) | pine, birch or aspen saplings 0.5–4 m are at least 15 % of the trees |
+| great spotted woodpecker (käpytikka) | 8 or more spruces or pines ≥ 18 cm |
+| capercaillie (metso) | pine ≥ 35 % of trees, tallest ≥ 15 m, oldest ≥ 50 years |
+| treecreeper (puukiipijä) | 4 or more trees ≥ 28 cm |
+| black woodpecker (palokärki) | 2 or more trees ≥ 30 cm and ≥ 10 m³/ha of visible dead trees |
+| Siberian jay (kuukkeli) | east or Lapland, oldest ≥ 80 years, 8 or more conifers ≥ 20 cm |
+| flying squirrel (liito-orava) | an aspen ≥ 20 cm and 5 or more spruces ≥ 20 cm |
+
+**Life** counts visible dead trees (logs and snags, not stumps and roots). It gives credit for a species mix only as the stand grows up to about 12 m.
+
+### Trade-offs (from `tests/forest/tradeoffs.test.ts`, 100 years, mean of 4 seeds)
+
+```
+east/loam    wood m³/ha  carbon t CO₂/ha  life  health  products t CO₂/ha
+never        443         732              2.89  3.35    0
+rotation     500         148              2.11  4.42    331
+early        573         158              2.05  4.44    335
+continuous   473         236              2.31  4.44    261
+retention    468         195              2.64  4.18    295
+```
+
+The managers:
+- **never:** leaves the forest alone.
+- **rotation:** tends, thins and harvests at maturity, then replants.
+- **early:** clear-cuts as soon as the mean diameter reaches 15 cm.
+- **continuous:** cuts the biggest trees, with natural seeding.
+- **retention:** thins lightly, keeps trees and deadwood, and lets nature seed.
+
+The tests check:
+- No manager is best on all five results, on fertile loam in the east or on sand in the south.
+- Leaving the forest alone stores the most carbon and makes no products.
+- A short rotation gives less life than leaving trees, deadwood or continuous cover.
+- A normal rotation gives more than twice the sawn wood of a short one.
+- Carbon stays conserved through every manager.
+
+**Known issue, to calibrate:** the short pulpwood rotation produces about 10 % more total cubic metres than the thinned rotation. In Finnish yield tables a thinned rotation near the age of maximum mean growth should give at least as much. The likely causes are:
+- crowding losses between thinnings
+- the simple thinning rule
+- the strength of shared competition (`CROWDING`)
+
+This needs checking against Luke yield tables before playtests. Until then the game never claims either way gives "more wood". It shows the numbers, and the sawlog/pulpwood split shows the difference in what the wood becomes.
+
 ## Known simplifications (on purpose, from the plan)
 
 - One "soil food" value instead of nitrogen, phosphorus and potassium. Soil water does not carry over from one year to the next.
@@ -126,10 +202,8 @@ Directions tested, averaged over four seeds:
 - The model tracks net growth (NPP). Photosynthesis and the trees' own respiration are not separate flows here; Kasva! teaches those at the leaf scale.
 - Height does not depend on stand density. Diameter does.
 
-## Not in F0 (later phases)
+## Not yet in the game (later phases)
 
-- Natural seeding, storms, bark beetles, moose and drainage of peat (F2).
-- Continuous-cover harvesting (F2).
-- The five results and animals (F1/F2).
+- Drainage of peat, and snow damage.
 - The mill mini-game, recycling and trace-back (F3).
 - All UI.

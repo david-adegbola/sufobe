@@ -9,7 +9,7 @@
  * autumn (ruska), bare in winter.
  */
 import {
-  PLACES, SOILS, relativeDensity, type Forest, type SoilId, type SpeciesId, type Tree, type YearRecord,
+  PLACES, SOILS, relativeDensity, type AnimalId, type DeathCause, type Forest, type SoilId, type SpeciesId, type Tree, type YearRecord,
 } from '../../core/forest';
 import { makeRng } from '../../core/rng';
 import type { Season } from './text';
@@ -27,6 +27,8 @@ export interface ForestView {
   selected: number | null;
   time: number;
   reducedMotion: boolean;
+  /** animals living in the forest now */
+  animals?: AnimalId[];
 }
 
 export function seasonOf(p: number): { season: Season; ps: number } {
@@ -58,6 +60,9 @@ export class ForestScene {
   private c: CanvasRenderingContext2D;
   private W = 0;
   private H = 0;
+  /** where this scene draws on the canvas (CSS px): the whole canvas, or half of it in "What if?" */
+  private vx = 0;
+  private vy = 0;
   private dpr = 1;
   private hills: HTMLCanvasElement | null = null;
   private hillsKey = '';
@@ -77,7 +82,16 @@ export class ForestScene {
     this.H = this.canvas.clientHeight || innerHeight;
     this.canvas.width = Math.round(this.W * this.dpr);
     this.canvas.height = Math.round(this.H * this.dpr);
+    this.vx = 0;
+    this.vy = 0;
     this.hillsKey = '';
+  }
+
+  /** Draw into part of the canvas only (CSS px). Call after the canvas has its size. */
+  setViewport(x: number, y: number, w: number, h: number) {
+    this.dpr = Math.min(2, window.devicePixelRatio || 1);
+    if (w !== this.W || h !== this.H) { this.hillsKey = ''; this.zoom = 0; }
+    this.vx = x; this.vy = y; this.W = w; this.H = h;
   }
 
   /** pixels per metre, eased so the view zooms out smoothly as the trees grow */
@@ -120,6 +134,9 @@ export class ForestScene {
 
   /** The id of the tree under a point (CSS px), front trees first. */
   hit(x: number, y: number): number | null {
+    x -= this.vx;
+    y -= this.vy;
+    if (x < 0 || y < 0 || x > this.W || y > this.H) return null;
     for (let i = this.hits.length - 1; i >= 0; i--) {
       const h = this.hits[i];
       if (x >= h.x0 && x <= h.x1 && y >= h.y0 && y <= h.y1) return h.id;
@@ -132,7 +149,7 @@ export class ForestScene {
     const t = f.trees.find(tr => tr.id === id);
     if (!t) return null;
     const P = this.place(this.layout(), t, 0);
-    return { x: P.x, y: P.base };
+    return { x: P.x + this.vx, y: P.base + this.vy };
   }
 
   draw(v: ForestView, dt = 0) {
@@ -142,7 +159,9 @@ export class ForestScene {
     const { season, ps } = seasonOf(v.p);
     const f = v.forest;
     const drought = !!v.rec?.weather.drought;
-    c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    c.setTransform(this.dpr, 0, 0, this.dpr, this.dpr * this.vx, this.dpr * this.vy);
+    c.save();
+    c.beginPath(); c.rect(0, 0, L.W, L.H); c.clip();
 
     // sky
     const [top, bottom] = SKIES[season];
@@ -168,6 +187,7 @@ export class ForestScene {
     c.fillStyle = fg;
     c.fillRect(0, floorTop, L.W, L.depthBand + 3);
     this.drawFloor(L, f, season, snow, drought);
+    this.drawLogs(L, v, season);
 
     // the stand, far trees first; the same forest continues faintly at the sides
     const rd = relativeDensity(f.trees);
@@ -184,8 +204,89 @@ export class ForestScene {
     // the soil cutaway
     this.drawSoil(L, v, season, ps);
 
+    // animals that live here now
+    if (v.animals?.length) this.drawAnimals(L, v, season);
+
     // falling snow or leaves
     if (!v.reducedMotion) this.drawParticles(L, season, ps, v.time);
+    c.restore();
+  }
+
+  /** Dead trees: fallen logs on the floor and standing snags, greying and mossing as they rot. */
+  private drawLogs(L: ReturnType<ForestScene['layout']>, v: ForestView, season: Season) {
+    const c = this.c;
+    for (const l of [...v.forest.logs].sort((a, b) => depthOf(b.id) - depthOf(a.id))) {
+      // this year's dead appear when they die, late in the year
+      if (v.rec && l.year === v.rec.year && v.p < 0.8) continue;
+      const P = this.place(L, { id: l.id, x: l.x } as Tree, 0);
+      const px = L.px * P.s;
+      const rot = 1 - l.c / l.c0; // 0 fresh .. ~0.9 nearly gone
+      const col = mixHex('#7a5a40', '#6f7f5a', rot);
+      const thick = Math.max(3, (l.d / 100) * px * 2.2);
+      if (l.standing) {
+        const hh = l.h * px * (0.75 - 0.3 * rot);
+        c.fillStyle = darken(l.sp === 'birch' || l.sp === 'aspen' ? '#d9d4c4' : '#8d8478', P.depth * 0.28);
+        c.beginPath();
+        c.moveTo(P.x - thick / 2, P.base); c.lineTo(P.x - thick * 0.3, P.base - hh); c.lineTo(P.x, P.base - hh - thick); c.lineTo(P.x + thick * 0.3, P.base - hh * 0.96); c.lineTo(P.x + thick / 2, P.base);
+        c.fill();
+        // a few dead branch stubs, and woodpecker holes in the bigger snags
+        c.strokeStyle = c.fillStyle; c.lineWidth = Math.max(1, thick * 0.2);
+        for (let i = 1; i <= 3; i++) { const y = P.base - hh * (0.45 + i * 0.15); c.beginPath(); c.moveTo(P.x, y); c.lineTo(P.x + (i % 2 ? 1 : -1) * thick * 1.6, y - thick * 0.6); c.stroke(); }
+        if (l.d > 25) { c.fillStyle = '#2a211b'; c.beginPath(); c.ellipse(P.x, P.base - hh * 0.6, thick * 0.18, thick * 0.26, 0, 0, Math.PI * 2); c.fill(); }
+      } else {
+        const len = Math.min(L.plotW * 0.45, l.h * px * 0.7);
+        const dir = hash(l.id + 5) < 0.5 ? -1 : 1;
+        const y = P.base - thick * 0.4;
+        c.fillStyle = darken(col, P.depth * 0.25);
+        c.beginPath(); c.roundRect(Math.min(P.x, P.x + dir * len), y - thick / 2, len, thick, thick / 2); c.fill();
+        // the cut or broken end shows rings when fresh; moss grows on old logs
+        c.fillStyle = rot < 0.3 ? '#e2c48e' : '#7d6b4f';
+        c.beginPath(); c.ellipse(P.x, y, thick * 0.3, thick / 2, 0, 0, Math.PI * 2); c.fill();
+        if (rot > 0.35) { c.fillStyle = 'rgba(110,150,70,0.8)'; c.beginPath(); c.ellipse(P.x + dir * len * 0.5, y - thick * 0.45, len * 0.35, thick * 0.22, 0, 0, Math.PI * 2); c.fill(); }
+        if (season === 'winter') { c.fillStyle = 'rgba(250,252,255,0.9)'; c.fillRect(Math.min(P.x, P.x + dir * len), y - thick / 2 - 2, len, 3); }
+      }
+    }
+  }
+
+  /** Small figures for the animals the forest supports, each where it would be. */
+  private drawAnimals(L: ReturnType<ForestScene['layout']>, v: ForestView, season: Season) {
+    const c = this.c;
+    const f = v.forest;
+    const k = Math.max(1.1, Math.min(2.2, L.px / 12));
+    const trunkOf = (pred: (t: Tree) => boolean, n = 0) => {
+      const ts = f.trees.filter(pred).sort((a, b) => depthOf(a.id) - depthOf(b.id) || b.d - a.d);
+      return ts[n % Math.max(1, ts.length)];
+    };
+    const at = (t: Tree | undefined, frac: number) => {
+      if (!t) return null;
+      const P = this.place(L, t, 0);
+      return { x: P.x, y: P.base - t.h * L.px * P.s * frac, w: Math.max(2, (t.d / 100) * L.px * P.s * 1.6) };
+    };
+    const bob = v.reducedMotion ? 0 : Math.sin(v.time * 2) * 1.5;
+    for (const a of v.animals ?? []) {
+      if (a === 'moose') {
+        const x = L.W * 0.28, y = L.groundY - L.depthBand * 0.35;
+        drawMoose(c, x, y, 34 * k, season);
+      } else if (a === 'capercaillie') {
+        drawCapercaillie(c, L.W * 0.66, L.groundY - L.depthBand * 0.2, 20 * k);
+      } else if (a === 'blackWoodpecker') {
+        const snag = f.logs.find(l => l.standing && l.d > 20);
+        const p = snag ? (() => { const P = this.place(L, { id: snag.id, x: snag.x } as Tree, 0); return { x: P.x, y: P.base - snag.h * L.px * P.s * 0.4, w: (snag.d / 100) * L.px * 1.6 }; })() : at(trunkOf(t => t.d >= 30), 0.35);
+        if (p) drawWoodpecker(c, p.x + p.w / 2, p.y + bob, 14 * k, '#151515', '#d7262b', false);
+      } else if (a === 'spottedWoodpecker') {
+        const p = at(trunkOf(t => (t.sp === 'spruce' || t.sp === 'pine') && t.d >= 18, 1), 0.55);
+        if (p) drawWoodpecker(c, p.x - p.w / 2 - 10 * k, p.y - bob, 11 * k, '#1d1d1d', '#d7262b', true);
+      } else if (a === 'treecreeper') {
+        const p = at(trunkOf(t => t.d >= 28, 2), 0.25);
+        if (p) { c.fillStyle = '#7b5a3a'; c.beginPath(); c.ellipse(p.x + p.w / 2, p.y + bob * 2, 3.2 * k, 6 * k, -0.3, 0, Math.PI * 2); c.fill(); c.fillStyle = '#f3efe3'; c.beginPath(); c.ellipse(p.x + p.w / 2 + 1.8 * k, p.y + bob * 2, 1.5 * k, 4.5 * k, -0.3, 0, Math.PI * 2); c.fill(); }
+      } else if (a === 'siberianJay') {
+        const p = at(trunkOf(t => t.sp === 'spruce' || t.sp === 'pine', 3), 0.5);
+        if (p) drawJay(c, p.x + p.w * 3, p.y, 12 * k);
+      } else if (a === 'flyingSquirrel') {
+        const p = at(trunkOf(t => t.sp === 'aspen'), 0.7);
+        if (p) drawFlyingSquirrel(c, p.x + 30 * k + (v.reducedMotion ? 0 : (v.time * 20) % 60), p.y + ((v.time * 8) % 25), 9 * k);
+      }
+    }
   }
 
   private drawSun(L: ReturnType<ForestScene['layout']>, season: Season) {
@@ -246,9 +347,12 @@ export class ForestScene {
     const h = prev ? lerp(prev.h, t.h, g01) : t.h;
     const d = prev ? lerp(prev.d, t.d, g01) : t.d;
     const dying = v.dying.some(x => x.id === t.id) && !v.forest.trees.some(x => x.id === t.id);
-    let alpha = 1;
-    if (dying) alpha = 1 - clamp01((v.p - 0.8) / 0.18);
-    if (alpha <= 0.01) return;
+    const cause: DeathCause | 'cut' = dying ? (v.forest.logs.find(l => l.id === t.id)?.cause ?? (v.rec && v.forest.harvests.some(hh => hh.year === v.rec!.year) ? 'cut' : 'crowded')) : 'crowded';
+    if (dying && v.p >= 0.8) return; // from now on it is a log or a snag
+    // a beetle-killed spruce turns red-brown in summer; others fade in autumn; storms throw trees down in autumn
+    const deadNow = dying && (cause === 'beetle' ? v.p > 0.3 : v.p > 0.55);
+    const fall = dying && cause === 'storm' ? clamp01((v.p - 0.62) / 0.12) : 0;
+    const alpha = 1;
     const P = this.place(L, t, ox);
     const x = P.x;
     const base = P.base;
@@ -261,8 +365,14 @@ export class ForestScene {
     c.save();
     c.globalAlpha = alpha * (main ? 1 : 0.7);
     const lean = (hash(t.id) - 0.5) * 0.04;
+    if (fall > 0) {
+      c.translate(x, base);
+      c.rotate((hash(t.id + 5) < 0.5 ? -1 : 1) * fall * Math.PI / 2);
+      c.translate(-x, -base);
+    }
     if (h < 1.3 && !dying) drawSeedling(c, t.sp, x, base, hp, season, ps, shade);
-    else drawTree(c, t.sp, x, base, hp, Math.max(1.2, (d / 100) * px * 1.6), hp * ratio, crownW, season, ps, dying, shade, lean, t.id);
+    else drawTree(c, t.sp, x, base, hp, Math.max(1.2, (d / 100) * px * 1.6), hp * ratio, crownW, season, ps,
+      deadNow ? (cause === 'beetle' ? '#b5522f' : '#8b6a45') : null, shade, lean, t.id);
     c.restore();
     if (main && !dying) {
       const w = Math.max(crownW, 14);
@@ -462,21 +572,25 @@ function birchLeaves(season: Season, ps: number): { color: string; amount: numbe
   return { color: '#e8b83a', amount: 0 };
 }
 
-function darken(hex: string, k: number): string {
-  const n = parseInt(hex.slice(1), 16);
+/** Darken a colour given as #rrggbb or rgb(r,g,b). */
+function darken(col: string, k: number): string {
+  let r: number, g: number, b: number;
+  if (col.startsWith('#')) { const n = parseInt(col.slice(1), 16); r = n >> 16; g = (n >> 8) & 255; b = n & 255; }
+  else [r, g, b] = (col.match(/\d+/g) ?? ['0', '0', '0']).map(Number);
   const f = (v: number) => Math.round(v * (1 - k));
-  return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`;
+  return `rgb(${f(r)},${f(g)},${f(b)})`;
 }
 
 function drawTree(c: CanvasRenderingContext2D, sp: SpeciesId, x: number, base: number, h: number, trunkW: number,
-  crownLen: number, crownW: number, season: Season, ps: number, dead: boolean, shade: number, lean: number, id: number) {
+  crownLen: number, crownW: number, season: Season, ps: number, deadColor: string | null, shade: number, lean: number, id: number) {
+  const dead = deadColor !== null;
   const topX = x + lean * h;
   const winter = season === 'winter';
-  const deadCol = '#8b6a45';
+  const deadCol = deadColor ?? '#8b6a45';
 
   // trunk
-  if (sp === 'birch') {
-    c.fillStyle = darken('#efece2', shade);
+  if (sp === 'birch' || sp === 'aspen') {
+    c.fillStyle = darken(sp === 'aspen' ? '#b9bfae' : '#efece2', shade);
     c.beginPath();
     c.moveTo(x - trunkW / 2, base); c.lineTo(topX - trunkW * 0.15, base - h * 0.96); c.lineTo(topX + trunkW * 0.15, base - h * 0.96); c.lineTo(x + trunkW / 2, base);
     c.fill();
@@ -553,7 +667,7 @@ function drawTree(c: CanvasRenderingContext2D, sp: SpeciesId, x: number, base: n
     c.fillStyle = dark;
     c.beginPath(); c.ellipse(topX, top + crownLen * 0.12, crownW * 0.28, Math.max(2, crownLen * 0.16), 0, 0, Math.PI * 2); c.fill();
   } else {
-    const leaves = dead ? { color: deadCol, amount: 0.6 } : birchLeaves(season, ps);
+    const leaves = dead ? { color: deadCol, amount: 0.6 } : sp === 'aspen' ? aspenLeaves(season, ps) : birchLeaves(season, ps);
     const top = base - h;
     // branches rise from the trunk and their twigs hang down (seen when bare)
     c.strokeStyle = darken('#4a3c36', shade);
@@ -620,4 +734,67 @@ function drawSeedling(c: CanvasRenderingContext2D, sp: SpeciesId, x: number, bas
       c.globalAlpha /= leaves.amount;
     }
   }
+}
+
+/** Aspen leafs out a little later than birch and turns orange-red in autumn. */
+function aspenLeaves(season: Season, ps: number): { color: string; amount: number } {
+  if (season === 'spring') return { color: '#a9cf6a', amount: clamp01((ps - 0.45) / 0.45) };
+  if (season === 'summer') return { color: '#5f9a48', amount: 1 };
+  if (season === 'autumn') return { color: ps < 0.3 ? '#c9a43a' : '#d9622b', amount: 1 - clamp01((ps - 0.6) / 0.4) };
+  return { color: '#d9622b', amount: 0 };
+}
+
+function mixHex(a: string, b: string, t: number): string {
+  const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
+  const ch = (s: number) => Math.round(((pa >> s) & 255) + ((((pb >> s) & 255) - ((pa >> s) & 255)) * clamp01(t)));
+  return `rgb(${ch(16)},${ch(8)},${ch(0)})`;
+}
+
+function drawMoose(c: CanvasRenderingContext2D, x: number, y: number, s: number, season: Season) {
+  c.fillStyle = '#4a3426';
+  c.beginPath(); c.ellipse(x, y - s * 0.75, s * 0.6, s * 0.28, 0, 0, Math.PI * 2); c.fill(); // body
+  c.beginPath(); c.ellipse(x - s * 0.3, y - s * 0.95, s * 0.22, s * 0.15, 0, 0, Math.PI * 2); c.fill(); // shoulder hump
+  for (const lx of [-0.4, -0.25, 0.3, 0.45]) c.fillRect(x + lx * s, y - s * 0.6, s * 0.07, s * 0.6); // long legs
+  c.beginPath(); c.moveTo(x - s * 0.5, y - s * 0.9); c.lineTo(x - s * 0.85, y - s * 0.85); c.lineTo(x - s * 0.95, y - s * 0.62); c.lineTo(x - s * 0.72, y - s * 0.6); c.closePath(); c.fill(); // long nose
+  if (season !== 'spring') { // bulls carry antlers from summer to winter
+    c.strokeStyle = '#d8c7a0'; c.lineWidth = Math.max(1.5, s * 0.06);
+    c.beginPath(); c.moveTo(x - s * 0.6, y - s * 1.0); c.quadraticCurveTo(x - s * 0.55, y - s * 1.25, x - s * 0.35, y - s * 1.22); c.stroke();
+  }
+}
+
+function drawCapercaillie(c: CanvasRenderingContext2D, x: number, y: number, s: number) {
+  c.fillStyle = '#26282b';
+  c.beginPath(); c.ellipse(x, y - s * 0.5, s * 0.55, s * 0.4, 0, 0, Math.PI * 2); c.fill();
+  c.beginPath(); c.ellipse(x - s * 0.45, y - s * 0.95, s * 0.16, s * 0.2, 0, 0, Math.PI * 2); c.fill(); // head
+  c.fillStyle = '#2f4a38'; c.beginPath(); c.ellipse(x - s * 0.25, y - s * 0.7, s * 0.2, s * 0.14, 0, 0, Math.PI * 2); c.fill(); // green breast sheen
+  c.fillStyle = '#cf2b26'; c.fillRect(x - s * 0.52, y - s * 1.05, s * 0.1, s * 0.05); // red eyebrow
+  c.fillStyle = '#26282b';
+  c.beginPath(); c.moveTo(x + s * 0.4, y - s * 0.6); c.lineTo(x + s * 0.95, y - s * 1.05); c.lineTo(x + s * 0.9, y - s * 0.3); c.closePath(); c.fill(); // fanned tail
+}
+
+function drawWoodpecker(c: CanvasRenderingContext2D, x: number, y: number, s: number, body: string, red: string, spotted: boolean) {
+  c.fillStyle = body;
+  c.beginPath(); c.ellipse(x + s * 0.3, y, s * 0.3, s * 0.7, -0.15, 0, Math.PI * 2); c.fill();
+  c.beginPath(); c.ellipse(x + s * 0.45, y - s * 0.75, s * 0.25, s * 0.22, 0, 0, Math.PI * 2); c.fill();
+  c.fillStyle = '#c9c2b0'; c.beginPath(); c.moveTo(x + s * 0.65, y - s * 0.78); c.lineTo(x + s * 1.05, y - s * 0.72); c.lineTo(x + s * 0.65, y - s * 0.68); c.fill(); // bill
+  c.fillStyle = red; c.beginPath(); c.ellipse(x + s * 0.42, y - s * 0.92, s * 0.14, s * 0.1, 0, 0, Math.PI * 2); c.fill(); // red crown
+  if (spotted) {
+    c.fillStyle = '#f2f0ea'; c.beginPath(); c.ellipse(x + s * 0.35, y - s * 0.1, s * 0.12, s * 0.3, 0, 0, Math.PI * 2); c.fill(); // white shoulder patch
+    c.fillStyle = red; c.fillRect(x + s * 0.2, y + s * 0.5, s * 0.25, s * 0.18); // red under the tail
+  }
+}
+
+function drawJay(c: CanvasRenderingContext2D, x: number, y: number, s: number) {
+  c.fillStyle = '#7d7468';
+  c.beginPath(); c.ellipse(x, y, s * 0.55, s * 0.35, 0, 0, Math.PI * 2); c.fill();
+  c.fillStyle = '#5a5249'; c.beginPath(); c.ellipse(x - s * 0.5, y - s * 0.25, s * 0.25, s * 0.22, 0, 0, Math.PI * 2); c.fill();
+  c.fillStyle = '#c66b2c'; c.beginPath(); c.moveTo(x + s * 0.4, y - s * 0.1); c.lineTo(x + s * 1.0, y + s * 0.15); c.lineTo(x + s * 0.4, y + s * 0.2); c.fill(); // rusty tail
+}
+
+function drawFlyingSquirrel(c: CanvasRenderingContext2D, x: number, y: number, s: number) {
+  c.fillStyle = '#a8a59a';
+  c.beginPath(); c.moveTo(x - s, y); c.quadraticCurveTo(x, y - s * 0.5, x + s, y); c.quadraticCurveTo(x, y + s * 0.35, x - s, y); c.fill(); // gliding skin
+  c.beginPath(); c.ellipse(x + s * 0.85, y - s * 0.15, s * 0.22, s * 0.18, 0, 0, Math.PI * 2); c.fill();
+  c.fillStyle = '#111'; c.beginPath(); c.arc(x + s * 0.92, y - s * 0.18, s * 0.06, 0, Math.PI * 2); c.fill(); // big dark eye
+  c.fillStyle = '#a8a59a'; c.beginPath(); c.ellipse(x - s * 1.1, y + s * 0.05, s * 0.35, s * 0.1, 0, 0, Math.PI * 2); c.fill(); // flat tail
 }

@@ -222,6 +222,33 @@
     .mcard-tree .ringrow { display: flex; gap: 10px; align-items: center; font-size: 0.78rem; color: var(--muted); }
     .mcard-tree canvas { width: 64px; height: 64px; flex: 0 0 auto; }
     @media (max-width: 520px) { .mcard-tree { gap: 5px; padding: 10px 12px; } .mcard-tree .grid { font-size: 0.76rem; } .mcard-tree canvas { width: 52px; height: 52px; } }
+    .mrows { display: grid; gap: 5px; }
+    .mresults.two { grid-template-columns: 22px repeat(5, minmax(0, 1fr)); align-items: center; }
+    .mresults.two .res { min-height: 52px; padding: 4px 2px; }
+    .lane-tag, .lane-badge { font: 800 0.85rem/1 var(--display); background: var(--sun); color: var(--deep); border-radius: 999px; padding: 4px 7px; text-align: center; }
+    .lane-badge { position: fixed; z-index: 1; pointer-events: none; padding: 6px 10px; max-width: 45vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .res b em { font-style: normal; font-size: 0.6em; margin-left: 2px; vertical-align: middle; }
+    .res b em.up { color: #8fcf5a; } .res b em.down { color: #ff8a7a; }
+    .mctrl .whatif { background: rgba(255,200,61,0.18); border-color: var(--sun); }
+    .mreport { position: fixed; left: 50%; transform: translateX(-50%); top: calc(env(safe-area-inset-top, 0px) + 100px); width: min(520px, calc(100% - 20px));
+      display: flex; gap: 10px; align-items: flex-start; background: #fffdf6; color: var(--ink); border-radius: 18px 18px 18px 4px; padding: 10px 12px; pointer-events: auto; box-shadow: 0 8px 24px rgba(0,0,0,0.25); }
+    .mreport canvas { width: 44px; height: 44px; flex: 0 0 auto; border-radius: 50%; background: #e8f1e9; }
+    .mreport h3 { margin: 0 0 2px; font: 800 0.95rem/1.1 var(--display); color: var(--deep); }
+    .mreport p { margin: 0 0 4px; font: 700 1.2rem/1.15 var(--hand); }
+    .mreport .newsp { font: 800 0.8rem/1 var(--display); background: var(--sun); border-radius: 999px; padding: 3px 8px; margin-right: 4px; display: inline-block; }
+    .mreport .btn { align-self: center; flex: 0 0 auto; }
+    .mdecide { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 10px); width: min(620px, calc(100% - 20px));
+      max-height: calc(100% - 90px); overflow-y: auto; padding: 14px; display: grid; gap: 10px; pointer-events: auto; z-index: 3; background: rgba(10, 40, 34, 0.94); }
+    .mdecide .who { display: flex; gap: 8px; align-items: center; font: 800 0.8rem/1 var(--display); text-transform: uppercase; letter-spacing: 0.08em; color: var(--sun); }
+    .mdecide .who canvas { width: 40px; height: 40px; border-radius: 50%; background: #e8f1e9; }
+    .mdecide h3 { margin: 0; font: 700 1.5rem/1.15 var(--hand); }
+    .mdecide h4 { margin: 0 0 6px; font: 800 1rem/1.2 var(--display); color: var(--sun); }
+    .choices { display: grid; gap: 6px; }
+    .choice { text-align: left; background: rgba(255,255,255,0.08); border: 1.5px solid var(--line); border-radius: 14px; padding: 10px 12px; color: var(--paper); cursor: pointer;
+      display: grid; gap: 3px; font: 500 0.82rem/1.3 var(--body); touch-action: manipulation; }
+    .choice b { font: 800 1.02rem/1.15 var(--display); }
+    .choice:hover { border-color: var(--sun); }
+    .choice.picked { border-color: var(--sun); background: rgba(255, 200, 61, 0.2); opacity: 1; }
     .mhint { align-self: center; font: 700 1.2rem/1.1 var(--hand); background: #fffdf6; color: var(--ink); border-radius: 14px; padding: 6px 12px; }
     @media (max-width: 520px) { .res b { font-size: 0.95rem; } .res .rl { font-size: 0.6rem; } .mresults { gap: 3px; } }
     @media (prefers-reduced-motion: reduce) { .btn { transition: none; } .levelup .ripple, .rankname { animation: none; } .xp .bar span { transition: none; } }
@@ -421,6 +448,29 @@
       <div class="timeline" aria-hidden="true"><div id="m-seasons" style="display:contents"></div><i id="m-marker"></i></div>
     </div>
     <p class="mhint" id="m-tap-hint" hidden></p>
+    <span class="lane-badge" id="m-lane-a" hidden></span>
+    <span class="lane-badge" id="m-lane-b" hidden></span>
+    <aside class="mreport" id="m-report" hidden aria-labelledby="m-report-title">
+      <canvas id="m-report-face" width="96" height="96" aria-hidden="true"></canvas>
+      <div><h3 id="m-report-title"></h3><div id="m-report-body"></div></div>
+      <button type="button" class="btn ghost small" id="btn-m-report-close"></button>
+    </aside>
+    <section class="mdecide glass" id="m-decide" hidden role="dialog" aria-labelledby="m-decide-q">
+      <div class="who"><canvas id="m-decide-face" width="96" height="96" aria-hidden="true"></canvas><span id="m-decide-who"></span></div>
+      <h3 id="m-decide-q" tabindex="-1"></h3>
+      <p class="note" id="m-decide-hint" hidden role="status"></p>
+      <div class="choices" id="m-choices"></div>
+      <div id="m-plant-pick" hidden>
+        <h4 id="m-plant-title"></h4>
+        <div class="mgrid" id="m-plant-species"></div>
+        <div class="segs" id="m-plant-spacing" style="margin-top:6px"></div>
+        <div class="row" style="margin-top:8px"><button type="button" class="btn small" id="btn-m-plant-go"></button></div>
+      </div>
+      <div class="row">
+        <button type="button" class="btn ghost small" id="btn-m-compare"></button>
+        <button type="button" class="btn ghost small" id="btn-m-decide-cancel" hidden></button>
+      </div>
+    </section>
     <aside class="mcard-tree glass" id="m-card" hidden aria-labelledby="m-card-title">
       <div class="head"><h3 id="m-card-title"></h3><button type="button" class="icon" id="btn-m-card-close">✕</button></div>
       <p class="sub" id="m-card-sub"></p>
@@ -433,8 +483,14 @@
         <button type="button" class="icon" id="btn-m-normal"></button>
         <button type="button" class="icon" id="btn-m-fast"></button>
         <button type="button" class="icon wide" id="btn-m-jump"></button>
+        <button type="button" class="icon wide whatif" id="btn-m-whatif"></button>
       </div>
-      <div class="mresults" id="m-results"></div>
+      <p class="note" id="m-same-weather" hidden></p>
+      <div class="mrows" id="m-results"></div>
+      <div class="row" id="m-keep" hidden>
+        <button type="button" class="btn small" id="btn-m-keep-a"></button>
+        <button type="button" class="btn small" id="btn-m-keep-b"></button>
+      </div>
       <div class="mexplain" id="m-explain" hidden role="region" aria-live="polite"></div>
     </div>
   </section>
