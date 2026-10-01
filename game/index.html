@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="fi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#0f3b35">
+  <title>Kasva! grey box</title>
+  <style>
+    :root {
+      --deep: #0f3b35; --sun: #ffc83d; --ink: #10241c; --paper: #f3f6f1; --glass: rgba(10, 40, 34, 0.82);
+      color-scheme: dark;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: var(--deep); color: var(--paper); overflow: hidden;
+      font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: none; }
+    canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+    .screen { position: fixed; inset: 0; display: grid; place-items: center; padding: 20px 16px; overflow-y: auto; touch-action: pan-y; }
+    .screen[hidden] { display: none; }
+    .panel { width: min(100%, 460px); display: grid; gap: 16px; justify-items: center; text-align: center;
+      background: var(--glass); border: 1.5px solid rgba(255,255,255,0.35); border-radius: 22px; padding: 24px 20px; }
+    .logo { font: 900 clamp(3rem, 14vw, 4.6rem)/0.9 system-ui, sans-serif; color: var(--sun); letter-spacing: -0.03em;
+      -webkit-text-stroke: 2px var(--deep); text-shadow: 0 5px 0 #071f1b; transform: rotate(-4deg); margin: 6px 0 2px; }
+    .mol { display: inline-flex; align-items: center; } .mol i { display: block; border-radius: 50%; }
+    .mol .o { width: 14px; height: 14px; background: #e5483b; } .mol .c { width: 18px; height: 18px; background: #1c1f23; margin: 0 -3px; position: relative; }
+    .weather { display: flex; gap: 6px; font-size: 1.5rem; }
+    .btn { font: 800 1.15rem/1 system-ui, sans-serif; border: 0; border-radius: 999px; padding: 15px 26px 17px; cursor: pointer;
+      background: var(--sun); color: var(--deep); box-shadow: 0 5px 0 #071f1b; text-transform: uppercase; letter-spacing: 0.02em;
+      transition: transform 80ms, box-shadow 80ms; touch-action: manipulation; }
+    .btn:active { transform: translateY(5px); box-shadow: 0 0 0 #071f1b; }
+    .btn.ghost { background: var(--deep); color: var(--paper); border: 1.5px solid rgba(255,255,255,0.5); box-shadow: 0 5px 0 #071f1b; }
+    .btn:focus-visible, .icon:focus-visible, .lang button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+    .chips { display: grid; gap: 6px; }
+    .chips span { font-size: 0.9rem; font-weight: 700; display: inline-flex; gap: 8px; align-items: center; justify-content: center; }
+    .chips b { width: 20px; height: 20px; border-radius: 50%; background: var(--sun); color: var(--deep); display: inline-grid; place-items: center; font-size: 0.75rem; }
+    .muted { color: #b7c9c0; font-size: 0.85rem; }
+    .hud-btns { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 56px); right: 12px; display: flex; gap: 8px; z-index: 2; }
+    .hud-btns[hidden] { display: none; }
+    .icon { width: 42px; height: 42px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.5); background: var(--glass); color: #fff; font-size: 1.1rem; cursor: pointer; touch-action: manipulation; }
+    .big { font: 900 clamp(2.8rem, 12vw, 4rem)/1 system-ui, sans-serif; color: var(--sun); font-variant-numeric: tabular-nums; }
+    .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; width: 100%; }
+    .stats div { background: rgba(255,255,255,0.08); border-radius: 12px; padding: 8px 4px; display: grid; gap: 2px; font-size: 0.75rem; }
+    .stats b { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+    .tikka { background: #fff; color: var(--ink); border-radius: 16px 16px 16px 4px; padding: 10px 14px; font-weight: 600; text-align: left; }
+    .tikka::before { content: "Tikka: "; font-weight: 800; }
+    .lang { display: flex; gap: 4px; } .lang button { border: 1.5px solid rgba(255,255,255,0.4); background: transparent; color: #fff; border-radius: 999px; padding: 4px 10px; font-weight: 700; cursor: pointer; }
+    .lang button[aria-pressed="true"] { background: #fff; color: var(--deep); }
+    details { width: 100%; text-align: left; font-size: 0.85rem; } summary { cursor: pointer; color: #b7c9c0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 6px; font-variant-numeric: tabular-nums; }
+    td, th { padding: 3px 4px; border-bottom: 1px solid rgba(255,255,255,0.12); text-align: left; }
+    .newbest { background: var(--sun); color: var(--deep); font-weight: 800; border-radius: 999px; padding: 4px 12px; font-size: 0.85rem; }
+    @media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
+  </style>
+</head>
+<body>
+  <canvas id="game" aria-label="Kasva game area"></canvas>
+
+  <div class="hud-btns" id="hud-btns" hidden>
+    <button type="button" class="icon" id="btn-mute" aria-label="Sound on/off">🔊</button>
+    <button type="button" class="icon" id="btn-pause" aria-label="Pause">⏸</button>
+  </div>
+
+  <section class="screen" id="start">
+    <div class="panel">
+      <div class="row" style="width:100%;justify-content:space-between">
+        <span class="mol" aria-hidden="true"><i class="o"></i><i class="c"></i><i class="o"></i></span>
+        <div class="lang" role="group" aria-label="Kieli / Language">
+          <button type="button" data-lang="fi">FI</button><button type="button" data-lang="en">EN</button>
+        </div>
+      </div>
+      <div class="logo" id="t-title"></div>
+      <p id="t-tagline" style="margin:0;font-weight:600"></p>
+      <div class="weather" id="daily-weather" aria-label="Weather"></div>
+      <div class="row">
+        <button type="button" class="btn" id="btn-daily"></button>
+        <button type="button" class="btn ghost" id="btn-random"></button>
+      </div>
+      <div class="chips" id="t-howto"></div>
+      <p class="muted" id="t-keys" style="margin:0"></p>
+      <details id="log"><summary id="t-log"></summary><div id="log-body"></div></details>
+    </div>
+  </section>
+
+  <section class="screen" id="pause" hidden>
+    <div class="panel">
+      <div class="logo" id="t-paused" style="font-size:2.6rem"></div>
+      <button type="button" class="btn" id="btn-resume"></button>
+    </div>
+  </section>
+
+  <section class="screen" id="results" hidden>
+    <div class="panel">
+      <div class="weather" id="r-weather"></div>
+      <span class="newbest" id="r-best" hidden></span>
+      <div class="big" id="r-stored">0</div>
+      <p id="t-r-stored" style="margin:-8px 0 0;font-weight:600"></p>
+      <div class="stats">
+        <div><b id="r-caught"></b><span id="t-r-caught"></span></div>
+        <div><b id="r-resp"></b><span id="t-r-resp"></span></div>
+        <div><b id="r-combo"></b><span id="t-r-combo"></span></div>
+        <div><b id="r-wilts"></b><span id="t-r-wilts"></span></div>
+      </div>
+      <p class="tikka" id="r-tikka"></p>
+      <div class="row">
+        <button type="button" class="btn" id="btn-again"></button>
+        <button type="button" class="btn ghost" id="btn-next"></button>
+      </div>
+      <button type="button" class="btn ghost" id="btn-copy" style="font-size:0.95rem;padding:11px 18px 13px"></button>
+    </div>
+  </section>
+
+  <script type="module" src="/src/greybox/main.ts"></script>
+</body>
+</html>
