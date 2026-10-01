@@ -4,7 +4,7 @@
  * It holds the current forest and short summaries of earlier ones, so a child
  * can compare which place and soil grew the best forest.
  */
-import type { Forest, PlaceId, SoilId, SpeciesId, Spacing } from '../../core/forest';
+import { upgradeForest, type Forest, type PlaceId, type SoilId, type SpeciesId, type Spacing } from '../../core/forest';
 
 export const FOREST_KEY = 'kasva-forest';
 const MAX_PAST = 12;
@@ -40,7 +40,7 @@ export function loadForest(): ForestSave {
     if (!raw) return emptySave();
     const s = JSON.parse(raw) as Partial<ForestSave>;
     if (s.v !== 1 || !Array.isArray(s.past)) return emptySave();
-    const current = s.current && s.current.version === 1 ? s.current : null;
+    const current = s.current && s.current.version === 1 ? upgradeForest(s.current) : null;
     return { ...emptySave(), ...s, current } as ForestSave;
   } catch {
     return emptySave();

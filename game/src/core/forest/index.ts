@@ -8,3 +8,7 @@ export * from './year';
 export * from './manage';
 export * from './wood';
 export * from './indicators';
+export * from './events';
+export * from './animals';
+export * from './decisions';
+export * from './report';

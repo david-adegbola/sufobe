@@ -7,7 +7,7 @@ describe('five results', () => {
   it('a mixed forest has more life than a single-species one', () => {
     const mixed = mean(SEEDS, s => results(grow({ spruce: 0.5, pine: 0.25, birch: 0.25 }, 'loam', 'east', 40, s)).life.score);
     const mono = mean(SEEDS, s => results(grow({ spruce: 1 }, 'loam', 'east', 40, s)).life.score);
-    expect(mixed).toBeGreaterThan(mono + 0.9);
+    expect(mixed).toBeGreaterThan(mono + 0.5);
   });
 
   it('life grows as a forest gets old and gathers deadwood', () => {

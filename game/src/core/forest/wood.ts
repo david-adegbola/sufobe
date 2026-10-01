@@ -7,7 +7,7 @@
  * Shares are simplified (verify against Luke wood-flow statistics);
  * half-lives are IPCC 2019 defaults, as in the classroom sim.
  */
-import { move, type Ledger } from './carbon';
+import { move, type Ledger, type Store } from './carbon';
 import { BRANCH_SHARE, ROOT_SHARE, type SpeciesId } from './species';
 
 export type ProductKind = 'sawn' | 'paper' | 'energy';
@@ -16,9 +16,9 @@ export type ProductKind = 'sawn' | 'paper' | 'energy';
 export const HALF_LIFE: Record<ProductKind, number> = { sawn: 35, paper: 2, energy: 0 };
 
 /** Smallest trunk (cm at breast height) that gives any sawlog. */
-const SAW_MIN_D: Record<SpeciesId, number> = { pine: 17, spruce: 17, birch: 20 };
+const SAW_MIN_D: Record<SpeciesId, number> = { pine: 17, spruce: 17, birch: 20, aspen: 22 };
 /** Largest share of a stem that can become sawlog. */
-const SAW_MAX: Record<SpeciesId, number> = { pine: 0.7, spruce: 0.7, birch: 0.5 };
+const SAW_MAX: Record<SpeciesId, number> = { pine: 0.7, spruce: 0.7, birch: 0.5, aspen: 0.4 };
 /** Tops and pieces left in the forest. */
 const STEM_WASTE = 0.05;
 
@@ -69,11 +69,24 @@ export function fell(l: Ledger, pools: Record<ProductKind, number>, t: FelledTre
   move(l, 'trees', 'litter', branches + t.foliage + t.fine);
   move(l, 'trees', 'deadwood', roots);
 
-  const saw = stem * sawShare(t.sp, t.d);
+  mill(l, 'trees', pools, t.sp, t.d, stem, out);
+  out.count++;
+  out.volume += t.volume;
+}
+
+/**
+ * Send a stem to the mills: sort it into sawlog and pulpwood, saw and pulp it.
+ * `from` is where its carbon is now: the living trees, or the deadwood store
+ * for storm-felled and beetle-killed trees taken out of the forest.
+ * `sawFactor` < 1 for damaged wood, which gives fewer sawlogs.
+ */
+export function mill(l: Ledger, from: Store, pools: Record<ProductKind, number>, sp: SpeciesId, d: number,
+  stem: number, out: Harvest, sawFactor = 1): void {
+  const saw = stem * sawShare(sp, d) * sawFactor;
   const waste = stem * STEM_WASTE;
   const pulp = stem - saw - waste;
-  move(l, 'trees', 'litter', waste);
-
+  // tops stay in the forest: as litter from a living tree; a dead log's simply stays deadwood
+  if (from === 'trees') move(l, 'trees', 'litter', waste);
   const toPulp = pulp + saw * SAWMILL.toPulp;
   const made: Record<ProductKind, number> = {
     sawn: saw * SAWMILL.sawn,
@@ -81,14 +94,12 @@ export function fell(l: Ledger, pools: Record<ProductKind, number>, t: FelledTre
     energy: saw * SAWMILL.energy + toPulp * PULPMILL.energy,
   };
   for (const k of ['sawn', 'paper', 'energy'] as const) {
-    move(l, 'trees', 'products', made[k]);
+    move(l, from, 'products', made[k]);
     pools[k] += made[k];
     out.products[k] += made[k];
   }
   out.sawlogC += saw;
   out.pulpwoodC += pulp;
-  out.count++;
-  out.volume += t.volume;
 }
 
 /** One year of products wearing out, burning or rotting. */

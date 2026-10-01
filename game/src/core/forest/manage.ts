@@ -1,15 +1,18 @@
 /**
- * What the player can do to the forest between years. F0 has the actions the
- * model needs for its tests: plant, tend seedlings, thin, mark trees to keep,
- * and final harvest. Natural seeding, removing damaged trees and continuous
- * cover come with the events in F2.
+ * What the player can do to the forest between years: plant, let nature
+ * seed, tend seedlings, thin, keep trees forever (säästöpuut), final harvest,
+ * continuous cover (cut the biggest, let small ones grow), and take storm-felled
+ * or beetle-killed trees out of the forest. `applyChoice` carries out the
+ * answer to one of Tikka's questions (decisions.ts).
  */
 import { makeRng } from '../rng';
 import { move } from './carbon';
-import { HA_FACTOR, carbonFor, type Forest, type HarvestEvent, type Tree } from './stand';
+import { BRANCH_SHARE, ROOT_SHARE } from './species';
+import { HA_FACTOR, carbonFor, standStats, type ChoiceId, type Forest, type HarvestEvent, type Log, type Tree } from './stand';
+import { DISTURBANCE } from './events';
 import { SPECIES, stemVolume, type SpeciesId } from './species';
 import { toGround } from './year';
-import { fell, newHarvest, type Harvest } from './wood';
+import { fell, mill, newHarvest, type Harvest } from './wood';
 
 /** Planting densities, trees per hectare (verify against Tapio guidance). */
 export const SPACING = { sparse: 1600, normal: 2000, dense: 2600 } as const;
@@ -19,7 +22,7 @@ export type Spacing = keyof typeof SPACING;
 const MILL_MIN_D = 7;
 
 /** Seedling height when planted, m. */
-const SEEDLING_H: Record<SpeciesId, number> = { pine: 0.2, spruce: 0.3, birch: 0.4 };
+export const SEEDLING_H: Record<SpeciesId, number> = { pine: 0.2, spruce: 0.3, birch: 0.4, aspen: 0.4 };
 
 /**
  * Plant seedlings. `mix` gives shares per species, e.g. { spruce: 0.7, birch: 0.3 }.
@@ -105,4 +108,83 @@ export function markKeep(f: Forest, n: number): void {
 /** Final harvest: everything except the trees marked to keep. */
 export function clearcut(f: Forest): Harvest {
   return take(f, f.trees.filter(t => !t.keep), 'clearcut');
+}
+
+/** Keep a couple of trees forever, preferring aspen, then pine and the biggest (säästöpuut). */
+export function keepRetention(f: Forest, n = 2): void {
+  const rank = (t: Tree) => (t.sp === 'aspen' ? 2 : t.sp === 'pine' ? 1 : 0) * 100 + t.d;
+  [...f.trees].filter(t => !t.keep && t.d > 0).sort((a, b) => rank(b) - rank(a) || a.id - b.id).slice(0, n).forEach(t => { t.keep = true; });
+}
+
+/**
+ * Continuous cover (jatkuva kasvatus): cut the biggest trees until the stand
+ * is at `targetG` m²/ha, and let the small ones and new seedlings grow on.
+ */
+export function continuousCover(f: Forest, targetG = 12): Harvest {
+  const G = () => standStats(f.trees.filter(t => !chosen.has(t.id))).G;
+  const chosen = new Set<number>();
+  for (const t of [...f.trees].sort((a, b) => b.d - a.d || a.id - b.id)) {
+    if (G() <= targetG) break;
+    if (!t.keep) chosen.add(t.id);
+  }
+  f.continuous = true;
+  return take(f, f.trees.filter(t => chosen.has(t.id)), 'cc');
+}
+
+/** Let the forest seed itself over the next years (luontainen uudistuminen). */
+export function seedNaturally(f: Forest): void {
+  f.regenUntil = f.year + DISTURBANCE.regenYears;
+}
+
+/**
+ * Take dead trees out of the forest to the mills. Only the stem goes; its
+ * carbon moves from the deadwood store to products, and the log leaves the
+ * view. Fresh logs still give some sawlogs; older ones only pulp and energy.
+ */
+export function salvage(f: Forest, logs: Log[]): Harvest {
+  const out = newHarvest();
+  const ids = new Set(logs.map(l => l.id));
+  for (const l of logs) {
+    const stem = Math.min(l.c / (1 + BRANCH_SHARE + ROOT_SHARE), f.ledger.stores.deadwood);
+    if (stem <= 0) continue;
+    const fresh = f.year - l.year <= 1;
+    mill(f.ledger, 'deadwood', f.pools, l.sp, l.d, stem, out, fresh && l.cause === 'storm' ? 0.7 : 0);
+    out.count++;
+    out.volume += stemVolume(SPECIES[l.sp], l.d, l.h);
+  }
+  f.logs = f.logs.filter(l => !ids.has(l.id));
+  f.harvests.push({ year: f.year, kind: 'salvage', harvest: out });
+  return out;
+}
+
+/** Recently fallen or killed trees of one kind, still worth taking out. */
+export function freshLogs(f: Forest, cause: 'storm' | 'beetle'): Log[] {
+  return f.logs.filter(l => l.cause === cause && f.year - l.year <= 2);
+}
+
+export interface ChoiceOptions {
+  mix?: Partial<Record<SpeciesId, number>>;
+  spacing?: Spacing;
+}
+
+/** Carry out the answer to Tikka's question. */
+export function applyChoice(f: Forest, choice: ChoiceId, opt: ChoiceOptions = {}): Harvest | null {
+  f.pending = null;
+  switch (choice) {
+    case 'plant':
+      f.regenUntil = null;
+      plant(f, opt.mix ?? { spruce: 1 }, opt.spacing ?? 'normal');
+      return null;
+    case 'seed': seedNaturally(f); return null;
+    case 'tend': return thin(f, 1800, 'tend');
+    case 'thin': return thinToBasalArea(f, 19);
+    case 'thinLight': return thinToBasalArea(f, 23);
+    case 'clearcut': f.continuous = false; return clearcut(f);
+    case 'clearcutKeep': f.continuous = false; keepRetention(f); return clearcut(f);
+    case 'cc': return continuousCover(f);
+    case 'removeFallen': return salvage(f, freshLogs(f, 'storm'));
+    case 'removeHalf': { const l = freshLogs(f, 'storm'); return salvage(f, l.filter((_, i) => i % 2 === 0)); }
+    case 'removeBeetle': return salvage(f, freshLogs(f, 'beetle'));
+    case 'nothing': case 'leaveOld': case 'leaveFallen': case 'leaveBeetle': return null;
+  }
 }

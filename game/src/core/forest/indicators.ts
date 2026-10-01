@@ -11,14 +11,12 @@
  */
 import { CO2_PER_C } from './carbon';
 import { SPECIES } from './species';
-import { HA_FACTOR, type Forest } from './stand';
-import { relativeDensity } from './year';
+import { stemVolume } from './species';
+import { HA_FACTOR, relativeDensity, type Forest } from './stand';
 
 /** kg C on the plot → tonnes per hectare */
 export const tHa = (kgPlot: number) => kgPlot * HA_FACTOR / 1000;
 
-/** Roughly 0.2 t of carbon per cubic metre of wood (density ~400 kg/m³, half carbon). */
-const C_PER_M3 = 0.2;
 
 export type LifeReason = 'young' | 'oneSpecies' | 'mixed' | 'deadwood' | 'oldTrees';
 export type HealthReason = 'fine' | 'drought' | 'crowded' | 'dying';
@@ -38,7 +36,7 @@ const clamp = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
 
 export function lifeIndex(f: Forest): Results['life'] {
   const n = f.trees.length || 1;
-  const counts = { pine: 0, spruce: 0, birch: 0 };
+  const counts = { pine: 0, spruce: 0, birch: 0, aspen: 0 };
   let birchVol = 0;
   let vol = 0;
   let big = 0;
@@ -46,13 +44,16 @@ export function lifeIndex(f: Forest): Results['life'] {
     counts[t.sp]++;
     const v = t.d * t.d * t.h;
     vol += v;
-    if (t.sp === 'birch') birchVol += v;
+    if (t.sp === 'birch' || t.sp === 'aspen') birchVol += v;
     if (t.d >= 35 || t.age >= 120) big++;
   }
   const species = Object.values(counts).filter(c => c / n >= 0.1).length;
-  const mix = species >= 3 ? 1.2 : species === 2 ? 0.7 : 0;
-  const broadleaf = vol > 0 ? Math.min(0.6, (birchVol / vol) * 3) : 0;
-  const deadwoodM3 = tHa(f.ledger.stores.deadwood) / C_PER_M3;
+  // a mix only becomes a habitat as the trees grow up
+  const grown = Math.min(1, (f.history.at(-1)?.stats.domH ?? 0) / 12);
+  const mix = (species >= 3 ? 1.2 : species === 2 ? 0.7 : 0) * grown;
+  const broadleaf = vol > 0 ? Math.min(0.6, (birchVol / vol) * 3) * grown : 0;
+  // deadwood that matters for life: dead trees lying or standing, not stumps and roots
+  const deadwoodM3 = logVolume(f);
   const dead = Math.min(1.5, (deadwoodM3 / 40) * 1.5);
   const bigHa = big * HA_FACTOR;
   const old = Math.min(1, bigHa / 20);
@@ -62,6 +63,13 @@ export function lifeIndex(f: Forest): Results['life'] {
   let reason: LifeReason = parts[0][1] >= 0.5 ? parts[0][0] : f.year < 25 ? 'young' : 'oneSpecies';
   if (reason === 'mixed' && species < 2) reason = 'oneSpecies';
   return { score, reason, species, deadwoodM3, bigTrees: bigHa };
+}
+
+/** Volume of visible dead trees (logs and snags), m³/ha, shrinking as they rot. */
+export function logVolume(f: Forest): number {
+  let v = 0;
+  for (const l of f.logs) v += stemVolume(SPECIES[l.sp], l.d, l.h) * (l.c / l.c0);
+  return v * HA_FACTOR;
 }
 
 export function healthIndex(f: Forest): Results['health'] {

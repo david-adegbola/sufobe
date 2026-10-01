@@ -15,9 +15,12 @@ import { move, type Ledger } from './carbon';
 import { PLACES, decayWarmth, warmthFactor, yearWeather } from './climate';
 import { SOILS } from './soil';
 import { SPECIES } from './species';
+import { spotAnimals } from './animals';
+import { nextDecision } from './decisions';
+import { addLog, ageLogs, beetles, ingrowth, moose, storm } from './events';
 import {
-  HA_FACTOR, carbonFor, growTree, leafAreaIndex, shadeAbove, siteResponse, standStats, treeCarbon,
-  type Forest, type Site, type Tree, type YearRecord,
+  HA_FACTOR, carbonFor, growTree, leafAreaIndex, sdi, sdiLimit, shadeAbove, siteResponse, standStats, treeCarbon,
+  type DeathCause, type Forest, type ForestEvent, type Site, type Tree, type YearRecord,
 } from './stand';
 import { decayProducts } from './wood';
 
@@ -43,8 +46,6 @@ export const TUNING = {
   /** below this vigor a tree starts to starve in the shade */
   starveVigor: 0.35,
   starveMortality: 0.18,
-  /** Reineke stand density limits (trees/ha at 25 cm mean diameter) */
-  sdiMax: { pine: 750, spruce: 850, birch: 650 } as Record<string, number>,
 };
 
 /** Spring and summer water: how well the soil bucket meets the trees' thirst. */
@@ -55,21 +56,6 @@ export function waterBalance(f: Forest, w: { snowWater: number; summerRain: numb
   const lai = leafAreaIndex(f.trees);
   const demand = TUNING.canopyThirst * (w.tempSum / PLACES.east.tempSum) * Math.min(1, lai / 3) + TUNING.floorThirst;
   return { springWater, water: Math.min(1, supply / demand) };
-}
-
-/** Reineke stand density index: trees/ha converted to a 25 cm mean diameter. */
-export function sdi(trees: Tree[], haFactor: number): number {
-  let s = 0;
-  for (const t of trees) if (t.d > 0) s += Math.pow(t.d / 25, 1.605);
-  return s * haFactor;
-}
-
-/** The self-thinning limit for this mix of species. */
-export function sdiLimit(trees: Tree[]): number {
-  let sum = 0;
-  let n = 0;
-  for (const t of trees) if (t.d > 0) { sum += TUNING.sdiMax[t.sp]; n++; }
-  return n ? sum / n : Infinity;
 }
 
 /** Send a dead or cut-to-ground tree's carbon to deadwood and litter. */
@@ -91,13 +77,17 @@ export function stepYear(f: Forest): YearRecord {
   // summer: growth and carbon uptake
   const before = standStats(f.trees);
   const site: Site = { soil, water, warmth: warmthFactor(weather.tempSum), G: before.G };
+  const browsed = moose(f);
   const bal = shadeAbove(f.trees);
   let uptake = 0;
   let shed = 0;
   f.trees.forEach((t, i) => {
     const sp = SPECIES[t.sp];
     const old = t.c;
+    const h0 = t.h;
     growTree(t, bal[i], site);
+    // a browsed sapling loses most of this summer's new height
+    if (browsed.has(t.id)) { t.h = h0 + (t.h - h0) * 0.3; t.browsed = f.year; }
     // dry summers make trees drop some foliage, which grows back later
     const { dry } = siteResponse(sp, site);
     const next = carbonFor(sp, t.d, t.h, 1 - 0.35 * (1 - dry));
@@ -119,32 +109,52 @@ export function stepYear(f: Forest): YearRecord {
   const ground = TUNING.groundPlants / HA_FACTOR * Math.sqrt(site.warmth) * (1 - 0.6 * Math.min(1, before.lai / 4));
   move(l, 'air', 'litter', ground);
 
-  // winter: deaths
-  const dead = new Set<number>();
+  // winter: deaths, each with its cause
+  const dead = new Map<number, DeathCause>();
   for (const t of f.trees) {
     if (t.keep && t.vigor > 0.05) continue;
     const r = makeRng(`${f.seed}|m|${f.year}|${t.id}`)();
     let p = TUNING.baseMortality;
     if (t.vigor < TUNING.starveVigor) p += TUNING.starveMortality * (1 - t.vigor / TUNING.starveVigor);
     const oldAge = SPECIES[t.sp].oldAge;
-    if (t.age > oldAge) p += 0.02 * (t.age - oldAge) / 20;
-    if (r < p) dead.add(t.id);
+    const pOld = t.age > oldAge ? 0.02 * (t.age - oldAge) / 20 : 0;
+    if (r < p + pOld) dead.set(t.id, r < pOld ? 'old' : 'crowded');
+    else if (browsed.has(t.id) && makeRng(`${f.seed}|md|${f.year}|${t.id}`)() < 0.05) dead.set(t.id, 'moose');
   }
   // self-thinning: a crowded canopy cannot hold more trees of this size.
   // Saplings in the understorey are not part of it; they live or die by light.
   const canopyH = 0.5 * before.domH;
   let alive = f.trees.filter(t => !dead.has(t.id) && t.h >= canopyH);
   const limit = sdiLimit(alive);
-  if (sdi(alive, HA_FACTOR) > limit) {
+  if (sdi(alive) > limit) {
     const weakest = alive.filter(t => t.d > 0 && !t.keep).sort((a, b) => a.d - b.d || a.vigor - b.vigor || a.id - b.id);
     for (const t of weakest) {
-      if (sdi(alive, HA_FACTOR) <= limit) break;
-      dead.add(t.id);
+      if (sdi(alive) <= limit) break;
+      dead.set(t.id, 'crowded');
       alive = alive.filter(a => a.id !== t.id);
     }
   }
-  for (const t of f.trees) if (dead.has(t.id)) toGround(l, t);
+  // disturbances: bark beetles (in this summer's drought, or last year's fresh
+  // dead spruce), then autumn storms
+  const events: ForestEvent[] = [];
+  const bb = beetles(f, weather.drought, weather.tempSum);
+  for (const id of bb) dead.set(id, 'beetle');
+  const { fallen } = storm(f);
+  for (const id of fallen) dead.set(id, 'storm');
+  if (weather.drought) events.push({ year: f.year, kind: 'drought', count: 0 });
+  if (bb.size) events.push({ year: f.year, kind: 'beetle', count: bb.size });
+  if (fallen.size) events.push({ year: f.year, kind: 'storm', count: fallen.size });
+  if (browsed.size) events.push({ year: f.year, kind: 'moose', count: browsed.size });
+  for (const t of f.trees) {
+    const cause = dead.get(t.id);
+    if (!cause) continue;
+    addLog(f, t, cause);
+    toGround(l, t);
+  }
   f.trees = f.trees.filter(t => !dead.has(t.id));
+
+  // new trees arriving on their own
+  ingrowth(f, standStats(f.trees).G);
 
   // all year: decomposers and products
   const warm = decayWarmth(weather.tempSum);
@@ -152,19 +162,26 @@ export function stepYear(f: Forest): YearRecord {
   const litterGone = l.stores.litter * Math.min(1, TUNING.litterK * warm * slow);
   move(l, 'litter', 'soil', litterGone * TUNING.litterHumify);
   move(l, 'litter', 'air', litterGone * (1 - TUNING.litterHumify));
-  const deadGone = l.stores.deadwood * Math.min(1, TUNING.deadwoodK * warm * slow);
+  const deadK = Math.min(1, TUNING.deadwoodK * warm * slow);
+  const deadGone = l.stores.deadwood * deadK;
+  ageLogs(f, deadK);
   move(l, 'deadwood', 'soil', deadGone * TUNING.deadwoodHumify);
   move(l, 'deadwood', 'air', deadGone * (1 - TUNING.deadwoodHumify));
   move(l, 'soil', 'air', l.stores.soil * soil.humusK * warm);
   decayProducts(l, f.pools);
 
+  const newAnimals = spotAnimals(f);
   const rec: YearRecord = {
     year: f.year, weather, water, springWater,
     stores: { ...l.stores }, flows: l.flows, deaths: dead.size, stats: standStats(f.trees),
+    events, newAnimals,
   };
   l.flows = {};
   f.history.push(rec);
+  f.events.push(...events);
   f.year += 1;
+  // Tikka may have a question for next year
+  if (!f.pending) f.pending = nextDecision(f, rec);
   return rec;
 }
 
@@ -176,10 +193,4 @@ export function run(f: Forest, years: number): Forest {
 /** Carbon in the trees, recomputed from the trees themselves. */
 export function treesCarbon(f: Forest): number {
   return f.trees.reduce((s, t) => s + treeCarbon(t), 0);
-}
-
-/** How full the stand is: 0 = open, 1 = at the self-thinning limit. */
-export function relativeDensity(trees: Tree[]): number {
-  const lim = sdiLimit(trees);
-  return Number.isFinite(lim) ? sdi(trees, HA_FACTOR) / lim : 0;
 }

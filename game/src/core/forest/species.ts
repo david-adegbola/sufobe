@@ -7,7 +7,10 @@
  * the ones marked "verify" in docs/forest-model.md will be checked against
  * Finnish growth tables before release.
  */
-export type SpeciesId = 'pine' | 'spruce' | 'birch';
+export type SpeciesId = 'pine' | 'spruce' | 'birch' | 'aspen';
+
+/** Species a player can plant. Aspen arrives on its own, by natural seeding. */
+export const PLANTABLE: SpeciesId[] = ['pine', 'spruce', 'birch'];
 
 export interface Species {
   id: SpeciesId;
@@ -58,6 +61,11 @@ export const SPECIES: Record<SpeciesId, Species> = {
     id: 'birch', hMax: 27, hK: 0.045, hC: 1.25, g0: 1.05, dScale: 32, form: 0.44, density: 490,
     folA: 0.013, sla: 15, folTurnover: 1, fineRootRatio: 0.6,
     shadeComp: 0.08, droughtTol: 0.5, nutNeed: 0.65, wetTol: 0.3, oldAge: 110,
+  },
+  aspen: {
+    id: 'aspen', hMax: 28, hK: 0.045, hC: 1.25, g0: 1.0, dScale: 35, form: 0.44, density: 400,
+    folA: 0.014, sla: 14, folTurnover: 1, fineRootRatio: 0.6,
+    shadeComp: 0.085, droughtTol: 0.45, nutNeed: 0.75, wetTol: 0.3, oldAge: 100,
   },
 };
 

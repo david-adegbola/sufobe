@@ -40,7 +40,42 @@ export interface Tree {
   rings: number[];
   /** marked to keep forever (säästöpuu) */
   keep: boolean;
+  /** year a moose last browsed this sapling */
+  browsed?: number;
 }
+
+/** Why a tree died. */
+export type DeathCause = 'crowded' | 'old' | 'storm' | 'beetle' | 'moose';
+
+/**
+ * A dead tree you can see: a fallen log or a standing snag. Its carbon is part
+ * of the deadwood store and rots away at the same pace; `c` is what is left.
+ */
+export interface Log {
+  id: number;
+  sp: SpeciesId;
+  d: number;
+  h: number;
+  x: number;
+  /** wood carbon left, kg, and at death */
+  c: number;
+  c0: number;
+  year: number;
+  cause: DeathCause;
+  standing: boolean;
+}
+
+export type EventKind = 'storm' | 'beetle' | 'moose' | 'drought';
+export interface ForestEvent { year: number; kind: EventKind; count: number }
+
+export type AnimalId = 'moose' | 'blackWoodpecker' | 'spottedWoodpecker' | 'capercaillie' | 'siberianJay' | 'treecreeper' | 'flyingSquirrel';
+
+export type DecisionKind = 'regen' | 'young' | 'crowded' | 'mature' | 'storm' | 'beetle';
+export type ChoiceId =
+  | 'plant' | 'seed' | 'nothing' | 'tend' | 'thin' | 'thinLight'
+  | 'clearcut' | 'clearcutKeep' | 'cc' | 'leaveOld'
+  | 'removeFallen' | 'leaveFallen' | 'removeHalf' | 'removeBeetle' | 'leaveBeetle';
+export interface Decision { kind: DecisionKind; year: number; choices: ChoiceId[] }
 
 export interface YearRecord {
   year: number;
@@ -53,11 +88,15 @@ export interface YearRecord {
   flows: Ledger['flows'];
   deaths: number;
   stats: StandStats;
+  /** what happened this year (storm, beetles, moose, drought) */
+  events?: ForestEvent[];
+  /** animals seen for the first time this year */
+  newAnimals?: AnimalId[];
 }
 
 export interface HarvestEvent {
   year: number;
-  kind: 'thin' | 'clearcut' | 'tend' | 'remove';
+  kind: 'thin' | 'clearcut' | 'tend' | 'remove' | 'salvage' | 'cc';
   harvest: Harvest;
 }
 
@@ -74,6 +113,19 @@ export interface Forest {
   pools: Record<ProductKind, number>;
   history: YearRecord[];
   harvests: HarvestEvent[];
+  /** visible deadwood: fallen logs and standing snags */
+  logs: Log[];
+  events: ForestEvent[];
+  /** animals and the year each was first seen */
+  seen: { animal: AnimalId; year: number }[];
+  /** a question waiting for the player; the forest waits too */
+  pending: Decision | null;
+  /** when each kind of question was last asked, so Tikka does not nag */
+  asked: Partial<Record<DecisionKind, number>>;
+  /** natural seeding in progress until this year */
+  regenUntil: number | null;
+  /** continuous cover: young trees keep arriving under the canopy */
+  continuous: boolean;
 }
 
 export function createForest(opts: { seed: string; place: PlaceId; soil: SoilId }): Forest {
@@ -84,8 +136,21 @@ export function createForest(opts: { seed: string; place: PlaceId; soil: SoilId 
   return {
     version: 1, seed: opts.seed, place: opts.place, soil: opts.soil, year: 0,
     trees: [], nextId: 1, ledger, pools: { sawn: 0, paper: 0, energy: 0 },
-    history: [], harvests: [],
+    history: [], harvests: [], logs: [], events: [], seen: [], pending: null, asked: {}, regenUntil: null, continuous: false,
   };
+}
+
+/** Fill in fields added after a forest was saved (F1 saves have no events or logs). */
+export function upgradeForest(f: Forest): Forest {
+  const d = f as Partial<Forest> & Forest;
+  d.logs ??= [];
+  d.events ??= [];
+  d.seen ??= [];
+  d.pending ??= null;
+  d.asked ??= {};
+  d.regenUntil ??= null;
+  d.continuous ??= false;
+  return d;
 }
 
 export function treeCarbon(t: Tree): number {
@@ -198,6 +263,30 @@ export function growTree(t: Tree, bal: number, site: Site): void {
   t.age += 1;
 }
 
+/** Reineke stand density limits (trees/ha at 25 cm mean diameter), verify. */
+export const SDI_MAX: Record<SpeciesId, number> = { pine: 750, spruce: 850, birch: 650, aspen: 650 };
+
+/** Reineke stand density index: trees/ha converted to a 25 cm mean diameter. */
+export function sdi(trees: Tree[], haFactor = HA_FACTOR): number {
+  let s = 0;
+  for (const t of trees) if (t.d > 0) s += Math.pow(t.d / 25, 1.605);
+  return s * haFactor;
+}
+
+/** The self-thinning limit for this mix of species. */
+export function sdiLimit(trees: Tree[]): number {
+  let sum = 0;
+  let n = 0;
+  for (const t of trees) if (t.d > 0) { sum += SDI_MAX[t.sp]; n++; }
+  return n ? sum / n : Infinity;
+}
+
+/** How full the stand is: 0 = open, 1 = at the self-thinning limit. */
+export function relativeDensity(trees: Tree[]): number {
+  const lim = sdiLimit(trees);
+  return Number.isFinite(lim) ? sdi(trees) / lim : 0;
+}
+
 export interface StandStats {
   /** trees per hectare (all sizes) */
   nHa: number;
@@ -219,7 +308,7 @@ export function standStats(trees: Tree[]): StandStats {
   let d2 = 0;
   let nd = 0;
   const bySpecies: StandStats['bySpecies'] = {
-    pine: { nHa: 0, volume: 0 }, spruce: { nHa: 0, volume: 0 }, birch: { nHa: 0, volume: 0 },
+    pine: { nHa: 0, volume: 0 }, spruce: { nHa: 0, volume: 0 }, birch: { nHa: 0, volume: 0 }, aspen: { nHa: 0, volume: 0 },
   };
   for (const t of trees) {
     const v = stemVolume(SPECIES[t.sp], t.d, t.h) * HA_FACTOR;
