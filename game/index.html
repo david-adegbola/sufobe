@@ -4,112 +4,145 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
   <meta name="theme-color" content="#0f3b35">
-  <title>Kasva! grey box</title>
+  <title>Kasva!</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,600..800&family=Caveat:wght@700&family=Atkinson+Hyperlegible+Next:wght@400;700&display=swap">
   <style>
     :root {
-      --deep: #0f3b35; --sun: #ffc83d; --ink: #10241c; --paper: #f3f6f1; --glass: rgba(10, 40, 34, 0.82);
+      --deep: #0f3b35; --deep-2: #071f1b; --sun: #ffc83d; --ink: #10241c; --paper: #f3f6f1; --muted: #c4d6cc;
+      --glass: rgba(10, 40, 34, 0.76); --line: rgba(255, 255, 255, 0.4);
+      --display: "Bricolage Grotesque", "Arial Rounded MT Bold", system-ui, sans-serif;
+      --hand: Caveat, "Segoe Print", "Comic Sans MS", cursive;
+      --body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, sans-serif;
       color-scheme: dark;
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; height: 100%; background: var(--deep); color: var(--paper); overflow: hidden;
-      font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-      -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: none; }
-    canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
-    .screen { position: fixed; inset: 0; display: grid; place-items: center; padding: 20px 16px; overflow-y: auto; touch-action: pan-y; }
+      font: 16px/1.4 var(--body); -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: none; }
+    canvas#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+    .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px calc(env(safe-area-inset-bottom, 0px) + 16px); overflow-y: auto; touch-action: pan-y; }
     .screen[hidden] { display: none; }
-    .panel { width: min(100%, 460px); display: grid; gap: 16px; justify-items: center; text-align: center;
-      background: var(--glass); border: 1.5px solid rgba(255,255,255,0.35); border-radius: 22px; padding: 24px 20px; }
-    .logo { font: 900 clamp(3rem, 14vw, 4.6rem)/0.9 system-ui, sans-serif; color: var(--sun); letter-spacing: -0.03em;
-      -webkit-text-stroke: 2px var(--deep); text-shadow: 0 5px 0 #071f1b; transform: rotate(-4deg); margin: 6px 0 2px; }
-    .mol { display: inline-flex; align-items: center; } .mol i { display: block; border-radius: 50%; }
-    .mol .o { width: 14px; height: 14px; background: #e5483b; } .mol .c { width: 18px; height: 18px; background: #1c1f23; margin: 0 -3px; position: relative; }
-    .weather { display: flex; gap: 6px; font-size: 1.5rem; }
-    .btn { font: 800 1.15rem/1 system-ui, sans-serif; border: 0; border-radius: 999px; padding: 15px 26px 17px; cursor: pointer;
-      background: var(--sun); color: var(--deep); box-shadow: 0 5px 0 #071f1b; text-transform: uppercase; letter-spacing: 0.02em;
-      transition: transform 80ms, box-shadow 80ms; touch-action: manipulation; }
-    .btn:active { transform: translateY(5px); box-shadow: 0 0 0 #071f1b; }
-    .btn.ghost { background: var(--deep); color: var(--paper); border: 1.5px solid rgba(255,255,255,0.5); box-shadow: 0 5px 0 #071f1b; }
-    .btn:focus-visible, .icon:focus-visible, .lang button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
-    .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
-    .chips { display: grid; gap: 6px; }
-    .chips span { font-size: 0.9rem; font-weight: 700; display: inline-flex; gap: 8px; align-items: center; justify-content: center; }
-    .chips b { width: 20px; height: 20px; border-radius: 50%; background: var(--sun); color: var(--deep); display: inline-grid; place-items: center; font-size: 0.75rem; }
-    .muted { color: #b7c9c0; font-size: 0.85rem; }
-    .hud-btns { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 56px); right: 12px; display: flex; gap: 8px; z-index: 2; }
-    .hud-btns[hidden] { display: none; }
-    .icon { width: 42px; height: 42px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.5); background: var(--glass); color: #fff; font-size: 1.1rem; cursor: pointer; touch-action: manipulation; }
-    .big { font: 900 clamp(2.8rem, 12vw, 4rem)/1 system-ui, sans-serif; color: var(--sun); font-variant-numeric: tabular-nums; }
-    .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; width: 100%; }
-    .stats div { background: rgba(255,255,255,0.08); border-radius: 12px; padding: 8px 4px; display: grid; gap: 2px; font-size: 0.75rem; }
-    .stats b { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
-    .tikka { background: #fff; color: var(--ink); border-radius: 16px 16px 16px 4px; padding: 10px 14px; font-weight: 600; text-align: left; }
-    .tikka::before { content: "Tikka: "; font-weight: 800; }
-    .lang { display: flex; gap: 4px; } .lang button { border: 1.5px solid rgba(255,255,255,0.4); background: transparent; color: #fff; border-radius: 999px; padding: 4px 10px; font-weight: 700; cursor: pointer; }
+    .glass { background: var(--glass); border: 1.5px solid var(--line); border-radius: 20px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+
+    /* start: the forest is the menu */
+    .topbar { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .chip { font: 700 0.85rem/1 var(--display); padding: 9px 14px; border-radius: 999px; background: var(--glass); border: 1.5px solid var(--line); color: var(--paper); cursor: pointer; display: inline-flex; gap: 8px; align-items: center; touch-action: manipulation; }
+    .chip b { color: var(--sun); }
+    .lang { display: flex; gap: 4px; }
+    .lang button { font: 700 0.8rem/1 var(--display); border: 1.5px solid var(--line); background: var(--glass); color: #fff; border-radius: 999px; padding: 8px 11px; cursor: pointer; }
     .lang button[aria-pressed="true"] { background: #fff; color: var(--deep); }
-    details { width: 100%; text-align: left; font-size: 0.85rem; } summary { cursor: pointer; color: #b7c9c0; }
-    table { width: 100%; border-collapse: collapse; margin-top: 6px; font-variant-numeric: tabular-nums; }
-    td, th { padding: 3px 4px; border-bottom: 1px solid rgba(255,255,255,0.12); text-align: left; }
-    .newbest { background: var(--sun); color: var(--deep); font-weight: 800; border-radius: 999px; padding: 4px 12px; font-size: 0.85rem; }
+    .hero { text-align: center; margin-top: clamp(4px, 3vh, 28px); display: grid; gap: 10px; justify-items: center; }
+    .logo { font: 800 clamp(3.6rem, 17vw, 6.4rem)/0.85 var(--display); font-stretch: 75%; text-transform: uppercase; letter-spacing: -0.01em;
+      color: var(--sun); -webkit-text-stroke: 3px var(--deep); paint-order: stroke fill; text-shadow: 0 6px 0 var(--deep-2); transform: rotate(-4deg); margin: 0; }
+    .theme { font: 700 0.75rem/1 var(--body); letter-spacing: 0.2em; text-transform: uppercase; color: var(--sun); background: var(--glass); padding: 7px 14px; border-radius: 999px; }
+    .weather { display: flex; gap: 6px; align-items: center; padding: 6px 12px; border-radius: 999px; background: var(--glass); }
+    .weather .today { outline: 2px solid var(--sun); border-radius: 50%; }
+    .spacer { flex: 1; min-height: 12px; }
+    .actions { display: grid; gap: 12px; justify-items: center; width: min(100%, 520px); }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; align-items: center; }
+    .btn { font: 800 1.35rem/1 var(--display); font-stretch: 80%; text-transform: uppercase; letter-spacing: 0.02em; border: 0; border-radius: 999px;
+      padding: 17px 34px 19px; cursor: pointer; background: var(--sun); color: var(--deep); box-shadow: 0 6px 0 var(--deep-2);
+      transition: transform 80ms, box-shadow 80ms; touch-action: manipulation; }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 0 var(--deep-2); }
+    .btn:active { transform: translateY(6px); box-shadow: 0 0 0 var(--deep-2); }
+    .btn.ghost { background: var(--deep); color: var(--paper); border: 1.5px solid var(--line); font-size: 1.05rem; padding: 15px 22px 17px; }
+    .btn.small { font-size: 0.95rem; padding: 11px 18px 13px; }
+    .btn:focus-visible, .chip:focus-visible, .lang button:focus-visible, summary:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+    .howto { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+    .howto span { font-size: 0.85rem; font-weight: 700; background: var(--glass); border-radius: 999px; padding: 5px 12px 5px 5px; display: inline-flex; gap: 8px; align-items: center; }
+    .howto i { font-style: normal; width: 20px; height: 20px; border-radius: 50%; background: var(--sun); color: var(--deep); display: grid; place-items: center; font-size: 0.75rem; font-weight: 800; }
+    .keys { font-size: 0.8rem; color: var(--muted); display: none; gap: 12px; flex-wrap: wrap; justify-content: center; }
+    .keys kbd { font: 700 0.75rem/1 var(--body); background: rgba(255,255,255,0.12); border: 1px solid var(--line); border-radius: 5px; padding: 3px 6px; margin-right: 4px; }
+    @media (hover: hover) and (pointer: fine) { .keys { display: flex; } }
+    details.log { font-size: 0.8rem; color: var(--muted); }
+    details.log summary { cursor: pointer; text-align: center; }
+    details.log table { border-collapse: collapse; margin: 6px auto 0; font-variant-numeric: tabular-nums; }
+    details.log td, details.log th { padding: 2px 8px; border-bottom: 1px solid rgba(255,255,255,0.12); }
+
+    .hud-btns { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 12px); right: 12px; display: flex; gap: 8px; z-index: 2; }
+    .hud-btns[hidden] { display: none; }
+    .icon { width: 44px; height: 44px; border-radius: 50%; border: 1.5px solid var(--line); background: var(--glass); color: #fff; font: 700 1rem/1 var(--display); cursor: pointer; touch-action: manipulation; display: grid; place-items: center; }
+
+    /* results */
+    .panel { width: min(100%, 440px); margin: auto 0; display: grid; gap: 14px; justify-items: center; text-align: center; padding: 22px 18px; }
+    #ring { width: 150px; height: 150px; }
+    .big { font: 800 clamp(3rem, 14vw, 4.2rem)/0.95 var(--display); color: var(--sun); font-variant-numeric: tabular-nums; -webkit-text-stroke: 2px var(--deep); paint-order: stroke fill; }
+    .unit { margin-top: -6px; font-weight: 700; }
+    .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; width: 100%; }
+    .stats div { background: rgba(255,255,255,0.08); border-radius: 12px; padding: 8px 2px; display: grid; gap: 2px; font-size: 0.72rem; color: var(--muted); }
+    .stats b { font: 800 1.2rem/1 var(--display); color: #fff; font-variant-numeric: tabular-nums; }
+    .tikka { display: flex; gap: 10px; align-items: center; text-align: left; background: #fffdf6; color: var(--ink); border-radius: 18px 18px 18px 4px; padding: 10px 14px 10px 10px; font: 700 1.35rem/1.1 var(--hand); }
+    .tikka canvas { flex: 0 0 auto; width: 48px; height: 48px; border-radius: 50%; background: #e8f1e9; }
+    .newbest { font: 800 0.9rem/1 var(--display); text-transform: uppercase; background: #f2711c; color: #1a0d03; border-radius: 999px; padding: 6px 14px; transform: rotate(-3deg); }
+    .pause-title { font: 800 2.6rem/1 var(--display); color: var(--sun); }
     @media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
   </style>
 </head>
 <body>
-  <canvas id="game" aria-label="Kasva game area"></canvas>
+  <canvas id="game" aria-label="Kasva"></canvas>
 
   <div class="hud-btns" id="hud-btns" hidden>
-    <button type="button" class="icon" id="btn-mute" aria-label="Sound on/off">🔊</button>
-    <button type="button" class="icon" id="btn-pause" aria-label="Pause">⏸</button>
+    <button type="button" class="icon" id="btn-mute" aria-label="Sound"></button>
+    <button type="button" class="icon" id="btn-pause" aria-label="Pause">II</button>
   </div>
 
   <section class="screen" id="start">
-    <div class="panel">
-      <div class="row" style="width:100%;justify-content:space-between">
-        <span class="mol" aria-hidden="true"><i class="o"></i><i class="c"></i><i class="o"></i></span>
-        <div class="lang" role="group" aria-label="Kieli / Language">
-          <button type="button" data-lang="fi">FI</button><button type="button" data-lang="en">EN</button>
-        </div>
+    <div class="topbar">
+      <button type="button" class="chip" id="btn-radio"></button>
+      <div class="lang" role="group" aria-label="Kieli / Language">
+        <button type="button" data-lang="fi">FI</button><button type="button" data-lang="en">EN</button>
       </div>
-      <div class="logo" id="t-title"></div>
-      <p id="t-tagline" style="margin:0;font-weight:600"></p>
-      <div class="weather" id="daily-weather" aria-label="Weather"></div>
+    </div>
+    <div class="hero">
+      <h1 class="logo" id="t-title">Kasva!</h1>
+      <span class="theme" id="t-theme"></span>
+      <div class="weather" id="daily-weather"></div>
+    </div>
+    <div class="spacer"></div>
+    <div class="actions">
       <div class="row">
         <button type="button" class="btn" id="btn-daily"></button>
         <button type="button" class="btn ghost" id="btn-random"></button>
       </div>
-      <div class="chips" id="t-howto"></div>
-      <p class="muted" id="t-keys" style="margin:0"></p>
-      <details id="log"><summary id="t-log"></summary><div id="log-body"></div></details>
+      <div class="howto" id="t-howto"></div>
+      <div class="keys" id="t-keys"></div>
+      <details class="log"><summary id="t-log"></summary><div id="log-body"></div></details>
     </div>
   </section>
 
   <section class="screen" id="pause" hidden>
-    <div class="panel">
-      <div class="logo" id="t-paused" style="font-size:2.6rem"></div>
+    <div class="panel glass">
+      <div class="pause-title" id="t-paused"></div>
       <button type="button" class="btn" id="btn-resume"></button>
     </div>
   </section>
 
   <section class="screen" id="results" hidden>
-    <div class="panel">
+    <div class="panel glass">
       <div class="weather" id="r-weather"></div>
+      <canvas id="ring" width="300" height="300" aria-hidden="true"></canvas>
       <span class="newbest" id="r-best" hidden></span>
       <div class="big" id="r-stored">0</div>
-      <p id="t-r-stored" style="margin:-8px 0 0;font-weight:600"></p>
+      <div class="unit" id="t-r-stored"></div>
       <div class="stats">
         <div><b id="r-caught"></b><span id="t-r-caught"></span></div>
         <div><b id="r-resp"></b><span id="t-r-resp"></span></div>
         <div><b id="r-combo"></b><span id="t-r-combo"></span></div>
         <div><b id="r-wilts"></b><span id="t-r-wilts"></span></div>
       </div>
-      <p class="tikka" id="r-tikka"></p>
+      <p class="tikka"><canvas id="tikka-face" width="96" height="96" aria-hidden="true"></canvas><span id="r-tikka"></span></p>
       <div class="row">
         <button type="button" class="btn" id="btn-again"></button>
         <button type="button" class="btn ghost" id="btn-next"></button>
       </div>
-      <button type="button" class="btn ghost" id="btn-copy" style="font-size:0.95rem;padding:11px 18px 13px"></button>
+      <div class="row">
+        <button type="button" class="btn ghost small" id="btn-copy"></button>
+        <button type="button" class="btn ghost small" id="btn-home"></button>
+      </div>
     </div>
   </section>
 
-  <script type="module" src="/src/greybox/main.ts"></script>
+  <script type="module" src="/src/app/main.ts"></script>
 </body>
 </html>

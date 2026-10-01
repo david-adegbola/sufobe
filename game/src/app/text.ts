@@ -1,14 +1,14 @@
-/** Grey-box UI text. Finnish needs a native-speaker check before classroom use. */
+/** Game text. Finnish needs a native-speaker check before classroom use. */
 export type Lang = 'fi' | 'en';
 
 export const TEXT = {
   fi: {
-    title: 'Kasva!',
-    tagline: 'Olet koivu. Nappaa hiilidioksidia, säästä vettä.',
-    daily: 'Päivän sää',
+    play: 'Kasva!',
     random: 'Uusi sää',
-    howto: ['Pidä sormi ruudulla = ilmaraot auki', 'Helle: lyhyitä henkäyksiä', 'Yöllä lepää'],
-    keys: 'Välilyönti = hengitä · P = tauko · M = ääni',
+    theme: (date: string) => `Päivän sää · ${date}`,
+    radio: (on: boolean) => `♪ Metsäradio · <b>${on ? 'päällä' : 'pois'}</b>`,
+    howto: ['Pidä pohjassa: ilmaraot auki', 'Helle: lyhyitä henkäyksiä', 'Yöllä lepää'],
+    keys: [['Välilyönti', 'hengitä'], ['P', 'tauko'], ['M', 'ääni']],
     day: 'Päivä',
     juhannus: 'Juhannus',
     weather: { sun: 'Aurinko', cloudy: 'Pilvistä', rain: 'Sade', heat: 'Helle' },
@@ -17,16 +17,16 @@ export const TEXT = {
     paused: 'Tauko',
     resume: 'Jatka',
     hints: {
-      start: 'Pidä sormi ruudulla – lehdet avautuvat',
-      firstCatch: 'Nappasit hiilidioksidia! Valo tekee siitä sokeria.',
+      start: 'Pidä sormi ruudulla – lehtien ilmaraot avautuvat!',
+      firstCatch: 'Nappasit hiilidioksidia! Valo tekee siitä sokeria, ja happea pääsee ulos.',
       dusk: 'Yö tulee. Ilman valoa hiilidioksidista ei ole hyötyä – päästä irti.',
       heat: 'Helle! Avoimista ilmaraoista haihtuu tuplasti vettä.',
       lowWater: 'Vesi vähissä – päästä irti, juuret täyttävät.',
       wilt: 'Puu nuupahti! Lehtiä putosi, ja nappausalue pieneni.',
-      juhannus: 'Juhannusyö! Valoisa yö – voit jatkaa nappaamista.',
-      gold: 'Auringonpilkku! Kultainen molekyyli = ×5',
+      juhannus: 'Juhannusyö! Yö pysyy valoisana – voit jatkaa.',
+      gold: 'Auringonpilkku! Auringossa kylpevä molekyyli on ×5.',
       rain: 'Sade täyttää vettä – nyt voi hengittää pitkään.',
-      night: 'Puu hengittää ulos koko ajan, myös yöllä.',
+      night: 'Puu hengittää hiilidioksidia ulos koko ajan, myös yöllä.',
     },
     result: {
       stored: 'g hiilidioksidia muuttui puuksi',
@@ -34,15 +34,16 @@ export const TEXT = {
       breathed: 'hengitetty ulos',
       combo: 'paras henkäys',
       wilts: 'nuupahdusta',
-      again: 'Sama sää uudelleen',
+      again: 'Uudestaan',
       next: 'Uusi sää',
       copy: 'Kopioi tulos',
       copied: 'Kopioitu!',
+      home: 'Metsään',
       best: 'Uusi ennätys!',
       tikka: {
         wilts: (n: number) => `Puusi nuupahti ${n} kertaa. Kun vesi on vähissä, päästä irti – juuret täyttävät.`,
         heat: (s: number) => `Pidit ilmaraot auki helteellä ${Math.round(s)} s. Helteellä vesi haihtuu tuplasti.`,
-        night: (s: number) => `Pidit ilmaraot auki pimeässä ${Math.round(s)} s. Yöllä ei ole valoa, joten se vain kuluttaa vettä.`,
+        night: (s: number) => `Pidit ilmaraot auki pimeässä ${Math.round(s)} s. Yöllä se vain kuluttaa vettä.`,
         resp: (p: number) => `${p} % napatusta hiilestä hengitettiin ulos yöllä. Puut hengittävät koko ajan.`,
       },
     },
@@ -52,12 +53,12 @@ export const TEXT = {
     runs: (n: number) => `${n} kesää pelattu tällä laitteella`,
   },
   en: {
-    title: 'Kasva!',
-    tagline: 'You are a birch. Catch carbon dioxide, save water.',
-    daily: "Today's weather",
+    play: 'Grow!',
     random: 'New weather',
-    howto: ['Hold anywhere = stomata open', 'Heatwave: short breaths', 'Night: rest'],
-    keys: 'Space = breathe · P = pause · M = sound',
+    theme: (date: string) => `Today's weather · ${date}`,
+    radio: (on: boolean) => `♪ Forest radio · <b>${on ? 'on' : 'off'}</b>`,
+    howto: ['Hold: stomata open', 'Heatwave: short breaths', 'Night: rest'],
+    keys: [['Space', 'breathe'], ['P', 'pause'], ['M', 'sound']],
     day: 'Day',
     juhannus: 'Midsummer',
     weather: { sun: 'Sun', cloudy: 'Cloudy', rain: 'Rain', heat: 'Heatwave' },
@@ -66,16 +67,16 @@ export const TEXT = {
     paused: 'Paused',
     resume: 'Resume',
     hints: {
-      start: 'Hold your finger on the screen – the leaves open',
-      firstCatch: 'You caught carbon dioxide! Light turns it into sugar.',
+      start: 'Hold your finger on the screen – the stomata in the leaves open!',
+      firstCatch: 'You caught carbon dioxide! Light turns it into sugar, and oxygen comes out.',
       dusk: 'Night is coming. Without light, CO₂ is no use – let go.',
       heat: 'Heatwave! Open stomata lose water twice as fast.',
       lowWater: 'Water is low – let go and the roots refill it.',
       wilt: 'Your tree wilted! It lost leaves and the catch zone shrank.',
-      juhannus: 'Midsummer night! It stays light – keep catching.',
-      gold: 'Sunfleck! A golden molecule is worth ×5',
+      juhannus: 'Midsummer night! It stays light – keep going.',
+      gold: 'Sunfleck! A molecule in a patch of sunlight is worth ×5.',
       rain: 'Rain refills your water – long breaths are fine now.',
-      night: 'Your tree breathes out all the time, at night too.',
+      night: 'Your tree breathes CO₂ out all the time, at night too.',
     },
     result: {
       stored: 'g of carbon dioxide became wood',
@@ -83,15 +84,16 @@ export const TEXT = {
       breathed: 'breathed out',
       combo: 'best breath',
       wilts: 'wilts',
-      again: 'Same weather again',
+      again: 'Again',
       next: 'New weather',
       copy: 'Copy result',
       copied: 'Copied!',
+      home: 'To the forest',
       best: 'New best!',
       tikka: {
         wilts: (n: number) => `Your tree wilted ${n} times. When water is low, let go – the roots refill it.`,
         heat: (s: number) => `You kept your stomata open for ${Math.round(s)} s in the heatwave. Heat makes water vanish twice as fast.`,
-        night: (s: number) => `You kept your stomata open in the dark for ${Math.round(s)} s. With no light it only wastes water.`,
+        night: (s: number) => `You kept your stomata open in the dark for ${Math.round(s)} s. At night that only wastes water.`,
         resp: (p: number) => `${p}% of the carbon you caught was breathed out at night. Trees breathe all the time.`,
       },
     },
@@ -102,4 +104,5 @@ export const TEXT = {
   },
 } as const;
 
-export const WEATHER_ICON = { sun: '☀️', cloudy: '☁️', rain: '🌧️', heat: '🌡️' } as const;
+/** Emoji only for the copied share text, where chat apps render them well. */
+export const WEATHER_EMOJI = { sun: '☀️', cloudy: '⛅', rain: '🌧️', heat: '🌡️' } as const;
