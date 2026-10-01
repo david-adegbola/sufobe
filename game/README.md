@@ -39,12 +39,14 @@ Hold anywhere (or the space bar) to open the stomata. P pauses, M mutes. A link 
 
 - `src/core/`: the deterministic game. `season.ts` is a pure fixed-step (60 Hz) simulation. The same seed and the same inputs always give the same score, which later makes challenge links and server-side score checks possible. `weather.ts` plans six days per seed, and `dailySeed()` follows the Finnish date.
 - `src/app/`: the game shell (`main.ts`), the renderer (`render.ts`), synthesised sound (`audio.ts`), and text in FI/EN (`text.ts`).
+- `src/core/forest/`: the Metsäni forest model (F0, no UI yet): climate, soils, species, a stand of trees that compete for light and water, carbon stores that always add up, thinning and harvest, and wood products. See `docs/forest-model.md`, and `tests/forest/` for the conservation, calibration and determinism tests.
 - `src/app/scene/`: the code-drawn world: palette and moods, landscape layers, silver birch, Tikka, weather icons, HUD.
 - `tests/season.test.ts`: determinism, the rules (no catching in the dark, heat drains water faster, score = caught − breathed out) and balance. **The science-smart bot must beat holding all the time by more than 25%.**
 
 ```sh
 npm test               # vitest
 npm run balance        # average score of never / always / sunChaser / smart / expert bots
+npm run forest         # Metsäni: print 80–100-year forest runs
 npm run bundle:single  # dist/kasva.html, one self-contained file (about 100 KB)
 # SHARE_URL=https://... npm run bundle:single  # challenge links point at the published page
 ```
