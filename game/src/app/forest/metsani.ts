@@ -10,6 +10,7 @@
  * from last year's size to this year's during the summer. A question is
  * asked at the end of the year it belongs to, before the next one is stepped.
  */
+import { num } from '../format';
 import {
   CO2_PER_C, ITEMS, PLANTABLE, SOILS, SPACING, SPECIES, applyChoice, bestBin, createForest, plant, presentAnimals,
   applyZoom, canZoom, previewHarvest, recycledItems, results, shelf, standStats, stemVolume, stepYear, traceCount, traceItem,
@@ -179,7 +180,7 @@ export class Metsani {
       lane.shown = results(lane.f);
       this.persist();
       const t = this.t;
-      const f = (x: number) => Math.abs(x).toLocaleString(this.host.lang() === 'fi' ? 'fi-FI' : 'en-GB', { maximumFractionDigits: 1 });
+      const f = (x: number) => num(Math.abs(x), 1);
       return mm > 0.05 ? t.zoomUp(f(mm)) : mm < -0.05 ? t.zoomDown(f(mm)) : t.zoomSame;
     });
   }
@@ -229,7 +230,7 @@ export class Metsani {
     const animals = m.animals.map(a => t.animals[a][0].toLowerCase()).join(', ');
     $('m-desc').textContent = t.describe((m.rec?.year ?? f.year - 1) + 1, t.seasons[season].toLowerCase(),
       `${t.places[f.place].name}, ${t.soils[f.soil].name.toLowerCase()}`, t.treesOf(f.trees.length, parts),
-      tallest.toLocaleString(this.host.lang() === 'fi' ? 'fi-FI' : 'en-GB', { maximumFractionDigits: 0 }), f.logs.length, animals);
+      num(tallest), f.logs.length, animals);
   }
 
   /** Escape goes one step back: sheet → card → view → setup → home. */
@@ -610,7 +611,7 @@ export class Metsani {
 
   private renderResults() {
     const t = this.t;
-    const fmt = (n: number) => Math.round(n).toLocaleString(this.host.lang() === 'fi' ? 'fi-FI' : 'en-GB');
+    const fmt = (n: number) => num(Math.round(n));
     const leaves = (s: number) => '<span class="leaves" aria-hidden="true">' + Array.from({ length: 5 }, (_, i) =>
       `<i class="${s >= i + 1 ? 'on' : s >= i + 0.5 ? 'half' : ''}"></i>`).join('') + '</span>';
     const arrow = (d: -1 | 0 | 1 | undefined) => d === 1 ? '<em class="up" aria-hidden="true">▲</em>' : d === -1 ? '<em class="down" aria-hidden="true">▼</em>' : '';
@@ -640,7 +641,7 @@ export class Metsani {
   private explain(k: ResultKey, l: Lane): string {
     const t = this.t;
     const r = l.shown;
-    const fmt = (n: number) => Math.round(n).toLocaleString(this.host.lang() === 'fi' ? 'fi-FI' : 'en-GB');
+    const fmt = (n: number) => num(Math.round(n));
     if (!r) return `<p>${k === 'products' ? t.explain.products : t.explain.life.young}</p>`;
     switch (k) {
       case 'wood': return `<p>${t.explain.wood(fmt(r.wood.standing))}</p>`;
@@ -825,7 +826,7 @@ export class Metsani {
     const s = this.sorting;
     if (!s) return;
     const t = this.t;
-    const n1 = (x: number) => x.toLocaleString(this.host.lang() === 'fi' ? 'fi-FI' : 'en-GB', { maximumFractionDigits: 0 });
+    const n1 = (x: number) => num(x);
     $('m-sort-title').textContent = t.sortTitle;
     $('m-sort-intro').textContent = t.sortIntro;
     const maxD = Math.max(...s.trees.map(x => x.d));
@@ -908,7 +909,7 @@ export class Metsani {
       amounts: { saw: h.sawlogC / total, pulp: h.pulpwoodC / total, bio: (h.energywoodC + h.residueC) / total },
     };
     $('m-mills-title').textContent = t.millsTitle;
-    $('m-mills-truck').textContent = t.truck((h.volume).toLocaleString(this.host.lang() === 'fi' ? 'fi-FI' : 'en-GB', { maximumFractionDigits: 1 }));
+    $('m-mills-truck').textContent = t.truck(num(h.volume, 1));
     $('m-mills-sort').textContent = s && s.shown.length ? `${right} / ${s.shown.length} ${t.sortRight} ${[...notes].join(' ')}` : '';
     $('m-mills-cards').innerHTML = (['sawmill', 'pulpmill', 'biorefinery'] as const).map(k =>
       `<div class="millcard"><b>${t.mills[k][0]}</b><span>${t.mills[k][1]}</span></div>`).join('');
@@ -958,8 +959,7 @@ export class Metsani {
     if (!lane) return;
     const f = lane.f;
     const t = this.t;
-    const lang = this.host.lang();
-    const fmt = (n: number) => Math.round(n).toLocaleString(lang === 'fi' ? 'fi-FI' : 'en-GB');
+    const fmt = (n: number) => num(Math.round(n));
     $('m-shelf-title').textContent = t.shelfTitle;
     $('btn-m-shelf-close').setAttribute('aria-label', t.close);
     const items = shelf(f);
@@ -1014,8 +1014,7 @@ export class Metsani {
     if (!tree) return;
     const t = this.t;
     const sp = SPECIES[tree.sp];
-    const lang = this.host.lang();
-    const n1 = (x: number) => x.toLocaleString(lang === 'fi' ? 'fi-FI' : 'en-GB', { maximumFractionDigits: 1 });
+    const n1 = (x: number) => num(x, 1);
     const carbon = tree.c.wood + tree.c.foliage + tree.c.fine;
     const vol = stemVolume(sp, tree.d, tree.h);
     const light = tree.vigor > 0.75 ? t.card.light.good : tree.vigor > 0.45 ? t.card.light.some : t.card.light.poor;

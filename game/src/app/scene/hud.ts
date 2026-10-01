@@ -1,4 +1,5 @@
 /** Heads-up display: score, season strip, water and light gauges, combo stamp, Tikka's bubble. */
+import { num } from '../format';
 import { DAY_TICKS, clock, type SeasonState } from '../../core/season';
 import { DAYS, JUHANNUS_DAY } from '../../core/weather';
 import { drawIcon } from './icons';
@@ -63,7 +64,7 @@ export function drawHud(c: CanvasRenderingContext2D, W: number, H: number, sim: 
   c.lineWidth = small ? 5 : 6;
   c.strokeStyle = UI.deep;
   c.lineJoin = 'round';
-  const score = Math.round(st.shownScore).toLocaleString('fi-FI');
+  const score = num(Math.round(st.shownScore));
   c.strokeText(score, pad, scoreY);
   c.fillStyle = '#fff';
   c.fillText(score, pad, scoreY);

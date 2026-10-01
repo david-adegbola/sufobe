@@ -17,7 +17,7 @@ Until these are filled in, the app shows a clearly marked "[missing …]" line i
 
 ## What the apps store (data inventory)
 
-Nothing is sent to any server by either app. All game data is in the browser's `localStorage` on the device being used. The offline web build also uses the browser's Cache Storage (see the end of this section).
+Nothing is sent to any server by either app. All game data is in the browser's `localStorage` on the device being used. Since Phase 5, Kasva! keeps all its parts in **one key, `kasva-world`**. The rows below are those parts, named by the separate keys they had before; they are moved into `kasva-world` on first load. The test hook `kasva-dbg` stays a separate key. Old years of a long Metsäni forest are compacted (rounded, without yearly flow detail) before saving. The offline web build also uses the browser's Cache Storage (see the end of this section).
 
 | Key | App | Contents | Needed for | Removable |
 |---|---|---|---|---|

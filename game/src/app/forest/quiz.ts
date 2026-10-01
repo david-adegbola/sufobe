@@ -4,13 +4,12 @@
  * multiple-choice questions before the child's first forest, and the same
  * four again when that forest reaches 30 years. No names, no free text:
  * only how many answers each option got, before and after, on this device
- * (localStorage "kasva-quiz"). The teacher can read and clear the tally in
+ * (the world save, part "quiz"). The teacher can read and clear the tally in
  * About. Nothing is sent anywhere.
  */
+import { getPart, removePart, setPart } from '../storage';
 import type { Lang } from '../text';
 
-export const QUIZ_KEY = 'kasva-quiz';
-export const QUIZ_ON_KEY = 'kasva-quiz-on';
 export const AFTER_YEAR = 30;
 
 interface Q { q: string; options: string[] }
@@ -70,26 +69,24 @@ export interface QuizTally {
 const empty = (): QuizTally => ({ before: CORRECT.map(() => [0, 0, 0, 0, 0]), after: CORRECT.map(() => [0, 0, 0, 0, 0]), stage: 'before' });
 
 export function quizOn(): boolean {
-  try { return localStorage.getItem(QUIZ_ON_KEY) === 'true'; } catch { return false; }
+  return getPart<unknown>('quiz-on', false) === true;
 }
 
 export function setQuizOn(on: boolean): void {
-  try { localStorage.setItem(QUIZ_ON_KEY, String(on)); } catch { /* blocked */ }
+  setPart('quiz-on', on);
 }
 
 export function loadTally(): QuizTally {
-  try {
-    const t = JSON.parse(localStorage.getItem(QUIZ_KEY) ?? 'null') as QuizTally | null;
-    return t && Array.isArray(t.before) && Array.isArray(t.after) ? t : empty();
-  } catch { return empty(); }
+  const t = getPart<QuizTally | null>('quiz', null);
+  return t && Array.isArray(t.before) && Array.isArray(t.after) ? t : empty();
 }
 
 export function saveTally(t: QuizTally): void {
-  try { localStorage.setItem(QUIZ_KEY, JSON.stringify(t)); } catch { /* blocked */ }
+  setPart('quiz', t);
 }
 
 export function clearTally(): void {
-  try { localStorage.removeItem(QUIZ_KEY); } catch { /* blocked */ }
+  removePart('quiz');
 }
 
 /** Add one child's answers. */

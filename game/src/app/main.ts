@@ -3,6 +3,8 @@
  * progression (XP, ranks, badges, growth choice), level-ups and the card
  * collection. Progress is saved in this browser only.
  */
+import { num, setFormatLang } from './format';
+import { forgetCache, getPart, setPart, type Part } from './storage';
 import './fonts.css';
 import { makeExpert } from '../core/bots';
 import {
@@ -26,18 +28,16 @@ import { drawTikka } from './scene/tikka';
 import { TEXT, WEATHER_EMOJI, type Lang } from './text';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
-const LOG_KEY = 'kasva-greybox-log';
-const SAVE_KEY = 'kasva-save';
-const LANG_KEY = 'kasva-lang';
-const SOUND_KEY = 'kasva-sound';
-const TESTLOG_KEY = 'kasva-testlog';
+const LOG_KEY: Part = 'greybox-log';
+const SAVE_KEY: Part = 'save';
+const LANG_KEY: Part = 'lang';
+const SOUND_KEY: Part = 'sound';
+const TESTLOG_KEY: Part = 'testlog';
 
 interface LogRow { at: string; seed: string; stored: number; caught: number; resp: number; combo: number; wilts: number }
 
-function load<T>(key: string, fallback: T): T {
-  try { const v = localStorage.getItem(key); return v ? (JSON.parse(v) as T) : fallback; } catch { return fallback; }
-}
-function store(key: string, v: unknown) { try { localStorage.setItem(key, JSON.stringify(v)); } catch { /* storage blocked */ } }
+const load = <T>(part: Part, fallback: T): T => getPart(part, fallback);
+const store = (part: Part, v: unknown) => { setPart(part, v); };
 
 let lang: Lang = load<Lang>(LANG_KEY, 'fi');
 const t = () => TEXT[lang];
@@ -206,6 +206,7 @@ function renderHome() {
 }
 
 function renderText() {
+  setFormatLang(lang);
   const x = t();
   document.documentElement.lang = lang;
   $('t-title').textContent = x.play;
@@ -364,7 +365,7 @@ function finish() {
     rows.push({ at: new Date().toISOString(), seed: r.seed, stored: r.storedG, caught: r.caughtG, resp: r.respiredG, combo: r.bestCombo, wilts: r.wilts });
     store(LOG_KEY, rows.slice(-200));
   }
-  announce(ui().seasonEnd(r.storedG.toLocaleString(lang === 'fi' ? 'fi-FI' : 'en-GB')));
+  announce(ui().seasonEnd(num(r.storedG)));
   lastResult = r;
   lastOutcome = outcome;
   fillResults(r, outcome, true, before);
@@ -399,7 +400,7 @@ function leafBadge(id: string, unlocked = true, label = false) {
 
 function fillResults(r: SeasonResult, o: SeasonOutcome, animate: boolean, beforeG = save.co2LifetimeG) {
   const x = t();
-  const fmt = (n: number) => n.toLocaleString('fi-FI');
+  const fmt = (n: number) => num(n);
   $('r-weather').innerHTML = weatherRow(r.weather);
   $('r-stored').textContent = fmt(r.storedG);
   $('r-caught').textContent = fmt(r.caughtG);
@@ -414,7 +415,7 @@ function fillResults(r: SeasonResult, o: SeasonOutcome, animate: boolean, before
   const banner = $('r-challenge');
   banner.hidden = !challengeOutcome;
   if (challengeOutcome) {
-    const f = (n: number) => n.toLocaleString(lang === 'fi' ? 'fi-FI' : 'en-GB');
+    const f = (n: number) => num(n);
     const who = nickName(challengeOutcome.from.nick);
     banner.classList.toggle('lose', !challengeOutcome.won);
     banner.textContent = challengeOutcome.won
@@ -538,11 +539,11 @@ function drawRing(seasons: number[]) {
 }
 
 function countUp(el: HTMLElement, to: number) {
-  if (renderer.hud.reducedMotion) { el.textContent = to.toLocaleString('fi-FI'); return; }
+  if (renderer.hud.reducedMotion) { el.textContent = num(to); return; }
   const t0 = performance.now(), dur = 1100;
   const tick = (now: number) => {
     const p = Math.min(1, (now - t0) / dur);
-    el.textContent = Math.round(to * (1 - Math.pow(1 - p, 3))).toLocaleString('fi-FI');
+    el.textContent = num(Math.round(to * (1 - Math.pow(1 - p, 3))));
     if (p < 1) requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);
@@ -559,7 +560,7 @@ function challengeLink(seed: string, g: number) {
 
 function shareText(r: SeasonResult) {
   const link = current.mode === 'daily' ? challengeLink(r.seed, r.storedG) : shareBase();
-  return `Kasva! · ${seasonLabel(r.seed)}\n🌳 ${r.storedG.toLocaleString('fi-FI')} g CO₂ · ×${r.bestCombo}\n${r.weather.map((w) => WEATHER_EMOJI[w]).join('')}${link ? '\n' + link : ''}`;
+  return `Kasva! · ${seasonLabel(r.seed)}\n🌳 ${num(r.storedG)} g CO₂ · ×${r.bestCombo}\n${r.weather.map((w) => WEATHER_EMOJI[w]).join('')}${link ? '\n' + link : ''}`;
 }
 
 async function copy(text: string, button: HTMLElement, done: string) {
@@ -578,7 +579,7 @@ async function copy(text: string, button: HTMLElement, done: string) {
 
 function sendChallenge(seed: string, g: number, button: HTMLElement) {
   const x = t();
-  const text = `Kasva! ${x.challengeBy(nickName(save.nick))} ${seasonLabel(seed)} · ${g.toLocaleString('fi-FI')} g\n${challengeLink(seed, g)}`;
+  const text = `Kasva! ${x.challengeBy(nickName(save.nick))} ${seasonLabel(seed)} · ${num(g)} g\n${challengeLink(seed, g)}`;
   void copy(text, button, x.copiedChallenge);
   const out = challengeSent(save, seed, g, new Date().toISOString());
   save = out.save;
@@ -707,7 +708,7 @@ function askImport(p: NonNullable<typeof pendingImport>) {
   if (p.kind === 'code') {
     const x = t();
     $('t-importconfirm').textContent = u.importConfirm(x.ranks[RANKS[rankIndex(p.t.save.co2LifetimeG)].id].name,
-      (p.t.save.co2LifetimeG / 1000).toLocaleString(lang === 'fi' ? 'fi-FI' : 'en-GB', { maximumFractionDigits: 1 }));
+      num(p.t.save.co2LifetimeG / 1000, 1));
   } else {
     $('t-importconfirm').textContent = u.backupConfirm;
   }
@@ -767,6 +768,7 @@ function deleteAllData() {
     for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k?.startsWith('kasva-')) keys.push(k); }
     keys.forEach((k) => localStorage.removeItem(k));
   } catch { /* storage blocked: nothing was stored either */ }
+  forgetCache();
   announce(ui().deleted);
   location.hash = '';
   location.reload();
@@ -776,7 +778,7 @@ function deleteAllData() {
 
 function renderKisat() {
   const x = t();
-  const f = (n: number) => n.toLocaleString(lang === 'fi' ? 'fi-FI' : 'en-GB');
+  const f = (n: number) => num(n);
   $('k-nick').textContent = nickName(save.nick);
   const seed = dailySeed();
   const d = save.daily[seed];
@@ -794,7 +796,7 @@ function renderKisat() {
 function renderChallenge(c: Challenge) {
   const x = t();
   const who = nickName(c.nick);
-  const g = c.scoreG.toLocaleString(lang === 'fi' ? 'fi-FI' : 'en-GB');
+  const g = num(c.scoreG);
   $('c-label').textContent = seasonLabel(c.seed);
   $('c-title').textContent = x.challengeBy(who);
   $('c-weather').innerHTML = weatherRow(planWeather(c.seed));
@@ -994,7 +996,7 @@ requestAnimationFrame(frame);
 
 // Test hook for screenshots: open with #dbg (or set localStorage kasva-dbg = 1),
 // then window.__kasva.skip(ticks, hold).
-if (location.hash === '#dbg' || load<number>('kasva-dbg', 0) === 1) {
+if (location.hash === '#dbg' || (() => { try { return localStorage.getItem('kasva-dbg') === '1'; } catch { return false; } })()) {
   if (location.hash === '#dbg') linkSeed = null;
   (window as unknown as { __kasva: unknown }).__kasva = {
     skip(ticks: number, hold = false) { for (let i = 0; i < ticks && !sim.done; i++) { step(sim, hold); if (sim.done) finish(); } },
