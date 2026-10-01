@@ -12,7 +12,7 @@
 import { CO2_PER_C } from './carbon';
 import { SPECIES } from './species';
 import { stemVolume } from './species';
-import { HA_FACTOR, relativeDensity, type Forest } from './stand';
+import { HA_FACTOR, relativeDensity, standStats, type Forest } from './stand';
 
 /** kg C on the plot → tonnes per hectare */
 export const tHa = (kgPlot: number) => kgPlot * HA_FACTOR / 1000;
@@ -95,7 +95,8 @@ export function healthIndex(f: Forest): Results['health'] {
 export function results(f: Forest): Results {
   const s = f.ledger.stores;
   const co2 = (kg: number) => tHa(kg) * CO2_PER_C;
-  const standing = f.history.at(-1)?.stats.volume ?? 0;
+  // the trees standing now (after any harvest this year)
+  const standing = standStats(f.trees).volume;
   const harvested = f.harvests.reduce((a, h) => a + h.harvest.volume * HA_FACTOR, 0);
   const made = { sawn: 0, paper: 0, textile: 0, energy: 0 };
   for (const h of f.harvests) for (const k of ['sawn', 'paper', 'textile', 'energy'] as const) made[k] += co2(h.harvest.products[k] ?? 0);

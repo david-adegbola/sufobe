@@ -1,4 +1,4 @@
-# Metsäni forest model (F0–F2)
+# Metsäni forest model (F0–F3)
 
 The forest core behind the Metsäni mode. It runs without the DOM, is deterministic, and is checked by `tests/forest/`. There is no user interface yet. The screens come in F1.
 
@@ -21,7 +21,8 @@ npm run forest -- pine sandy lapland 100
 | `year.ts` | One year in four seasonal sub-steps. Mortality, self-thinning, decomposition. |
 | `carbon.ts` | Stores and flows. Every change is a recorded move. |
 | `manage.ts` | Plant, tend, thin, keep trees (säästöpuut), final harvest. |
-| `wood.ts` | Felled stems → sawlog / pulpwood → sawn wood, paper, energy → back to the air. |
+| `wood.ts` | Felled stems → sorting → sawmill, pulp mill, biorefinery → product lots that remember their tree; recycling. |
+| `products.ts` | The product shelf (items made and in use) and trace-back from any item to its tree. |
 
 The forest is plain JSON. It can be saved as it is, and copied with `structuredClone` for a "What if?" twin.
 
@@ -194,6 +195,55 @@ The tests check:
 - the strength of shared competition (`CROWDING`)
 
 This needs checking against Luke yield tables before playtests. Until then the game never claims either way gives "more wood". It shows the numbers, and the sawlog/pulpwood split shows the difference in what the wood becomes.
+
+## F3: from forest to factory
+
+### The roadside, the truck and the mills (`wood.ts`)
+
+When the child thins, harvests or clears up after a storm or beetles, the trunks that go to the mills are shown first. The child sorts up to 10 of them, and the harvester sorts the rest. Each trunk can go to one of three places:
+
+- **sawlog:** used as a sawlog if it's thick enough. A trunk below the sawlog size (pine and spruce 17 cm, birch 20 cm, aspen 22 cm) is chipped, and 10 % of it is lost to fuel.
+- **pulpwood:** a sawlog-sized trunk sent here gives no boards.
+- **energy wood:** burned for heat at once.
+
+Branches and tops can also be collected for the biorefinery. That gives heat now, but leaves less litter to feed the soil.
+
+| Mill | Shares of the carbon it receives (verify, Luke wood-flow statistics) |
+|---|---|
+| Sawmill | sawn wood 0.47 · chips to the pulp mill 0.33 · sawdust and bark to energy 0.20 |
+| Pulp mill | paper and cardboard 0.45 · textile fibre 0.05 · the rest burned for the mill's energy 0.50 |
+| Biorefinery | branches, tops and energy wood → heat |
+
+### Products that remember their tree
+
+- Every felled or salvaged tree is kept as a snapshot: species, year it arrived, age, height, diameter and its last 150 rings.
+- Its products are **lots**, each pointing to its tree and route. A lot keeps its carbon until the product wears out. Half-lives:
+  - sawn wood 35 years (IPCC 2019)
+  - paper and cardboard 2 years (IPCC 2019)
+  - textile 3 years (a game choice, **verify**)
+  - energy 0 years
+- **Recycling:** when paper or cardboard wears out, 60 % is collected and made into new fibre, up to 6 rounds. Both numbers are **verify** (Finnish recovery rates and the number of times fibre can be reused). Recycled fibre stays in the products store and becomes cardboard boxes. It counts as items made without new trees. The child can switch recycling off on the product shelf.
+- **Receipts** count the items each tree made. Carbon per item (**verify**):
+
+  | Item | kg C |
+  |---|---|
+  | table (about 16 kg of wood) | 8 |
+  | house wall beam (sawn wood from trunks ≥ 28 cm) | 25 |
+  | notebook (100 g) | 0.04 |
+  | cardboard box (300 g) | 0.13 |
+  | shirt (200 g) | 0.09 |
+  | evening of firewood for a wood-heated sauna | 5 |
+
+- **Trace-back** follows an item back to its tree, for example notebook ← paper ← pulp mill ← pulpwood ← spruce ← your forest. Recycled boxes add a recycled-fibre step for each round. The child can step through every tree that made that item.
+
+### Tests (`tests/forest/products.test.ts`)
+
+- **The F3 goal:** every product lot and every receipt, through whole rotations of every strategy (with storms, salvage, recycling and seeding), points at a tree that grew in that forest, and the trace view finds it.
+- **Sorting:** good sorting gives boards; sending everything to pulp gives none; a thin trunk sent to the sawmill is partly lost to fuel.
+- **Branches:** collecting them gives more sauna heat and less soil carbon 20 years later.
+- **Recycling:** it keeps paper carbon in use longer and makes boxes without new trees; fibre is never reused more than 6 times.
+- **Item counts:** they add up exactly to the carbon in products made.
+- **Carbon:** conservation also checks that product lots add up to the products store.
 
 ## Known simplifications (on purpose, from the plan)
 

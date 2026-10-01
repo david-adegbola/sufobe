@@ -113,7 +113,8 @@ export class ForestScene {
   private updateZoom(f: Forest, dt: number) {
     const groundY = this.H - this.insetBottom - Math.max(64, Math.min(130, this.H * 0.14));
     const avail = Math.max(80, groundY - this.insetTop - 20);
-    const tallest = f.trees.reduce((m, t) => Math.max(m, t.h), 0);
+    // dead trees still lying or standing count too, so a cleared plot does not zoom in on its old logs
+    const tallest = Math.max(f.trees.reduce((m, t) => Math.max(m, t.h), 0), f.logs.reduce((m, l) => Math.max(m, l.h * 0.6), 0));
     const target = avail / Math.max(4, tallest * 1.12);
     // ease small changes; jump straight to big ones (a new forest, +10 years)
     const far = !this.zoom || Math.abs(target - this.zoom) / this.zoom > 0.25;

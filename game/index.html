@@ -249,6 +249,45 @@
     .choice b { font: 800 1.02rem/1.15 var(--display); }
     .choice:hover { border-color: var(--sun); }
     .choice.picked { border-color: var(--sun); background: rgba(255, 200, 61, 0.2); opacity: 1; }
+    .moverlay { position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 10px); transform: translateX(-50%); width: min(720px, calc(100% - 20px));
+      max-height: calc(100% - 20px); overflow-y: auto; padding: 14px; display: grid; gap: 10px; pointer-events: auto; z-index: 4; background: rgba(10, 40, 34, 0.96); }
+    .moverlay h3 { margin: 0; font: 800 1.3rem/1.15 var(--display); color: var(--sun); }
+    .moverlay h4 { margin: 0; font: 800 1rem/1.2 var(--display); color: var(--sun); }
+    .moverlay .head { display: flex; justify-content: space-between; align-items: center; }
+    .moverlay .head .icon { width: 36px; height: 36px; }
+    .check { display: flex; gap: 10px; align-items: flex-start; font-size: 0.88rem; cursor: pointer; }
+    .check input { width: 22px; height: 22px; accent-color: var(--sun); flex: 0 0 auto; margin: 0; }
+    .sortlist { display: grid; gap: 6px; }
+    .trunk { display: grid; grid-template-columns: 52px 1fr; grid-template-rows: auto auto; gap: 2px 10px; align-items: center; background: rgba(255,255,255,0.06); border-radius: 12px; padding: 6px 8px; }
+    .trunk .ring { grid-row: span 2; justify-self: center; border-radius: 50%; background: radial-gradient(circle, #7a5530 0 8%, #f3d9a8 9% 30%, #e9c88e 31% 55%, #f3d9a8 56% 80%, #6e5240 81%); }
+    .trunk .ring.sp-birch, .trunk .ring.sp-aspen { background: radial-gradient(circle, #7a5530 0 8%, #f3e6c8 9% 75%, #efece2 76% 88%, #26221e 89%); }
+    .trunk .tl { font-size: 0.82rem; color: var(--muted); display: flex; gap: 8px; align-items: baseline; }
+    .trunk .tl b { font: 800 1.05rem/1 var(--display); color: var(--paper); }
+    .bins { display: flex; gap: 5px; flex-wrap: wrap; }
+    .bin { font: 800 0.82rem/1 var(--display); border: 1.5px solid var(--line); background: rgba(255,255,255,0.06); color: var(--paper); border-radius: 999px; padding: 8px 11px; cursor: pointer; touch-action: manipulation; }
+    .bin[aria-pressed="true"] { background: var(--sun); color: var(--deep); border-color: var(--sun); }
+    .bin-saw[aria-pressed="true"] { background: #e2b26b; border-color: #e2b26b; }
+    .bin-energy[aria-pressed="true"] { background: #f2a93b; border-color: #f2a93b; }
+    #m-mills-canvas { width: 100%; height: auto; border-radius: 12px; }
+    .sortfb { color: var(--paper); }
+    .millcards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+    .millcard { background: rgba(255,255,255,0.07); border-radius: 12px; padding: 8px 10px; display: grid; gap: 3px; font-size: 0.76rem; line-height: 1.3; }
+    .millcard b { font: 800 0.95rem/1.1 var(--display); color: var(--sun); }
+    @media (max-width: 560px) { .millcards { grid-template-columns: 1fr; } }
+    .madelist, .shelfgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; }
+    .madeitem { display: flex; gap: 6px; align-items: center; background: #fffdf6; color: var(--ink); border-radius: 12px; padding: 6px 8px; font: 800 0.82rem/1.15 var(--display); }
+    .shelfitem { display: grid; justify-items: center; gap: 2px; background: #fffdf6; color: var(--ink); border: 0; border-radius: 14px; padding: 10px 6px; cursor: pointer; font: 600 0.78rem/1.2 var(--body); touch-action: manipulation; }
+    .shelfitem b { font: 800 1.3rem/1 var(--display); }
+    .shelfitem small { color: #4a5a52; }
+    .shelfitem:hover, .shelfitem:focus-visible { outline: 3px solid var(--sun); }
+    .trace .steps { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+    .trace .step { display: inline-flex; gap: 4px; align-items: center; background: rgba(255,255,255,0.1); border-radius: 999px; padding: 5px 10px; font: 700 0.82rem/1 var(--display); }
+    .trace .step + .step::before { content: "←"; margin: 0 6px 0 -2px; color: var(--sun); }
+    .trace .step-tree, .trace .step-forest { background: rgba(143,207,90,0.25); }
+    .trace .step-recycled { background: rgba(124,196,236,0.25); }
+    .tracetree { display: flex; gap: 12px; align-items: center; }
+    .tracetree canvas { width: 96px; height: 96px; flex: 0 0 auto; }
+    .tracetree p { margin: 0 0 4px; }
     .mhint { align-self: center; font: 700 1.2rem/1.1 var(--hand); background: #fffdf6; color: var(--ink); border-radius: 14px; padding: 6px 12px; }
     @media (max-width: 520px) { .res b { font-size: 0.95rem; } .res .rl { font-size: 0.6rem; } .mresults { gap: 3px; } }
     @media (prefers-reduced-motion: reduce) { .btn { transition: none; } .levelup .ripple, .rankname { animation: none; } .xp .bar span { transition: none; } }
@@ -477,6 +516,51 @@
       <div class="grid" id="m-card-stats"></div>
       <div class="ringrow"><canvas id="m-rings" width="128" height="128" aria-hidden="true"></canvas><span id="m-card-note"></span></div>
     </aside>
+    <section class="moverlay glass" id="m-sort" hidden role="dialog" aria-labelledby="m-sort-title">
+      <h3 id="m-sort-title" tabindex="-1"></h3>
+      <p class="note" id="m-sort-intro"></p>
+      <div class="sortlist" id="m-sort-list"></div>
+      <p class="note" id="m-sort-rest"></p>
+      <label class="check"><input type="checkbox" id="m-residues"><span id="m-residues-label"></span></label>
+      <p class="note" id="m-sort-left" role="status"></p>
+      <div class="row">
+        <button type="button" class="btn" id="btn-m-load"></button>
+        <button type="button" class="btn ghost small" id="btn-m-autosort"></button>
+        <button type="button" class="btn ghost small" id="btn-m-sort-cancel"></button>
+      </div>
+    </section>
+    <section class="moverlay glass" id="m-mills" hidden role="dialog" aria-labelledby="m-mills-title">
+      <h3 id="m-mills-title" tabindex="-1"></h3>
+      <canvas id="m-mills-canvas" width="640" height="220" aria-hidden="true"></canvas>
+      <p class="note" id="m-mills-truck"></p>
+      <p class="note sortfb" id="m-mills-sort" role="status"></p>
+      <div class="millcards" id="m-mills-cards"></div>
+      <h4 id="m-mills-made-title"></h4>
+      <div class="madelist" id="m-mills-made"></div>
+      <div class="row"><button type="button" class="btn" id="btn-m-mills-back"></button></div>
+    </section>
+    <section class="moverlay glass" id="m-shelf" hidden role="dialog" aria-labelledby="m-shelf-title">
+      <div class="head"><h3 id="m-shelf-title" tabindex="-1"></h3><button type="button" class="icon" id="btn-m-shelf-close">✕</button></div>
+      <p class="note" id="m-shelf-intro"></p>
+      <div class="shelfgrid" id="m-shelf-grid"></div>
+      <div id="m-recycle-row">
+        <label class="check"><input type="checkbox" id="m-recycle"><span id="m-recycle-label"></span></label>
+        <p class="note" id="m-recycle-note"></p>
+      </div>
+      <div class="trace" id="m-trace" hidden>
+        <h4 id="m-trace-title" tabindex="-1"></h4>
+        <ol class="steps" id="m-trace-steps"></ol>
+        <div class="tracetree">
+          <canvas id="m-trace-rings" width="128" height="128" aria-hidden="true"></canvas>
+          <div><p id="m-trace-tree"></p><p class="note" id="m-trace-size"></p><p id="m-trace-made"></p><p class="note" id="m-trace-of"></p></div>
+        </div>
+        <div class="row">
+          <button type="button" class="btn ghost small" id="btn-m-trace-prev"></button>
+          <button type="button" class="btn ghost small" id="btn-m-trace-next"></button>
+          <button type="button" class="btn small" id="btn-m-trace-back"></button>
+        </div>
+      </div>
+    </section>
     <div class="mbottom glass" id="m-bottom">
       <div class="mctrl">
         <button type="button" class="icon" id="btn-m-play">II</button>
