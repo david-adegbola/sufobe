@@ -538,19 +538,36 @@ function openShare() {
   }, 30);
 }
 
+/** The claude.ai viewer's own save prompt, when the game runs inside it. */
+type Downloads = { save(r: { filename: string; data: Blob }): Promise<{ status: string }> };
+let downloads: Downloads | null = null;
+(window as unknown as { claude?: { use?: (n: string) => Promise<unknown> } }).claude?.use?.('downloads')
+  .then((d) => { downloads = d as Downloads | null; })
+  .catch(() => { /* not available here */ });
+
 async function sharePoster() {
   if (!posterBlob || !lastResult) return;
-  const file = new File([posterBlob], `kasva-${lastResult.seed}.png`, { type: 'image/png' });
+  const filename = `kasva-${lastResult.seed}.png`;
+  const file = new File([posterBlob], filename, { type: 'image/png' });
+  // 1. the phone's share sheet
   try {
     if (navigator.canShare?.({ files: [file] })) {
       await navigator.share({ files: [file], text: shareText(lastResult) });
       if (current.mode === 'daily') { const out = challengeSent(save, lastResult.seed, lastResult.storedG, new Date().toISOString()); save = out.save; persist(); }
       return;
     }
-  } catch { /* cancelled or not allowed: fall back to saving */ }
+  } catch (e) {
+    if ((e as DOMException)?.name === 'AbortError') return; // the player closed the sheet
+  }
+  // 2. inside the claude.ai viewer: its save prompt
+  if (downloads) {
+    try { await downloads.save({ filename, data: posterBlob }); } catch { $('t-savehint').classList.add('banner'); }
+    return;
+  }
+  // 3. a plain download, then the press-and-hold hint
   const a = document.createElement('a');
   a.href = posterUrl!;
-  a.download = file.name;
+  a.download = filename;
   a.click();
   $('t-savehint').classList.add('banner');
 }
