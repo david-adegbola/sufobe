@@ -2,6 +2,8 @@
 
 A one-thumb forest game for grades 4–6. You are a silver birch: hold to open your stomata and catch CO₂, save water through heatwaves and nights, and turn carbon into wood.
 
+**2.5D painted art: ready for paintings (increment 5).** The forest view can show painted layers (distant hills or Lapland fells, the forest edge, the grass in front) in place of its drawn ones, one per season. Put `<slot>-<season>.webp` files in `public/art/` and build; any missing painting keeps its drawn layer. The 16 prompts, file specs and science checklist are in `docs/art-prompts.md`; no paintings are included yet.
+
 **2.5D level of detail (increment 4).** The forest draws faster, mostly on phones:
 - **Simpler shapes where nobody looks closely:** the copies of the forest at the sides, tiny far trees and the back of the stand are drawn from fewer shapes with the same silhouette and colours. Your own trees up front, and any tree you choose, keep full detail.
 - **Phones:** fewer foreground grass blades.

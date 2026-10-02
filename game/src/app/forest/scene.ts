@@ -23,6 +23,7 @@ import { FrameBudget } from '../scene/budget';
 import { LAYER_EXTRA, PARALLAX, drawClouds, mix as mixHexStr, paintDepth, type Band, type DepthLayers } from './depth';
 import type { Season } from './text';
 import { STAGE_LOOK, envLook, treeDetail, treeStage, type EnvLook } from './visual';
+import { art, artVersion, loadArt } from './art';
 import { drawMillSite, drawRoad, drawVillageSite, inClearing, placeBox, places, type PlaceName, type Places } from './world';
 
 export interface ForestView {
@@ -131,6 +132,7 @@ export class ForestScene {
   insetBottom = 190;
 
   constructor(private canvas: HTMLCanvasElement) {
+    loadArt();
     this.c = canvas.getContext('2d')!;
     this.resize();
   }
@@ -675,10 +677,13 @@ export class ForestScene {
 
   /** Paint the depth layers again when the view, the season or the place changes. */
   private ensureLayers(L: ReturnType<ForestScene['layout']>, season: Season, fell: boolean, haze: string) {
-    const key = `${L.W}x${L.H}:${Math.round(L.groundY)}:${Math.round(L.depthBand)}:${season}:${fell}:${haze}:${this.dpr}`;
+    const key = `${L.W}x${L.H}:${Math.round(L.groundY)}:${Math.round(L.depthBand)}:${season}:${fell}:${haze}:${this.dpr}:${artVersion()}`;
     if (key === this.layersKey && this.layers) return;
     this.layersKey = key;
-    this.layers = paintDepth(L.W, L.H, L.groundY - L.depthBand, L.groundY, season, fell, haze, this.dpr);
+    // painted layers where a painting exists for this season (increment 5); drawn ones otherwise
+    this.layers = paintDepth(L.W, L.H, L.groundY - L.depthBand, L.groundY, season, fell, haze, this.dpr, {
+      hills: art(fell ? 'fells' : 'hills', season), treeline: art('treeline', season), ground: art('ground', season),
+    });
   }
 
   /**

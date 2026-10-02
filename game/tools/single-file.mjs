@@ -2,10 +2,15 @@
 // for publishing as a claude.ai Artifact. Output: dist/kasva.html
 import { build } from 'esbuild';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { artFiles } from './art-files.mjs';
+
+// painted layers travel inside the file too, as data URLs
+const mime = { webp: 'image/webp', png: 'image/png', jpg: 'image/jpeg' };
+const art = Object.fromEntries(artFiles().map(([name, f]) => [name, `data:${mime[f.split('.').pop()]};base64,${readFileSync(`public/art/${f}`).toString('base64')}`]));
 
 const res = await build({
   entryPoints: ['src/app/main.ts'], bundle: true, format: 'iife', minify: true, write: false, target: 'es2020',
-  outdir: 'dist/tmp', define: { __PWA__: 'false' }, loader: { '.woff2': 'dataurl' }, // fonts travel inside the file: no font service
+  outdir: 'dist/tmp', define: { __PWA__: 'false', __ART__: JSON.stringify(art) }, loader: { '.woff2': 'dataurl' }, // fonts travel inside the file: no font service
 });
 const js = res.outputFiles.find((f) => f.path.endsWith('.js')).text.replace(/<\/script/gi, '<\\/script');
 const css = res.outputFiles.find((f) => f.path.endsWith('.css'))?.text ?? '';

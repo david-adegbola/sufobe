@@ -31,6 +31,7 @@ import { LAB_TEXT } from './labtext';
 import { drawTikka } from '../scene/tikka';
 import type { Lang } from '../text';
 import type { Sound } from '../audio';
+import { artListed, artVersion } from './art';
 import { ForestScene, forestBudget, seasonOf } from './scene';
 import { addPast, loadForest, storeForest, type ForestSave } from './save';
 import { FOREST_TEXT } from './text';
@@ -1377,6 +1378,7 @@ export class Metsani {
       treeBase: (id: number) => this.main ? this.main.scene.treeBase(this.main.f, id) : null,
       camSettled: () => this.main?.scene.settled() ?? true,
       fx: () => ({ overlay: this.overlay, ...(this.main?.scene.fxInfo() ?? {}) }),
+      art: () => ({ listed: artListed(), version: artVersion() }),
       world: () => ({ overlay: this.overlay, away: this.main?.scene.away() ?? false, travelling: this.main?.scene.travelling() ?? false }),
       placeScreen: (n: 'mills' | 'village') => this.main?.scene.placeScreen(n) ?? null,
     };
