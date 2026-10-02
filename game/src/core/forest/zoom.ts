@@ -22,8 +22,12 @@ export function canZoom(t: Tree, rec: YearRecord | undefined): boolean {
 
 export interface ZoomSeason { seed: string; weather: Weather[]; mods: TreeMods; expectedG: number }
 
-/** The Kasva! summer for this tree and forest year. */
-export function zoomSeason(f: Forest, t: Tree, rec: YearRecord): ZoomSeason {
+/**
+ * The Kasva! summer for this tree and forest year. `base` is the tree in
+ * Kasva!: the standard birch for a zoom-in, or the player's own grown birch
+ * (roots, leaves, trunk) for their birch's summer from the home screen.
+ */
+export function zoomSeason(f: Forest, t: Tree, rec: YearRecord, base: TreeMods = STANDARD_TREE): ZoomSeason {
   const seed = `${f.seed}-z${rec.year}-${t.id}`;
   const weather = planWeather(seed);
   if (rec.weather.drought) { weather[2] = 'heat'; weather[4] = 'heat'; }
@@ -31,7 +35,7 @@ export function zoomSeason(f: Forest, t: Tree, rec: YearRecord): ZoomSeason {
   // a soil that holds more water lets the birch keep its stomata open longer
   const soil = SOILS[f.soil];
   const bucket = Math.min(1.25, 0.7 + 0.6 * Math.min(1, soil.waterCap / 170));
-  const mods: TreeMods = { ...STANDARD_TREE, waterMax: bucket, refill: bucket };
+  const mods: TreeMods = { ...base, waterMax: base.waterMax * bucket, refill: base.refill * bucket };
   const expectedG = simulate(seed, makeSmart(), weather, mods).storedG;
   return { seed, weather, mods, expectedG };
 }

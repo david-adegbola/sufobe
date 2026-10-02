@@ -22,10 +22,11 @@ Nothing is sent to any server by either app. All game data is in the browser's `
 | Key | App | Contents | Needed for | Removable |
 |---|---|---|---|---|
 | `kasva-save` | Kasva! | carbon total, seasons played, badges, growth choices, streak days, best score per daily seed, random 2-character nickname code, challenge history (nickname codes, seeds, scores, dates) | progress between visits | "Delete all data" on the About screen, or clearing browser data |
-| `kasva-forest` | Kasva! (Metsäni mode) | the current forest (place, soil, trees, yearly results, products made and the trees they came from, a random forest seed) and short summaries of up to 12 earlier forests | continuing and comparing forests between visits | same |
+| `kasva-forest` | Kasva! (Metsäni mode) | the current forest (place, soil, trees including the player's own birch, yearly results, products made and the trees they came from, a random forest seed) and short summaries of up to 12 earlier forests | continuing and comparing forests between visits | same |
 | `kasva-lang`, `kasva-sound` | Kasva! | language, sound on/off | settings | same |
 | `kasva-testlog`, `kasva-greybox-log` | Kasva! | playtest log switch, and per-season results with timestamps | teacher and research playtests only. **Off by default**, and switching it off clears the log. | switch off, or delete |
 | `kasva-quiz-on`, `kasva-quiz` | Kasva! (Metsäni) | class question switch, and how many times each answer was chosen before and after (counts only: no names, no free text, no timestamps) | the teacher's before/after playtest. **Off by default.** | "Clear the class question results" in About, or delete all data |
+| `kasva-atlas` (part `atlas`) | Kasva! | which Forest Atlas entries have been found (ids such as `sp:birch`, `ev:storm`) and whether each has been looked at | the Atlas collection and its "new" count | same |
 | `kasva-install-later` | Kasva! (offline web build) | the season count after which the install offer may appear again, set only when the player taps "Not now" | not repeating the install offer | same |
 | `kasva-dbg` | Kasva! | test hook flag, set only by automated tests | development | same |
 | `mista-puu-tulee-tally` | classroom sim | anonymous before/after answer choices, no names | teacher's class summary | "Clear" button in the teacher panel |

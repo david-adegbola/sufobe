@@ -11,10 +11,12 @@
  * asked at the end of the year it belongs to, before the next one is stepped.
  */
 import { num } from '../format';
+import { discover, forestFinds } from '../atlas';
+import type { TreeMods } from '../../core/season';
 import {
   CO2_PER_C, PLANTABLE, SOILS, SPACING, SPECIES, applyChoice, createForest, plant, presentAnimals,
   applyZoom, canZoom, results, standStats, stemVolume, stepYear,
-  yearReport, zoomSeason, type ZoomSeason,
+  yearReport, zoomSeason, ensureMyBirch, myBirch, plantMyBirch, type ZoomSeason,
   type AnimalId, type ChoiceId, type Decision, type Forest, type ItemId, type PlaceId, type Results, type SoilId,
   type SortBin, type SpeciesId, type Spacing, type Tree, type YearRecord, type YearReport,
 } from '../../core/forest';
@@ -122,6 +124,8 @@ export class Metsani {
     if (s.current) { this.place = s.current.place; this.soil = s.current.soil; }
     this.species = new Set(s.species);
     this.spacing = s.spacing;
+    // forests from before Phase 6 adopt a birch as the player's own
+    if (s.current && !s.current.birch) { ensureMyBirch(s.current); storeForest(s); }
     this.bind();
   }
 
@@ -183,6 +187,45 @@ export class Metsani {
       const f = (x: number) => num(Math.abs(x), 1);
       return mm > 0.05 ? t.zoomUp(f(mm)) : mm < -0.05 ? t.zoomDown(f(mm)) : t.zoomSame;
     });
+  }
+
+  // ---------- your birch, from the home screen (Phase 6) ----------
+
+  /** Your birch and its forest, for the home screen; null before the first forest. */
+  birchStatus(): { year: number; h: number; question: boolean } | null {
+    const f = this.save.current;
+    const b = f && myBirch(f);
+    if (!f || !b) return null;
+    return { year: f.year, h: b.h, question: !!f.pending };
+  }
+
+  /**
+   * Live one more year in your forest, then hand back your birch's Kasva!
+   * summer for that year. `base` is your own grown birch (roots, leaves,
+   * trunk). Null if there is no forest yet, or Tikka is waiting for an answer.
+   */
+  birchSummer(base: TreeMods): { z: ZoomSeason; done: (storedG: number) => string } | null {
+    const f = this.save.current;
+    if (!f || f.pending || this.active) return null;
+    const rec = stepYear(f);
+    const b = myBirch(f)!;
+    const z = zoomSeason(f, b, rec, base);
+    storeForest(this.save);
+    return {
+      z,
+      done: (g) => {
+        const mm = applyZoom(f, b.id, g, z.expectedG, rec.year);
+        storeForest(this.save);
+        discover(forestFinds(f));
+        const t = this.t;
+        const lines: string[] = [];
+        if (rec.birch === 'passed') lines.push(t.birchPassed);
+        if (rec.birch === 'seeded' || rec.birch === 'planted') lines.push(t.birchSeeded);
+        const fm = (x: number) => num(Math.abs(x), 1);
+        lines.push(b.h < 1.3 ? t.birchSmall : mm > 0.05 ? t.zoomUp(fm(mm)) : mm < -0.05 ? t.zoomDown(fm(mm)) : t.zoomSame);
+        return lines.join(' ');
+      },
+    };
   }
 
   // ---------- Tikka's tips and the spoken description ----------
@@ -325,6 +368,7 @@ export class Metsani {
     if (old && old.year > 0) this.save = addPast(this.save, this.summary(old));
     const f = createForest({ seed: 'm' + Math.random().toString(36).slice(2, 9), place: this.place, soil: this.soil });
     plant(f, this.mix(), this.spacing);
+    plantMyBirch(f);
     this.save = { ...this.save, current: f, species: [...this.species], spacing: this.spacing };
     this.persist();
     if (this.quizStage === 'before') this.askQuiz('before', () => this.showView(f));
@@ -825,7 +869,7 @@ export class Metsani {
     const carbon = tree.c.wood + tree.c.foliage + tree.c.fine;
     const vol = stemVolume(sp, tree.d, tree.h);
     const light = tree.vigor > 0.75 ? t.card.light.good : tree.vigor > 0.45 ? t.card.light.some : t.card.light.poor;
-    $('m-card-title').textContent = t.species[tree.sp].name + (tree.keep ? ` · ${t.card.kept}` : '');
+    $('m-card-title').textContent = tree.mine ? t.myBirch : t.species[tree.sp].name + (tree.keep ? ` · ${t.card.kept}` : '');
     $('m-card-sub').textContent = `${t.card.planted(tree.born + 1, tree.age)} · ${light}`;
     const rows: [string, string][] = [
       [t.card.height, `${n1(tree.h)} m`],
@@ -835,7 +879,7 @@ export class Metsani {
       [t.card.co2, `${n1(carbon * CO2_PER_C)} kg`],
     ];
     $('m-card-stats').innerHTML = rows.map(([a, b]) => `<div><span>${a}</span><b>${b}</b></div>`).join('');
-    $('m-card-note').textContent = tree.d > 0 ? t.card.rings : t.card.seedling;
+    $('m-card-note').textContent = (tree.mine ? t.myBirchNote + ' ' : '') + (tree.d > 0 ? t.card.rings : t.card.seedling);
     $('btn-m-card-close').setAttribute('aria-label', t.card.close);
     drawRings($<HTMLCanvasElement>('m-rings'), tree.rings);
     const zoomable = !this.comparing && lane === this.main && canZoom(tree, lane?.rec);
@@ -859,6 +903,14 @@ export class Metsani {
     const m = this.main;
     if (m) this.save = { ...this.save, current: m.f };
     storeForest(this.save);
+    if (this.save.current) discover(forestFinds(this.save.current));
+  }
+
+  /** How many of each item the current forest has made, for the Atlas. */
+  madeCounts(): Partial<Record<ItemId, number>> {
+    const out: Partial<Record<ItemId, number>> = {};
+    for (const r of this.save.current?.receipts ?? []) out[r.item] = (out[r.item] ?? 0) + r.n;
+    return out;
   }
 
   // ---------- events ----------

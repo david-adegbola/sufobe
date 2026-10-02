@@ -32,6 +32,20 @@
       background: var(--glass); border: 1px solid var(--line); border-radius: 14px; font-size: 0.92rem; line-height: 1.4; }
     .pwa-card p { margin: 4px 0 8px; }
     .pwa-card svg { flex: 0 0 auto; color: var(--sun); }
+    .atlas-tabs { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+    .atlas-tabs button { font: 700 0.82rem/1 var(--display); padding: 8px 12px; border-radius: 999px; border: 1.5px solid var(--line); background: transparent; color: var(--paper); cursor: pointer; touch-action: manipulation; }
+    .atlas-tabs button[aria-selected="true"] { background: var(--sun); color: var(--ink); border-color: var(--sun); }
+    .atlas-entry { display: grid; gap: 4px; justify-items: center; width: 92px; padding: 8px 4px; border-radius: 14px; border: 1.5px solid var(--line); background: rgba(255,255,255,0.08); color: var(--paper); font: 700 0.74rem/1.15 var(--body); text-align: center; cursor: pointer; position: relative; touch-action: manipulation; }
+    .atlas-entry.locked { border-style: dashed; color: var(--muted); background: transparent; }
+    .atlas-entry[aria-pressed="true"] { border-color: var(--sun); }
+    .atlas-entry .new { position: absolute; top: -7px; right: -4px; background: var(--sun); color: var(--ink); border-radius: 999px; padding: 2px 6px; font-size: 0.62rem; }
+    .atlas-entry svg { width: 34px; height: 34px; }
+    .atlas-dot { width: 30px; height: 30px; border-radius: 0 60% 0 60%; background: #8fcf5a; display: block; }
+    .atlas-entry.locked .atlas-dot, .atlas-entry.locked svg { opacity: 0.25; filter: grayscale(1); }
+    .atlas-dot.sp-pine { background: #c7793f; } .atlas-dot.sp-spruce { background: #2f6b4a; } .atlas-dot.sp-birch { background: #f4f2ea; } .atlas-dot.sp-aspen { background: #b9cf5a; }
+    .atlas-dot.an { border-radius: 50%; background: #a07850; }
+    .atlas-dot.ev-heatwave { background: #ff8a3d; border-radius: 50%; } .atlas-dot.ev-whiteNight { background: #ffe9a8; border-radius: 50%; }
+    .atlas-dot.ev-drought { background: #d9b26a; } .atlas-dot.ev-storm { background: #7f95a8; } .atlas-dot.ev-beetle { background: #6b3f2a; border-radius: 50%; } .atlas-dot.ev-moose { background: #8a6a4a; }
     .transfer { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
     .transfer .qr { display: block; width: 168px; height: 168px; background: #fff; border-radius: 10px; padding: 4px; }
     .transfer .qr svg { width: 100%; height: 100%; display: block; }
@@ -418,10 +432,12 @@
   </section>
 
   <section class="screen" id="cards" hidden>
-    <div class="panel glass" style="width:min(100%,560px)">
-      <div class="theme" id="t-cards" tabindex="-1"></div>
-      <div class="cardgrid" id="cardgrid"></div>
-      <div class="fact glass" id="fact" hidden style="padding:14px 16px;width:100%"></div>
+    <div class="panel glass atlas" style="width:min(100%,600px)">
+      <h2 class="theme" id="t-cards" tabindex="-1" style="margin:0"></h2>
+      <div class="atlas-tabs" role="tablist" id="atlas-tabs"></div>
+      <p class="note" id="atlas-count" style="margin:0"></p>
+      <div class="cardgrid" id="cardgrid" role="tabpanel"></div>
+      <div class="fact glass" id="fact" hidden style="padding:14px 16px;width:100%" aria-live="polite"></div>
       <button type="button" class="btn ghost small" id="btn-cards-close"></button>
     </div>
   </section>

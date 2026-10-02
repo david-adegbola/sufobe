@@ -378,6 +378,16 @@ export class ForestScene {
     if (h < 1.3 && !dying) drawSeedling(c, t.sp, x, base, hp, season, ps, shade);
     else drawTree(c, t.sp, x, base, hp, Math.max(1.2, (d / 100) * px * 1.6), hp * ratio, crownW, season, ps,
       deadNow ? (cause === 'beetle' ? '#b5522f' : '#8b6a45') : null, shade, lean, t.id);
+    if (t.mine && !dying) {
+      // your birch wears a yellow ribbon at breast height (1.3 m), where its rings are measured
+      const tw = Math.max(3, (d / 100) * px * 1.6) + 3;
+      const y = base - (h > 1.6 ? hp * (1.3 / h) : hp * 0.55);
+      c.fillStyle = '#ffc83d';
+      c.strokeStyle = 'rgba(16, 36, 28, 0.85)';
+      c.lineWidth = 1;
+      c.beginPath(); c.rect(x - tw / 2, y - 2.5, tw, 5); c.fill(); c.stroke();
+      c.beginPath(); c.moveTo(x + tw / 2, y - 2); c.lineTo(x + tw / 2 + 9, y + 3); c.lineTo(x + tw / 2 + 5, y + 6); c.lineTo(x + tw / 2, y + 2); c.closePath(); c.fill(); c.stroke();
+    }
     c.restore();
     if (main && !dying) {
       const w = Math.max(crownW, 14);

@@ -14,7 +14,7 @@ export const WORLD_KEY = 'kasva-world';
 export const WORLD_VERSION = 2;
 
 /** The parts of the world, named after the keys they had up to Phase 4. */
-export const PARTS = ['save', 'forest', 'lang', 'sound', 'testlog', 'greybox-log', 'quiz-on', 'quiz', 'install-later'] as const;
+export const PARTS = ['save', 'forest', 'atlas', 'lang', 'sound', 'testlog', 'greybox-log', 'quiz-on', 'quiz', 'install-later'] as const;
 export type Part = (typeof PARTS)[number];
 
 export interface World { v: typeof WORLD_VERSION; parts: Partial<Record<Part, unknown>> }

@@ -19,7 +19,8 @@ import { readBackup } from './transfer';
 import { TEXT, type Lang } from './text';
 import { askImport, confirmImport, deleteAllData, importCode, renderAbout, saveBackup, showTransferCode, transferLink } from './about';
 import { renderChallenge, renderKisat } from './kisat';
-import { countUp, drawRing, fillResults, pickGrowth, renderCards, showLevelUp } from './results';
+import { countUp, drawRing, fillResults, pickGrowth, showLevelUp } from './results';
+import { ATLAS_TEXT, discover, newCount, renderAtlas, seasonFinds, type AtlasPage } from './atlas';
 import { announce, face, finnishDate, ringIcon, show, weatherRow } from './screens';
 import { copy, openShare, sendChallenge, sharePoster, shareText, type Downloads } from './share';
 import { $, LANG_KEY, LOG_KEY, SOUND_KEY, TESTLOG_KEY, app, canvas, linkChallenge, linkTransfer, load, persist, renderer, shell, sound, store, t, today, ui, type LogRow, type SeasonConfig } from './state';
@@ -59,10 +60,24 @@ function newMenuSeason() {
 newMenuSeason();
 app.sim = menuSim;
 
-/** The big button plays the next story season, then your own tree in new weather. */
+/**
+ * The big button plays the next story season. After the story, it plays your
+ * birch's summer in your forest (Phase 6), or, before you have a forest, your
+ * own tree in new weather.
+ */
 function nextSeason(): SeasonConfig {
   if (app.save.storyIndex < STORY.length) return { mode: 'story', seed: 'story-' + (app.save.storyIndex + 1), weather: STORY[app.save.storyIndex] };
+  if (metsani.birchStatus()) return { mode: 'free', seed: 'birch', birch: true };
   return { mode: 'free', seed: 'r' + Math.random().toString(36).slice(2, 8) };
+}
+
+/** Start what the big button promises; your birch's summer first lives one year in the forest. */
+function playNext() {
+  const cfg = nextSeason();
+  if (!cfg.birch) { start(cfg); return; }
+  const s = metsani.birchSummer(growthMods(app.save.growth));
+  if (!s) { openMetsani(); return; } // Tikka is waiting for an answer
+  start({ mode: 'free', seed: s.z.seed, weather: s.z.weather, forest: { mods: s.z.mods, done: s.done, home: true } });
 }
 const dailyConfig = (): SeasonConfig => ({ mode: 'daily', seed: app.linkSeed ?? dailySeed() });
 
@@ -82,13 +97,31 @@ function renderHome() {
     $('t-theme').textContent = x.story(app.save.storyIndex + 1, STORY.length);
     $('daily-weather').innerHTML = weatherRow(next.weather!);
     $('home-bubble').querySelector('span')!.textContent = x.storyIntro[app.save.storyIndex];
+  } else if (next.birch) {
+    const b = metsani.birchStatus()!;
+    $('t-theme').textContent = x.birchTheme(b.year + 1);
+    $('daily-weather').innerHTML = weatherRow(planWeather(daily.seed));
+    $('home-bubble').querySelector('span')!.textContent = b.question ? x.birchQuestion : x.birchHome(num(b.h, 1));
   } else {
     $('t-theme').textContent = x.theme(finnishDate(daily.seed));
     $('daily-weather').innerHTML = weatherRow(planWeather(daily.seed));
-    $('home-bubble').querySelector('span')!.textContent = x.homeFree;
+    $('home-bubble').querySelector('span')!.textContent = x.birchInvite;
   }
+  const q = next.birch && metsani.birchStatus()!.question;
+  $('btn-play').textContent = q ? x.toForest : x.play;
   face($('home-bubble').querySelector('canvas'));
+  const n = newCount();
+  $('btn-cards').textContent = n ? ATLAS_TEXT[app.lang].buttonNew(n) : ATLAS_TEXT[app.lang].button;
   renderPwa();
+}
+
+// ---------- the Forest Atlas (Phase 6) ----------
+
+let atlasPage: AtlasPage = 'badges';
+function openAtlas(page: AtlasPage = atlasPage, selected?: string) {
+  atlasPage = page;
+  show('cards');
+  renderAtlas(page, app.lang, app.save.achievements, metsani.madeCounts(), selected);
 }
 
 function renderText() {
@@ -98,7 +131,6 @@ function renderText() {
   $('t-title').textContent = x.play;
   $('btn-play').textContent = x.play;
   $('btn-daily').textContent = x.daily;
-  $('btn-cards').textContent = x.cards;
   $('btn-metsani').textContent = FOREST_TEXT[app.lang].homeButton;
   if (metsani.active) metsani.rerender();
   $('btn-radio').innerHTML = sound.muted ? '♪̸' : '♪';
@@ -119,7 +151,8 @@ function renderText() {
   $('t-newbadges').textContent = x.newBadges;
   $('t-levelup').textContent = x.levelUp;
   $('btn-lu-continue').textContent = x.continue;
-  $('t-cards').textContent = x.cardsTitle;
+  $('t-cards').textContent = ATLAS_TEXT[app.lang].title;
+  if (app.visible === 'cards') openAtlas();
   $('btn-cards-close').textContent = x.close;
   $('btn-kisat').textContent = x.kisat;
   $('btn-share').textContent = x.share;
@@ -246,6 +279,7 @@ function finish() {
     app.challengeOutcome = { won: c.won, from: app.current.from, mine: Math.max(r.storedG, app.save.challenges.received[0]?.myBestG ?? 0) };
   }
   persist();
+  discover(seasonFinds(r));
   if (app.testLogOn) {
     const rows = load<LogRow[]>(LOG_KEY, []);
     rows.push({ at: new Date().toISOString(), seed: r.seed, stored: r.storedG, caught: r.caughtG, resp: r.respiredG, combo: r.bestCombo, wilts: r.wilts });
@@ -258,7 +292,8 @@ function finish() {
   // back from a Metsäni birch: say what this summer did to it
   app.forestMsg = app.current.forest ? app.current.forest.done(r.storedG) : null;
   fillResults(r, outcome, false);
-  forestReturn(!!app.current.forest);
+  forestReturn(!!app.current.forest && !app.current.forest.home);
+  $('btn-again').hidden ||= !!app.current.forest?.home; // a summer of your birch happens once
   renderLog();
   renderHome();
   show('results');
@@ -330,6 +365,15 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyM') toggleMute();
 });
 window.addEventListener('keyup', (e) => { if (e.code === 'Space') press(false); });
+// the Atlas tabs: arrow keys move between pages
+window.addEventListener('keydown', (e) => {
+  const tab = (e.target as HTMLElement).closest?.('[data-atlas-page]') as HTMLElement | null;
+  if (!tab || (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft')) return;
+  const pages: AtlasPage[] = ['badges', 'species', 'animals', 'events', 'products'];
+  const i = pages.indexOf(tab.dataset.atlasPage as AtlasPage);
+  openAtlas(pages[(i + (e.key === 'ArrowRight' ? 1 : pages.length - 1)) % pages.length]);
+  $(`atlas-tab-${atlasPage}`).focus();
+});
 // Escape always goes one step back
 window.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
@@ -372,15 +416,17 @@ document.addEventListener('click', (e) => {
   if (b.dataset.lang) { app.lang = b.dataset.lang as Lang; store(LANG_KEY, app.lang); renderText(); return; }
   if (metsani.active) return; // Metsäni handles its own buttons
   if (b.dataset.grow) { pickGrowth(b.dataset.grow as Growth); return; }
-  if (b.dataset.badge) { show('cards'); renderCards(b.dataset.badge); return; }
+  if (b.dataset.badge) { openAtlas('badges', b.dataset.badge); return; }
+  if (b.dataset.atlasPage) { openAtlas(b.dataset.atlasPage as AtlasPage); $(`atlas-tab-${atlasPage}`).focus(); return; }
+  if (b.dataset.atlasEntry) { openAtlas(b.dataset.atlasOn as AtlasPage, b.dataset.atlasEntry); $('fact').focus?.(); return; }
   switch (b.id) {
-    case 'btn-play': case 'btn-next': start(nextSeason()); break;
+    case 'btn-play': case 'btn-next': playNext(); break;
     case 'btn-daily': start(dailyConfig()); app.linkSeed = null; break;
     case 'btn-metsani': openMetsani(); break;
     case 'btn-forest-back': backToForest(); break;
     case 'btn-again': start({ ...app.current }); break;
     case 'btn-home': case 'btn-cards-close': toMenu(); break;
-    case 'btn-cards': show('cards'); renderCards(); break;
+    case 'btn-cards': openAtlas(); break;
     case 'btn-lu-continue': show('results'); break;
     case 'btn-pause': pause(true); break;
     case 'btn-resume': pause(false); break;
