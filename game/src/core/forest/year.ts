@@ -13,7 +13,7 @@
 import { ensureMyBirch } from './mybirch';
 import { makeRng } from '../rng';
 import { move, type Ledger } from './carbon';
-import { PLACES, decayWarmth, warmthFactor, yearWeather } from './climate';
+import { PLACES, decayWarmth, warmthFactor, yearWeather, type YearWeather } from './climate';
 import { SOILS } from './soil';
 import { SPECIES } from './species';
 import { spotAnimals } from './animals';
@@ -67,11 +67,17 @@ export function toGround(l: Ledger, t: Tree): void {
   t.c = { wood: 0, foliage: 0, fine: 0 };
 }
 
+/** A drought the child made happen in the sandbox (Phase 10): a dry, warm summer like the model's own droughts. */
+function forcedWeather(f: Forest, w: YearWeather): YearWeather {
+  if (!f.force?.drought?.includes(f.year) || w.drought) return w;
+  return { ...w, drought: true, summerRain: w.summerRain * 0.45, tempSum: w.tempSum * 1.06 };
+}
+
 export function stepYear(f: Forest): YearRecord {
   const place = PLACES[f.place];
   const soil = SOILS[f.soil];
   const l = f.ledger;
-  const weather = yearWeather(place, f.seed, f.year);
+  const weather = forcedWeather(f, yearWeather(place, f.seed, f.year));
 
   // spring
   const { springWater, water } = waterBalance(f, weather);

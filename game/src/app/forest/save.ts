@@ -31,6 +31,8 @@ export interface ForestSave {
   past: ForestSummary[];
   /** Tikka's tips already shown (each is shown once) */
   tips?: string[];
+  /** the sandbox forest (Phase 10): free to try anything, never the child's own forest */
+  sandbox?: Forest | null;
   /** question cards tried, by card id: the child's guess and what the forests did (Phase 8) */
   lab?: Record<string, { guess: 'a' | 'b' | 'same'; result: 'a' | 'b' | 'same' }>;
 }
@@ -44,7 +46,8 @@ export function loadForest(): ForestSave {
     const s = getPart<Partial<ForestSave> | null>('forest', null);
     if (!s || s.v !== 1 || !Array.isArray(s.past)) return emptySave();
     const current = s.current && s.current.version === 1 ? upgradeForest(s.current) : null;
-    return { ...emptySave(), ...s, current } as ForestSave;
+    const sandbox = s.sandbox && s.sandbox.version === 1 ? upgradeForest(s.sandbox) : null;
+    return { ...emptySave(), ...s, current, sandbox } as ForestSave;
   } catch {
     return emptySave();
   }
@@ -52,6 +55,7 @@ export function loadForest(): ForestSave {
 
 export function storeForest(s: ForestSave): void {
   if (s.current) compactHistory(s.current);
+  if (s.sandbox) compactHistory(s.sandbox);
   setPart('forest', s); // storage full or blocked: the forest lives on in memory
 }
 

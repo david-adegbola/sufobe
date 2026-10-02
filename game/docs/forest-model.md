@@ -370,3 +370,54 @@ The lifetimes, repair years and reuse losses are game choices to verify. The rec
 **Where a felled tree's carbon is now** (`treeThread`): in the village, in the forest's other products, left in the forest (the share at the cut; it slowly rots into the soil and air), and the rest back in the air.
 
 **Your birch's gift.** Once your birch is 12 cm thick (pulpwood size), its card offers to give it to the village. It is cut (harvest kind `gift`), its trunk goes to the mill that suits it (sawlogs from 20 cm), and the birch line passes on as when it dies. In tests, a birch on fertile southern soil reaches 12 cm in about 15 years and 20 cm in about 35; in Lapland 12 cm takes about 50 years.
+
+## Phase 10: the landscape (`landscape.ts`) and the sandbox
+
+**The map.** A 5 × 3 grid: the child's forest, ten neighbouring stands, a lake, the village, and a road running between them. Each neighbouring stand is a full forest from the same model, with its own seed, soil and tree mix:
+
+| Stand | Trees | Soil | Age at start | Zone at start |
+|---|---|---|---|---|
+| Old spruce forest | spruce 5 : aspen 1 | loam | 90 | managed |
+| Pine heath | pine | sandy | 70 | managed |
+| Young spruce forest | spruce | loam | 12 | managed |
+| Pine bog | pine 2 : birch 1 | peat | 60 | protected |
+| Mixed forest | spruce, pine, birch | loam | 40 | managed |
+| Old mixed forest | spruce 4 : pine, birch, aspen 1 each | loam | 110 | protected |
+| Birch forest | birch | clay | 25 | managed |
+| Seedlings after a harvest | pine | sandy | 2 | managed |
+| Old pine forest | pine | sandy | 100 | managed |
+| Spruce and aspen forest | spruce 4 : aspen 1 | clay | 60 | managed |
+
+The starting stands are grown without thinning (self-thinning only). The model's thinning from below removes the smallest trees, and in a young mixed stand those are the spruces under faster birch and aspen, so a thinned "old spruce forest" ended up pure aspen. Reviewers should look at this: real thinnings choose trees by species and quality as well as size.
+
+**Managed and protected.** After the start, a managed stand's owner answers Tikka's questions as follows:
+- young stand: tend it
+- crowded: thin it
+- mature: final harvest with retention trees
+- storm or beetle damage: take the dead trees out
+- empty after a harvest: replant
+
+A protected stand gets the opposite answers: leave it, leave old trees, leave fallen trees, and let nature seed it.
+
+**Keeping pace.** When the map is opened, every stand lives the years the child's forest has lived since the last look (at most 100 at a time).
+
+**Saving.** Neighbouring stands keep only their last 3 year records, their last 6 harvests, and one product lot per kind of product. They have no trace-back. That keeps the carbon accounting identical, and the whole map at about 300 KB.
+
+**Landscape animals.** These are game rules to verify with an ecologist. A stand suits:
+- the flying squirrel if the model's own flying squirrel rule holds there (aspens for nests and spruces), or if it is a spruce forest (≥ 40 % spruce, ≥ 50 years, ≥ 15 m tall) to move through;
+- the capercaillie if it is pine-rich (≥ 35 % pine, ≥ 50 years, ≥ 14 m);
+- the Siberian jay if it is old (oldest tree ≥ 80 years, at least 4 trees ≥ 25 cm).
+
+Each animal also needs enough of that forest:
+- **Flying squirrel:** at least two neighbouring suitable stands (sharing a side), one with its nest trees.
+- **Capercaillie:** at least three suitable stands anywhere on the map.
+- **Siberian jay:** at least three neighbouring old stands, and only in eastern Finland or Lapland.
+
+The road, the lake and the village are never habitat, so they cut groups apart. In tests over 60 years, protecting every stand keeps more landscape animals than managing every stand (`tests/forest/landscape.test.ts`).
+
+**The sandbox.** A separate forest (`f.sandbox`). The child can force a drought, a storm or a bark beetle year (`f.force`) for the next year:
+- a forced drought is a dry, warm summer like the model's own;
+- a forced storm always comes, and is strong, but it only fells trees taller than 8 m, as any storm does;
+- a forced beetle year attacks big spruces.
+
+Hand planting allows 40 seedlings a year. Tikka's hints pass silently. In a forest with nothing forced, every random draw is exactly as before, and a test checks this.

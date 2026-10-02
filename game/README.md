@@ -2,7 +2,14 @@
 
 A one-thumb forest game for grades 4–6. You are a silver birch: hold to open your stomata and catch CO₂, save water through heatwaves and nights, and turn carbon into wood.
 
-**Status: Phase 9 (the village: closing the loop).** The forest's wood now goes somewhere you can see:
+**Status: Phase 10 (the landscape: many forests, one map).** Your forest now has neighbours:
+- **The map** (bottom bar, *Map*) shows your forest as one stand among ten neighbouring forests, with a lake, a road and the village. Every neighbour is a full forest from the same model, grown to its own age, and lives as many years as yours.
+- **Zoning.** Choose for each neighbouring forest: *managed* (an owner thins it, harvests it when mature with retention trees, and replants) or *protected* (left to grow old; fallen trees stay).
+- **Connected habitat.** The flying squirrel needs two or more neighbouring spruce forests with aspens; the capercaillie needs at least three mature pine forests; the Siberian jay needs three neighbouring old forests, in the east or north. The road and the lake cut connections. Dots on the map show where they live.
+- **The sandbox** (setup screen, *Try the sandbox*): a forest of its own where you can bring a dry summer, a storm or bark beetles, plant freely (40 a year), and Tikka asks nothing. It never touches your own forest.
+- **Not in this phase: the WebGL painted art upgrade.** It needs the painted illustration set (the art bible and prompts are ready in `docs/art-bible.md`), which is a decision for the project owner; the code-drawn art carries the landscape for now.
+
+**Phase 9 (the village: closing the loop).** The forest's wood now goes somewhere you can see:
 - **The village** (bottom bar, *Village*) has six places with needs: a new house (beams), the café (tables), the school (notebooks), the shop (cardboard boxes), the sports club (shirts) and the sauna (heat). Give them items your forest has made. Each met need makes way for a bigger one.
 - **Village things keep their carbon** while they are in use. When one wears out, you choose: repair it, reuse it (a house beam becomes a café table, an old table a particleboard shelf), recycle it (paper and cardboard become new cardboard), or burn it to heat the sauna. Nobody deciding means the village burns it after a few years.
 - **The Carbon Thread** follows a village thing back to its tree: the years the tree caught carbon from the air, the summers you played as that tree (gold rings), the cut, the mill, the village, and where the carbon is now. For any felled tree it shows how much is in the village, in products elsewhere, left in the forest, and back in the air.

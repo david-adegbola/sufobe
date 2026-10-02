@@ -45,8 +45,10 @@ function recentlyOpened(f: Forest): boolean {
 export function storm(f: Forest): { fallen: Set<number>; strength: number } {
   const r = rngFor(f, 'storm');
   const fallen = new Set<number>();
-  if (r() >= DISTURBANCE.stormChance[f.place]) return { fallen, strength: 0 };
-  const strength = 0.3 + 0.7 * r();
+  // a storm the child made happen in the sandbox always comes, and is strong
+  const forced = !!f.force?.storm?.includes(f.year);
+  if (r() >= DISTURBANCE.stormChance[f.place] && !forced) return { fallen, strength: 0 };
+  const strength = forced ? Math.max(0.85, 0.3 + 0.7 * r()) : 0.3 + 0.7 * r();
   const soilF = f.soil === 'peat' || f.soil === 'rocky' ? 1.4 : f.soil === 'clay' ? 1.1 : 1;
   const openF = recentlyOpened(f) ? 2 : 1;
   const fewF = f.trees.length < 10 ? 2.5 : 1;
@@ -83,9 +85,11 @@ export function beetleRisk(f: Forest, drought: boolean, warmth: number): number 
 /** Spruces killed by bark beetles this year. */
 export function beetles(f: Forest, drought: boolean, tempSum: number): Set<number> {
   const killed = new Set<number>();
-  const risk = beetleRisk(f, drought, warmthFactor(tempSum));
+  // a bark beetle year the child made happen in the sandbox: beetles come wherever big spruces stand
+  const forced = !!f.force?.beetle?.includes(f.year);
+  const risk = forced ? Math.max(0.8, beetleRisk(f, true, Math.max(0.6, warmthFactor(tempSum)))) : beetleRisk(f, drought, warmthFactor(tempSum));
   const r = rngFor(f, 'beetle');
-  if (risk <= 0 || r() > risk * 0.5) return killed;
+  if (risk <= 0 || (r() > risk * 0.5 && !forced)) return killed;
   const share = 0.02 + 0.1 * risk * r();
   for (const t of f.trees) {
     if (t.sp !== 'spruce' || t.d < 15 || t.keep) continue;
