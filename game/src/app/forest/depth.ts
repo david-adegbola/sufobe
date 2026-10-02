@@ -36,6 +36,37 @@ function canvasFor(w: number, y0: number, y1: number, dpr: number): [Band, Canva
   return [{ cv, y: y0, h }, c];
 }
 
+/**
+ * A painted layer (increment 5): the painting scaled to the band's height
+ * and repeated across it, every other copy mirrored so the joins match and
+ * the band repeats without a seam as the camera pans. `haze` (0..1) lays the
+ * sky's haze colour over it, so far paintings sit back in the air like the
+ * drawn layers do.
+ */
+function paintedBand(img: HTMLImageElement, w: number, y0: number, y1: number, dpr: number, hazeCol: string, haze: number): Band {
+  const [band, c] = canvasFor(w, y0, y1, dpr);
+  const h = y1 - y0;
+  const natural = img.width * (h / img.height);
+  // an even number of copies, so the last (mirrored) one joins the first
+  const n = Math.max(2, 2 * Math.round(w / natural / 2));
+  const tw = w / n;
+  for (let i = 0; i < n; i++) {
+    c.save();
+    if (i % 2) { c.translate((i + 1) * tw, 0); c.scale(-1, 1); c.drawImage(img, 0, y0, tw, h); } else c.drawImage(img, i * tw, y0, tw, h);
+    c.restore();
+  }
+  if (haze > 0) {
+    c.globalCompositeOperation = 'source-atop';
+    c.fillStyle = hazeCol; c.globalAlpha = haze;
+    c.fillRect(0, y0, w, h);
+    c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+  }
+  return band;
+}
+
+/** Paintings to use in place of drawn layers; any of them may be missing. */
+export interface Paintings { hills?: HTMLImageElement | null; treeline?: HTMLImageElement | null; ground?: HTMLImageElement | null }
+
 /** Mix two #rrggbb colours. */
 export function mix(a: string, b: string, t: number): string {
   const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
@@ -60,7 +91,7 @@ export interface DepthLayers {
  * Paint every depth layer for a view `W` × `H` whose forest floor begins at
  * `floorTop` (the back of the plot) and ends at `groundY` (the front).
  */
-export function paintDepth(W: number, H: number, floorTop: number, groundY: number, season: Season, fell: boolean, haze: string, dpr: number): DepthLayers {
+export function paintDepth(W: number, H: number, floorTop: number, groundY: number, season: Season, fell: boolean, haze: string, dpr: number, paint: Paintings = {}): DepthLayers {
   const w = W * (1 + LAYER_EXTRA);
   const r = makeRng('depth');
   // mountains: two ridges, the far one paler (atmospheric perspective); a bare fell in Lapland
@@ -184,7 +215,22 @@ export function paintDepth(W: number, H: number, floorTop: number, groundY: numb
     f.lineTo(w, fgH); f.closePath(); f.fill();
   }
 
-  return { key: '', w, farRidge, nearRidge, farForest, midForest, foreground: fcv, fgH };
+  const layers: DepthLayers = { key: '', w, farRidge, nearRidge, farForest, midForest, foreground: fcv, fgH };
+  // painted layers take the place of the drawn ones they show (increment 5)
+  const empty = (): Band => canvasFor(1, 0, 1, 1)[0];
+  if (paint.hills) {
+    layers.farRidge = paintedBand(paint.hills, w, Math.max(0, floorTop - span * 0.62), floorTop + 4, dpr, haze, 0.3);
+    layers.nearRidge = empty();
+  }
+  if (paint.treeline) {
+    layers.farForest = paintedBand(paint.treeline, w, floorTop + 6 - Math.max(24, span * 0.24), floorTop + 6, dpr, haze, 0.12);
+    layers.midForest = empty();
+  }
+  if (paint.ground) {
+    layers.fgH = 58;
+    layers.foreground = paintedBand(paint.ground, w, 0, layers.fgH, dpr, haze, 0);
+  }
+  return layers;
 }
 
 /** Drifting clouds: a few soft shapes, drawn each frame (cheap). */

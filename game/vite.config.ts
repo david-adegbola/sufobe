@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
+import { artFiles } from './tools/art-files.mjs';
 
 /** Every file under public/, as paths relative to the site root. */
 function publicFiles(dir = 'public'): string[] {
@@ -68,6 +69,10 @@ self.addEventListener('fetch', (e) => {
 export default defineConfig(({ command }) => ({
   // Relative paths: the game works from any folder of any static host.
   base: './',
-  define: { __PWA__: JSON.stringify(command === 'build') },
+  define: {
+    __PWA__: JSON.stringify(command === 'build'),
+    // painted layers present in public/art (served, and cached for offline play)
+    __ART__: JSON.stringify(Object.fromEntries(artFiles().map(([name, f]) => [name, `art/${f}`]))),
+  },
   plugins: [serviceWorker()],
 }));

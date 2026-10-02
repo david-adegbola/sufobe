@@ -1,6 +1,6 @@
 # The 2.5D forest: analysis and plan
 
-The brief: turn the Metsäni forest view from a flat 2D side view into a deep, living 2.5D world, without replacing the simulation. Increments 1 (depth and camera), 2 (game feel), 3 (one world) and 4 (level of detail) are done. This file records the analysis and the remaining steps.
+The brief: turn the Metsäni forest view from a flat 2D side view into a deep, living 2.5D world, without replacing the simulation. Increments 1 (depth and camera), 2 (game feel), 3 (one world) and 4 (level of detail) are done. Increment 5 (painted art) has its pipeline and prompts ready; the paintings themselves are still to be made. This file records the analysis and the remaining steps.
 
 ## 1. How the forest was rendered
 
@@ -142,5 +142,19 @@ The layer system takes images as well as drawn shapes, so painted sprites can re
      | Phone, normal stand, year 40 | 9.7 fps | 13.3 fps |
      | Desktop, dense stand, year 12 | 42 fps | 51 fps |
      | Desktop, normal stand, year 40 | 39 fps | 48 fps |
-5. **Painted art:** replace drawn shapes with painted sprites in the same layers, once the art direction is decided.
+5. **Painted art (pipeline ready; paintings to make, `app/forest/art.ts`, `docs/art-prompts.md`):**
+   - The view can use a painting in place of each of three drawn layers, per season:
+     - distant hills (`hills`; `fells` in Lapland);
+     - the forest edge behind the stand (`treeline`);
+     - the strip of grass and stones in front (`ground`).
+   - A file named `<slot>-<season>.webp` in `public/art/` is all it takes. The web build serves it and keeps it for offline play; the one-file build packs it inside.
+   - A missing painting leaves the drawn layer in its place, so paintings can arrive one at a time.
+   - Paintings repeat sideways with every other copy mirrored, so the camera never shows a seam. The game lays its own haze over the far ones.
+   - The trees of the stand stay drawn: they grow, sway, are cut and change with the simulation every frame.
+   - **Why the paintings themselves are not here yet:**
+     - no image generator could be used from this session: the Adobe connector offered only editing tools, and Figma Weave needs your account linked first;
+     - the illustrations style bible says not to fake paintings with drawn shapes.
+
+     So `docs/art-prompts.md` has the 16 finished prompts (the style bible's anchor and negative prompt in each), the file specs, the steps and the science checklist.
+   - **Tested:** a build with three throwaway test-pattern images (not committed) showed each in its layer in summer, with the drawn layers back in winter and no errors.
 6. **Kasva!'s birch season scene:** give it the same layered depth.
