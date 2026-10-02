@@ -43,6 +43,13 @@ The same guide is published as a one-page web page. This file is the copy kept w
 - Oppilas voi hoitaa metsää itse: merkitä puita kaadettaviksi, jättää puita säästöpuiksi ja istuttaa taimia. Valolinssi näyttää, mitkä puut kärsivät varjosta. Tikan vihjeet eivät pysäytä vuotta; vain uudistaminen avohakkuun jälkeen pitää päättää.
 - Pelin osoite: https://david-adegbola.github.io/sufobe/.
 
+**Kylä ja hiilen lanka**
+- *Kylä*-painikkeesta (metsän alapalkissa) avautuu kylä, jossa on kuusi kohdetta: uusi talo, kahvila, koulu, kauppa, urheiluseura ja sauna. Oppilas vie niihin metsänsä tuotteita.
+- Kun tavara kuluu loppuun, oppilas päättää: korjataanko, käytetäänkö uudelleen (hirrestä pöytä, pöydästä hylly), kierrätetäänkö vai poltetaanko saunan lämmöksi. Tavarassa pysyy hiiltä niin kauan kuin se on käytössä.
+- *Seuraa hiilen lankaa* näyttää tavaran tarinan: milloin puu sitoi hiilen ilmasta, mitkä kesät oppilas pelasi tänä puuna (kultaiset lustot), kaato, tehdas, kylä ja missä hiili on nyt.
+- Kun oppilaan oma koivu on tarpeeksi paksu, sen kortista voi antaa koivun kylälle. Lähin nuori koivu jatkaa sen paikalla. Valinta on vapaaehtoinen.
+- Keskustelukysymys: Löydätkö kylästä tavaran, joka tuli koivustasi? Minkä kesän lusto siinä on? Missä sen hiili on nyt?
+
 **Kysymyskortit (kokeet)**
 - *Kysymykset*-painikkeesta (metsän alapalkissa tai Metsänin aloitusnäkymässä) avautuu 12 korttia. Jokaisessa on kaksi metsää, A ja B, jotka eroavat vain yhdeltä osin ja saavat saman sään.
 - Oppilas arvaa ensin (A, B tai suunnilleen sama), sitten katsoo metsien kasvavan rinnakkain ja näkee tuloksen ja selityksen. *Kokeile eri säällä* toistaa kokeen toisella säällä.
@@ -103,6 +110,13 @@ The same guide is published as a one-page web page. This file is the copy kept w
 - In every forest the child's own Kasva! birch stands in the middle, with a yellow ribbon. It is never cut. After the story summers, each Kasva! summer is played for this birch, and each summer is one year in the forest.
 - Children can work the forest by hand: mark trees to cut, keep trees as retention trees, and plant seedlings. The light lens shows which trees suffer from shade. Tikka's hints no longer stop the year; only regeneration after a clearcut must be decided.
 - Game address: https://david-adegbola.github.io/sufobe/.
+
+**The village and the Carbon Thread**
+- The *Village* button (in the forest's bottom bar) opens a village with six places: a new house, a café, a school, a shop, a sports club and a sauna. Children take their forest's products where they are needed.
+- When a thing wears out, the child decides: repair it, reuse it (a beam becomes a table, a table a shelf), recycle it, or burn it to heat the sauna. A thing keeps its carbon for as long as it is in use.
+- *Follow the carbon thread* tells a thing's story: when its tree caught the carbon from the air, which summers the child played as that tree (gold rings), the cut, the mill, the village, and where the carbon is now.
+- Once the child's own birch is thick enough, its card offers to give it to the village. The nearest young birch takes its place. The choice is optional.
+- Discussion: Can you find something in the village that came from your birch? Which summer's ring is in it? Where is its carbon now?
 
 **Question cards (experiments)**
 - The *Questions* button (in the forest's bottom bar, or on the Metsäni setup screen) opens 12 cards. Each has two forests, A and B, that differ in only one thing and get the same weather.

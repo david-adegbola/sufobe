@@ -24,6 +24,7 @@ import {
   type DeathCause, type Forest, type ForestEvent, type Site, type Tree, type YearRecord,
 } from './stand';
 import { decayProducts } from './wood';
+import { ageVillage } from './village';
 
 export const TUNING = {
   /** summer water use of a closed canopy (LAI ≥ 3) at the reference warmth, mm */
@@ -172,6 +173,7 @@ export function stepYear(f: Forest): YearRecord {
   move(l, 'deadwood', 'air', deadGone * (1 - TUNING.deadwoodHumify));
   move(l, 'soil', 'air', l.stores.soil * soil.humusK * warm);
   decayProducts(f);
+  ageVillage(f);
 
   const newAnimals = spotAnimals(f);
   const rec: YearRecord = {

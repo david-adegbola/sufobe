@@ -347,3 +347,26 @@ For reviewers:
 - The thinning card measures the trees left, not the whole stand. The stand-level thinning result is the open issue described above.
 - In this model, pine in Lapland stands at about a tenth of the southern volume after 50 years (35 vs 329 m³/ha). That gap looks too large and should be checked with the calibration.
 - The continuous-cover card counts the forest only. The wood taken out goes to products, which the card's text says.
+
+## Phase 9: the village and the Carbon Thread (`village.ts`)
+
+**Played summers.** Every Kasva! summer played as a tree (zoom-in, or your birch's summer from the home screen) is recorded on the tree as `{ year, mm }`, the ring it left. Felled trees and dead logs carry the record into their snapshot, which now also stores the tree's carbon at the cut (`c`) and how much of it stayed in the forest (`left`: stump, roots, branches, needles, tops).
+
+**Village needs.** Six places each need one kind of thing. A met need makes way for the next, half as big again.
+
+| Place | Needs first | Lifetime in use | When worn out |
+|---|---|---|---|
+| New house | 3 house beams | 60 years | repair (+30 years, twice), reuse as café table (90 % kept), burn |
+| Café | 2 tables | 25 years | repair (+10, twice), reuse as a particleboard shelf for the school (90 % kept), burn |
+| School | 20 notebooks | 1 year | recycle into cardboard (60 % kept, at most 6 rounds), burn |
+| Shop | 30 cardboard boxes | 1 year | recycle (60 % kept), burn |
+| Sports club | 5 shirts | 3 years | hand down (+2, twice), burn |
+| Sauna | 10 evenings of heat | – | filled by burning worn things |
+
+The lifetimes, repair years and reuse losses are game choices to verify. The recycling share is the one used for the forest's other products (wood.ts).
+
+**Carbon.** Giving things to the village moves their carbon out of the forest's product lots, which fade with half-lives, into village objects. Village objects keep their carbon until the child decides; the carbon stays in the ledger's products store throughout. Losses (dust, lost fibre) and burning move carbon to the air. A worn object nobody decides about is burned for heat after 5 years. The ledger stays balanced (tests/forest/village.test.ts). Forests whose village was never opened behave exactly as before.
+
+**Where a felled tree's carbon is now** (`treeThread`): in the village, in the forest's other products, left in the forest (the share at the cut; it slowly rots into the soil and air), and the rest back in the air.
+
+**Your birch's gift.** Once your birch is 12 cm thick (pulpwood size), its card offers to give it to the village. It is cut (harvest kind `gift`), its trunk goes to the mill that suits it (sawlogs from 20 cm), and the birch line passes on as when it dies. In tests, a birch on fertile southern soil reaches 12 cm in about 15 years and 20 cm in about 35; in Lapland 12 cm takes about 50 years.

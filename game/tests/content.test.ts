@@ -8,6 +8,8 @@ import { describe, expect, it } from 'vitest';
 import { ACHIEVEMENTS, RANKS, STORY } from '../src/core/progress';
 import { ANIMALS, CARDS, ITEMS, PLACES, SOILS, SPECIES } from '../src/core/forest';
 import { LAB_TEXT } from '../src/app/forest/labtext';
+import { VILLAGE_TEXT } from '../src/app/forest/villagetext';
+import { BUILDINGS, REUSE } from '../src/core/forest';
 import { TEXT } from '../src/app/text';
 import { FOREST_TEXT } from '../src/app/forest/text';
 import { ABOUT_UI, aboutSections } from '../src/app/legal';
@@ -48,6 +50,7 @@ describe('Finnish and English say the same things', () => {
     ['class question items', QUIZ.fi, QUIZ.en],
     ['Forest Atlas', ATLAS_TEXT.fi, ATLAS_TEXT.en],
     ['question cards', LAB_TEXT.fi, LAB_TEXT.en],
+    ['village', VILLAGE_TEXT.fi, VILLAGE_TEXT.en],
   ])('%s', (_, fi, en) => {
     expect(shapeDiff(fi, en)).toEqual([]);
   });
@@ -78,6 +81,13 @@ describe('every id in the game data has its words', () => {
       const t = LAB_TEXT[lang];
       expect(Object.keys(t.cards).sort()).toEqual(CARDS.map(c => c.id).sort());
       for (const c of CARDS) expect(t.measures[c.measure]?.name, `${c.id} ${c.measure}`).toBeTruthy();
+    }
+  });
+  it('every village place and thing has its words', () => {
+    for (const lang of ['fi', 'en'] as const) {
+      const t = VILLAGE_TEXT[lang];
+      for (const b of BUILDINGS) for (const k of ['buildings', 'to', 'at'] as const) expect(t[k][b], `${k} ${b}`).toBeTruthy();
+      for (const th of [...ITEMS, ...Object.values(REUSE).map(r => r!.to)]) expect(t.count(2, th), th).not.toMatch(/undefined/);
     }
   });
   it('class question answers point at real options', () => {

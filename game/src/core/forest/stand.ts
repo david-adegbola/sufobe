@@ -8,6 +8,7 @@
  * "What if?" twin with structuredClone.
  */
 import type { BirchChange, BirchInfo } from './mybirch';
+import type { Village } from './village';
 import { newLedger, type Ledger } from './carbon';
 import type { PlaceId, YearWeather } from './climate';
 import { SOILS, type Soil, type SoilId } from './soil';
@@ -49,7 +50,12 @@ export interface Tree {
   mine?: boolean;
   /** marked by the child to be cut (hands.ts) */
   marked?: boolean;
+  /** Kasva! summers the child played as this tree: the forest year, and that year's ring, mm (Phase 9) */
+  played?: Played[];
 }
+
+/** One Kasva! summer played as a tree, and the ring it left. */
+export interface Played { year: number; mm: number }
 
 /** Why a tree died. */
 export type DeathCause = 'crowded' | 'old' | 'storm' | 'beetle' | 'moose';
@@ -71,6 +77,7 @@ export interface Log {
   cause: DeathCause;
   standing: boolean;
   /** kept so a salvaged log's products can be traced to the tree it was */
+  played?: Played[];
   born?: number;
   age?: number;
   rings?: number[];
@@ -112,7 +119,7 @@ export interface YearRecord {
 
 export interface HarvestEvent {
   year: number;
-  kind: 'thin' | 'clearcut' | 'tend' | 'remove' | 'salvage' | 'cc';
+  kind: 'thin' | 'clearcut' | 'tend' | 'remove' | 'salvage' | 'cc' | 'gift';
   harvest: Harvest;
 }
 
@@ -127,6 +134,8 @@ export interface Forest {
   nextId: number;
   /** the player's birch line, if this forest has one (mybirch.ts) */
   birch?: BirchInfo;
+  /** the village: what it needs, and the things in it made from this forest (village.ts, Phase 9) */
+  village?: Village;
   /** seedlings the child planted by hand this year (hands.ts) */
   handPlanted?: { year: number; n: number };
   ledger: Ledger;

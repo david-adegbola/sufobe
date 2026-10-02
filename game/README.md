@@ -2,7 +2,14 @@
 
 A one-thumb forest game for grades 4–6. You are a silver birch: hold to open your stomata and catch CO₂, save water through heatwaves and nights, and turn carbon into wood.
 
-**Status: Phase 8 (experiments with an answer).** Metsäni has 12 question cards:
+**Status: Phase 9 (the village: closing the loop).** The forest's wood now goes somewhere you can see:
+- **The village** (bottom bar, *Village*) has six places with needs: a new house (beams), the café (tables), the school (notebooks), the shop (cardboard boxes), the sports club (shirts) and the sauna (heat). Give them items your forest has made. Each met need makes way for a bigger one.
+- **Village things keep their carbon** while they are in use. When one wears out, you choose: repair it, reuse it (a house beam becomes a café table, an old table a particleboard shelf), recycle it (paper and cardboard become new cardboard), or burn it to heat the sauna. Nobody deciding means the village burns it after a few years.
+- **The Carbon Thread** follows a village thing back to its tree: the years the tree caught carbon from the air, the summers you played as that tree (gold rings), the cut, the mill, the village, and where the carbon is now. For any felled tree it shows how much is in the village, in products elsewhere, left in the forest, and back in the air.
+- **Give your birch to the village.** Once your birch's trunk is thick enough for the mill, its card offers this. It is cut, the nearest young birch takes its place, and the summers you played go with its wood.
+- Fixed: *+10 years* no longer gets stuck while one of Tikka's hints is showing.
+
+**Phase 8 (experiments with an answer).** Metsäni has 12 question cards:
 - Each card has two forests, A and B, that differ in one thing (place, soil, trees, planting density or one choice) and get the same weather.
 - The child guesses first, then watches both forests grow side by side and sees the result and why. *Try other weather* repeats the experiment with a new seed.
 - Cards are data (`src/core/forest/experiments.ts`). The answer comes from the model, and `tests/forest/experiments.test.ts` checks it holds for nine seeds per card.
