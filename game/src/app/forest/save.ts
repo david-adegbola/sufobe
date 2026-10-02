@@ -31,6 +31,8 @@ export interface ForestSave {
   past: ForestSummary[];
   /** Tikka's tips already shown (each is shown once) */
   tips?: string[];
+  /** question cards tried, by card id: the child's guess and what the forests did (Phase 8) */
+  lab?: Record<string, { guess: 'a' | 'b' | 'same'; result: 'a' | 'b' | 'same' }>;
 }
 
 export function emptySave(): ForestSave {

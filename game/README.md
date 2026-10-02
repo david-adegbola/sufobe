@@ -2,7 +2,13 @@
 
 A one-thumb forest game for grades 4–6. You are a silver birch: hold to open your stomata and catch CO₂, save water through heatwaves and nights, and turn carbon into wood.
 
-**Status: Phase 7 (forestry by hand).** In Metsäni you now work the forest yourself:
+**Status: Phase 8 (experiments with an answer).** Metsäni has 12 question cards:
+- Each card has two forests, A and B, that differ in one thing (place, soil, trees, planting density or one choice) and get the same weather.
+- The child guesses first, then watches both forests grow side by side and sees the result and why. *Try other weather* repeats the experiment with a new seed.
+- Cards are data (`src/core/forest/experiments.ts`). The answer comes from the model, and `tests/forest/experiments.test.ts` checks it holds for nine seeds per card.
+- Teacher links such as `#q-thinning` open a card directly (list in `docs/metsani-teacher-guide.md`). The experiments never touch the child's own forest.
+
+**Phase 7 (forestry by hand).** In Metsäni you now work the forest yourself:
 - **Tools:** Look, Mark, Keep and Plant. Tap trees to mark them for cutting (orange stripe) or to keep them (teal band), then press *Cut marked*. Plant up to 8 seedlings a year where you tap, or let *Plant one* find the biggest gap.
 - **Light lens:** a dot on each tree shows how well it is doing (green, yellow, red), so crowding is visible before you thin.
 - **Tikka's hints no longer stop the year.** Only regeneration after a clearcut must be answered; other questions are hints you can open, act on with the Mark tool, or leave. A hint fades after a year.

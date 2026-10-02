@@ -208,6 +208,32 @@
     .seg[aria-pressed="true"] { border-color: var(--sun); background: rgba(255, 200, 61, 0.18); }
     .btn[disabled] { opacity: 0.45; cursor: default; transform: none; }
 
+
+    /* Phase 8: question cards */
+    #m-lab .panel { width: min(100%, 760px); text-align: left; justify-items: stretch; }
+    #m-lab h2 { margin: 0; font: 800 1.6rem/1.1 var(--display); color: var(--sun); }
+    .labcard b { font-size: 1.02rem; }
+    .labcard .done { font: 800 0.72rem/1 var(--display); color: var(--sun); text-transform: uppercase; letter-spacing: 0.05em; }
+    .labq { margin: 0; font: 700 1.55rem/1.15 var(--hand); }
+    .labsides { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .labsides div { background: rgba(255,255,255,0.07); border-radius: 12px; padding: 8px 10px; display: grid; gap: 2px; }
+    .labsides span { font: 800 0.75rem/1 var(--display); text-transform: uppercase; letter-spacing: 0.06em; color: var(--sun); }
+    .labsides b { font: 800 1.05rem/1.2 var(--display); }
+    .labguess { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+    .labguess .choice[aria-pressed="true"] { border-color: var(--sun); background: rgba(255, 200, 61, 0.2); }
+    @media (max-width: 480px) { .labguess { grid-template-columns: 1fr; } }
+    #m-lab-run { position: fixed; inset: 0; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between;
+      padding: calc(env(safe-area-inset-top, 0px) + 10px) 10px calc(env(safe-area-inset-bottom, 0px) + 10px); }
+    #m-lab-run > * { pointer-events: auto; }
+    .labmeters { display: grid; gap: 6px; }
+    .labmeter { display: grid; grid-template-columns: minmax(70px, auto) 1fr auto; gap: 8px; align-items: center; font-size: 0.85rem; }
+    .labmeter .bar { height: 14px; background: rgba(255,255,255,0.12); border-radius: 999px; overflow: hidden; }
+    .labmeter .bar i { display: block; height: 100%; background: var(--sun); border-radius: 999px; transition: width 0.2s; }
+    .labmeter.b .bar i { background: #7cc4ec; }
+    .labmeter b { font: 800 0.95rem/1 var(--display); font-variant-numeric: tabular-nums; }
+    #m-lab-result .verdict { margin: 0; font: 700 1.35rem/1.2 var(--hand); }
+    #m-lab-result p { margin: 0; }
+
     #m-view { position: fixed; inset: 0; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between;
       padding: calc(env(safe-area-inset-top, 0px) + 10px) 10px calc(env(safe-area-inset-bottom, 0px) + 10px); }
     #m-view > * { pointer-events: auto; }
@@ -554,7 +580,66 @@
       <div class="row"><button type="button" class="btn" id="btn-m-plant"></button></div>
       <p class="note" id="m-replace" style="text-align:center"></p>
       <div class="section"><h3 id="m-earlier-title"></h3><div class="list" id="m-earlier"></div></div>
-      <div class="row"><button type="button" class="btn ghost small" id="btn-m-setup-back"></button></div>
+      <div class="row"><button type="button" class="btn ghost small" id="btn-m-setup-lab"></button><button type="button" class="btn ghost small" id="btn-m-setup-back"></button></div>
+    </div>
+  </section>
+
+
+  <section class="screen" id="m-lab" hidden>
+    <div class="panel glass">
+      <div id="m-lab-list" style="display:grid;gap:12px">
+        <h2 id="m-lab-title" tabindex="-1"></h2>
+        <p class="note" id="m-lab-intro"></p>
+        <div class="mgrid" id="m-lab-cards"></div>
+        <div class="row"><button type="button" class="btn ghost small" id="btn-m-lab-back"></button></div>
+      </div>
+      <div id="m-lab-card" hidden style="display:grid;gap:12px">
+        <h2 id="m-lab-card-title" tabindex="-1"></h2>
+        <p class="labq" id="m-lab-q"></p>
+        <div class="labsides"><div><span id="m-lab-a-tag"></span><b id="m-lab-a"></b></div><div><span id="m-lab-b-tag"></span><b id="m-lab-b"></b></div></div>
+        <p class="note" id="m-lab-setup"></p>
+        <p class="note" id="m-lab-measure"></p>
+        <h3 class="mstep" id="m-lab-guess-title"></h3>
+        <div class="labguess" id="m-lab-guess" role="group" aria-labelledby="m-lab-guess-title"></div>
+        <p class="note" id="m-lab-guess-note" role="status"></p>
+        <div class="row">
+          <button type="button" class="btn" id="btn-m-lab-run" disabled></button>
+          <button type="button" class="btn ghost small" id="btn-m-lab-list"></button>
+          <button type="button" class="btn ghost small" id="btn-m-lab-link"></button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="m-lab-run" hidden>
+    <div class="mtop">
+      <div class="bar">
+        <button type="button" class="icon" id="btn-m-lab-stop">←</button>
+        <span class="myear" id="m-lab-year" tabindex="-1"></span>
+        <span class="mwhere" id="m-lab-what"></span>
+      </div>
+    </div>
+    <span class="lane-badge" id="m-lab-badge-a"></span>
+    <span class="lane-badge" id="m-lab-badge-b"></span>
+    <section class="moverlay glass" id="m-lab-result" hidden role="dialog" aria-labelledby="m-lab-result-title">
+      <h3 id="m-lab-result-title" tabindex="-1"></h3>
+      <p class="verdict" id="m-lab-verdict"></p>
+      <p id="m-lab-guessed"></p>
+      <h4 id="m-lab-why-title"></h4>
+      <p id="m-lab-why"></p>
+      <p class="note" id="m-lab-model"></p>
+      <p class="note" id="m-lab-again-note"></p>
+      <div class="row">
+        <button type="button" class="btn small" id="btn-m-lab-again"></button>
+        <button type="button" class="btn ghost small" id="btn-m-lab-another"></button>
+      </div>
+    </section>
+    <div class="mbottom glass" id="m-lab-bottom">
+      <div class="labmeters" id="m-lab-meters" aria-live="off"></div>
+      <div class="mctrl">
+        <button type="button" class="icon" id="btn-m-lab-play">II</button>
+        <button type="button" class="icon wide" id="btn-m-lab-skip"></button>
+      </div>
     </div>
   </section>
 
@@ -673,6 +758,7 @@
         <button type="button" class="icon" id="btn-m-fast"></button>
         <button type="button" class="icon wide" id="btn-m-jump"></button>
         <button type="button" class="icon wide whatif" id="btn-m-whatif"></button>
+        <button type="button" class="icon wide" id="btn-m-lab"></button>
       </div>
       <div class="mtools" id="m-tools" role="toolbar" aria-labelledby="m-tools-label">
         <span class="sr-only" id="m-tools-label"></span>

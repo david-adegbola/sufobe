@@ -35,6 +35,9 @@ Read `forest-model.md` first (about 15 minutes). Then:
   - Recycling: a 60 % recovery share and at most 6 rounds.
   - Carbon per item (table 8 kg, beam 25 kg, notebook 0.04 kg, box 0.13 kg, shirt 0.09 kg, one evening of sauna firewood 5 kg).
 - [ ] **Forest Act line.** After a final harvest, Tikka says the Forest Act requires a new forest to be grown. Is the wording right?
+- [ ] **Question cards (Phase 8).** `forest-model.md`, "Phase 8", lists the 12 experiments and what the model answers. Is each answer right for Finnish forests, and is each "why" text fair? Two to look at closely:
+  - Lapland pine after 50 years has only about a tenth of the southern volume (35 vs 329 m³/ha). That gap looks too large.
+  - The 2080 card says pine grows more in the warmer climate. Is that a fair simplification for a child?
 - [ ] **Neutrality.** Clear-cutting and continuous cover are offered as equal choices with honest trade-offs. Does the game take a side anywhere?
 
 ## 2. Primary teacher (grades 4–6): words and the lesson
@@ -43,6 +46,7 @@ Read `forest-model.md` first (about 15 minutes). Then:
 - [ ] **Lesson plan.** Does the 45-minute plan in the teacher's guide (`metsani-teacher-guide.md`) work in a real lesson? What would you cut?
 - [ ] **Class question.** Are the four multiple-choice questions fair, clear and unambiguous? Should any be changed?
 - [ ] **Curriculum.** Which parts of the curriculum (environmental studies, grades 3–6) does this support? We have deliberately not written objective codes; please add them if useful.
+- [ ] **Question cards.** Do children make a guess before running a card? Can they explain the result afterwards? (This is the Phase 8 gate.)
 - [ ] **Accessibility in class.** Can a child who uses a keyboard, or a screen reader, play? The forest has a spoken description, trees can be chosen with the arrow keys, and every screen works with Tab and Escape.
 
 ## 3. Forest ecologist: life and animals
