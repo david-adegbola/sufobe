@@ -2,7 +2,14 @@
 
 A one-thumb forest game for grades 4–6. You are a silver birch: hold to open your stomata and catch CO₂, save water through heatwaves and nights, and turn carbon into wood.
 
-**Status: Phase 10 (the landscape: many forests, one map).** Your forest now has neighbours:
+**2.5D forest view (increment 1 of the 2.5D plan, `docs/two-point-five-d.md`).** The forest now sits in a deep landscape:
+- **Depth layers:** drifting clouds, two mountain ridges, a far and a mid forest and horizon haze behind the stand, with grass, ferns, stones and mushrooms in front. Each layer moves with the camera at its own rate (parallax).
+- **Camera:** drag to move through the forest; zoom with two fingers, the wheel, the − / + buttons or keys; ⌂ or 0 for the whole forest. Choosing a tree eases the camera to it, and the other trees step back a little.
+- **Life:** trees cast shadows, which are long in winter. Crowns sway in the wind, young trees most. Far trees fade into the haze. Autumn mornings are foggy, wet summers and late autumn bring rain, and summer sunbeams fall through the canopy. Old spruces and pines carry beard lichen, and mature trees have moss at their foot.
+- **The simulation drives the look** through `app/forest/visual.ts`: tree stage, light, fog, rain and wind.
+- **Fixed:** tapping a tree in a dense stand now picks the trunk closest to the finger, not a wide crown in front.
+
+**Phase 10 (the landscape: many forests, one map).** Your forest now has neighbours:
 - **The map** (bottom bar, *Map*) shows your forest as one stand among ten neighbouring forests, with a lake, a road and the village. Every neighbour is a full forest from the same model, grown to its own age, and lives as many years as yours.
 - **Zoning.** Choose for each neighbouring forest: *managed* (an owner thins it, harvests it when mature with retention trees, and replants) or *protected* (left to grow old; fallen trees stay).
 - **Connected habitat.** The flying squirrel needs two or more neighbouring spruce forests with aspens; the capercaillie needs at least three mature pine forests; the Siberian jay needs three neighbouring old forests, in the east or north. The road and the lake cut connections. Dots on the map show where they live.

@@ -123,7 +123,8 @@ const fi = {
     unkeep: 'Älä säästä',
     keptMine: 'Koivusi säästetään aina.',
   },
-  tapTree: 'Napauta puuta nähdäksesi sen tiedot.',
+  tapTree: 'Napauta puuta nähdäksesi sen tiedot. Vedä sormella liikkuaksesi metsässä.',
+  cam: { label: 'Näkymä', zoomIn: 'Lähemmäs', zoomOut: 'Kauemmas', home: 'Koko metsä' },
   card: {
     planted: (y: number, age: number) => `Istutettu vuonna ${y} · ikä ${age} v`,
     height: 'Pituus', diameter: 'Rungon paksuus', wood: 'Runkopuuta', carbon: 'Hiiltä', co2: 'Ilmasta otettu CO₂',
@@ -396,7 +397,8 @@ const en: ForestText = {
     unkeep: 'Stop keeping it',
     keptMine: 'Your birch is always kept.',
   },
-  tapTree: 'Tap a tree to see its details.',
+  tapTree: 'Tap a tree to see its details. Drag to move through the forest.',
+  cam: { label: 'View', zoomIn: 'Closer', zoomOut: 'Further away', home: 'Whole forest' },
   card: {
     planted: (y: number, age: number) => `Planted in year ${y} · age ${age}`,
     height: 'Height', diameter: 'Trunk width', wood: 'Stem wood', carbon: 'Carbon', co2: 'CO₂ taken from the air',
