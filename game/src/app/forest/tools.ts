@@ -18,6 +18,10 @@ import type { Lang } from '../text';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
+/** The paint colours on trunks (the same as the scene draws). */
+const MARK_COLOR = '#ff6a2b';
+const KEEP_COLOR = '#3fd0c0';
+
 export type Tool = 'look' | 'mark' | 'keep' | 'plant';
 
 export interface ToolsHost {
@@ -31,6 +35,8 @@ export interface ToolsHost {
   /** send the marked trees to sorting and the mills */
   cutMarked(): void;
   announce(text: string): void;
+  /** the paint sound for marking (false) or keeping (true) a tree */
+  tag(keep: boolean, pan: number): void;
 }
 
 export class Tools {
@@ -119,6 +125,7 @@ export class Tools {
     const tree = m.f.trees.find(tr => tr.id === id);
     if (tree?.mine) this.note = this.h.t().tools.keptMine;
     toggleMark(m.f, id);
+    if (tree?.marked) this.tagged(m, tree, false);
     this.after();
   }
 
@@ -128,6 +135,7 @@ export class Tools {
     const tree = m.f.trees.find(tr => tr.id === id);
     if (tree?.mine) this.note = this.h.t().tools.keptMine;
     toggleKeep(m.f, id);
+    if (tree?.keep) this.tagged(m, tree, true);
     this.after();
   }
 
@@ -148,9 +156,16 @@ export class Tools {
     if (!tree) { this.note = this.h.t().tools.plantNone; this.render(); return; }
     // a new seedling has no last-year size to grow from
     m.prev.set(tree.id, { h: tree.h, d: tree.d });
+    m.scene.spawn([tree.id]);
     this.note = this.h.t().tools.planted(this.h.t().species[this.sp].name);
     this.h.announce(this.note);
     this.after();
+  }
+
+  /** Game feel: a ring of paint bursts from the trunk, with a soft note. */
+  private tagged(m: Lane, tree: Tree, keep: boolean) {
+    m.scene.pop(tree.id, keep ? KEEP_COLOR : MARK_COLOR);
+    this.h.tag(keep, (tree.x - 0.5) * 1.2);
   }
 
   private after() {

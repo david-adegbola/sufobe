@@ -8,7 +8,7 @@
 import { num } from '../format';
 import {
   ITEMS, applyChoice, bestBin, previewHarvest, recycledItems, shelf, traceCount, traceItem,
-  type ChoiceId, type ItemId, type SortBin, type SpeciesId, type Spacing,
+  type ChoiceId, type ItemId, type SortBin, type SpeciesId, type Spacing, type Tree,
 } from '../../core/forest';
 import { drawMills, itemIcon } from './mills';
 import { drawRings, type Lane, type Overlay } from './metsani';
@@ -47,6 +47,8 @@ export interface FactoryHost {
   renderSheet(): void;
   /** whether a question sheet is open behind the factory screens */
   asking(): boolean;
+  /** show the felled trees falling and the truck leaving, then run `done`; `planted` pop up afterwards */
+  fell(trees: Tree[], planted: number[], done: () => void): void;
 }
 
 export class Factory {
@@ -138,11 +140,23 @@ export class Factory {
   finishHarvest(choice: ChoiceId, sort: Record<number, SortBin>, residues: boolean) {
     const lane = this.h.main()!;
     const before = new Map(ITEMS.map(i => [i, lane.f.receipts.filter(r => r.item === i).reduce((a, r) => a + r.n, 0)]));
+    const was = new Map(lane.f.trees.map(tr => [tr.id, tr]));
     const h = applyChoice(lane.f, choice, { sort, residues, mix: this.h.mix(), spacing: this.h.spacing() });
     const s = this.sorting;
     $('m-sort').hidden = true;
     this.sorting = null;
+    const now = new Set(lane.f.trees.map(tr => tr.id));
+    const felled = [...was.values()].filter(tr => !now.has(tr.id));
+    const planted = lane.f.trees.filter(tr => !was.has(tr.id)).map(tr => tr.id);
     if (!h || h.count === 0) { this.h.setOverlay(null); this.h.afterChoice(); return; }
+    // 2.5D: first the trees fall and the truck drives off, then the mills
+    const made = ITEMS.map(i => [i, lane.f.receipts.filter(r => r.item === i).reduce((a, r) => a + r.n, 0) - (before.get(i) ?? 0)] as const)
+      .filter(([, n]) => n >= 0.5);
+    this.h.setOverlay('felling');
+    this.h.fell(felled, planted, () => this.openMills(h, s, made));
+  }
+
+  private openMills(h: NonNullable<ReturnType<typeof applyChoice>>, s: Sorting | null, made: (readonly [ItemId, number])[]) {
     // feedback on the trunks the child sorted
     const t = this.h.t();
     let right = 0;
@@ -154,8 +168,6 @@ export class Factory {
       if (got === best) right++;
       else notes.add(got === 'energy' ? t.sortEnergy : got === 'saw' ? t.sortWrongSaw : t.sortWrongPulp);
     }
-    const made = ITEMS.map(i => [i, lane.f.receipts.filter(r => r.item === i).reduce((a, r) => a + r.n, 0) - (before.get(i) ?? 0)] as const)
-      .filter(([, n]) => n >= 0.5);
     const total = h.sawlogC + h.pulpwoodC + h.energywoodC || 1;
     this.millsAnim = {
       t: 0, logs: h.count,

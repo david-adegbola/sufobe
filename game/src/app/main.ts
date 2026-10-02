@@ -40,6 +40,7 @@ const metsani = new Metsani({
     start({ mode: 'free', seed: z.seed, weather: z.weather, forest: { mods: z.mods, done } });
   },
   reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
+  sound,
 });
 function openMetsani() {
   show(null, false);

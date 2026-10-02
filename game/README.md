@@ -2,6 +2,13 @@
 
 A one-thumb forest game for grades 4–6. You are a silver birch: hold to open your stomata and catch CO₂, save water through heatwaves and nights, and turn carbon into wood.
 
+**2.5D game feel (increment 2).** Actions now feel like they happen in the world:
+- **Planting:** seedlings pop up out of the soil one after another, with a puff of earth and a soft sound.
+- **Harvest:** the felled trees fall, logs pile up and a timber truck fetches them before the mills open. Escape or any button skips the show. Giving your birch plays the same scene before the village.
+- **Marking and keeping:** a ring of paint and a note.
+- **Village:** a short picture strip shows what you delivered, or what an old thing became (recycled, reused, repaired or burned), with a sound.
+- **Reduced motion** turns all of it off.
+
 **2.5D forest view (increment 1 of the 2.5D plan, `docs/two-point-five-d.md`).** The forest now sits in a deep landscape:
 - **Depth layers:** drifting clouds, two mountain ridges, a far and a mid forest and horizon haze behind the stand, with grass, ferns, stones and mushrooms in front. Each layer moves with the camera at its own rate (parallax).
 - **Camera:** drag to move through the forest; zoom with two fingers, the wheel, the − / + buttons or keys; ⌂ or 0 for the whole forest. Choosing a tree eases the camera to it, and the other trees step back a little.

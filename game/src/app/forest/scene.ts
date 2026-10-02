@@ -95,6 +95,24 @@ export class ForestScene {
   private focusId: number | null = null;
   /** this frame's look of the world, from visual.ts */
   private env: EnvLook | null = null;
+
+  // ---------- game feel (2.5D, increment 2) ----------
+  /** seconds of effects time; effects never run with reduced motion */
+  private fxT = 0;
+  private reduced = false;
+  /** seedlings popping up out of the ground, by tree id */
+  private spawns = new Map<number, { t0: number; burst: boolean }>();
+  /** coloured rings bursting from a trunk (marked, kept) */
+  private pops: { id: number; t0: number; color: string }[] = [];
+  /** dust, soil and sparkles, in world coordinates */
+  private bits: { x: number; y: number; vx: number; vy: number; age: number; life: number; color: string; r: number; g: number }[] = [];
+  /** a harvest being shown: trees tipping over, a log pile, the timber truck */
+  private felling: {
+    trees: { t: Tree; t0: number; dir: number; landed: boolean }[];
+    landedAt: number; truckAt: number; done: () => void;
+  } | null = null;
+  /** sounds for the effects (the host connects them) */
+  onSound: ((kind: 'plant' | 'thud' | 'truck', pan: number) => void) | null = null;
   /** space kept free for the HTML bars at the top and bottom, CSS px */
   insetTop = 70;
   insetBottom = 190;
@@ -115,6 +133,151 @@ export class ForestScene {
     this.layersKey = '';
     this.soilKey = '';
     this.bgKey = '';
+  }
+
+  // ---------- game feel ----------
+
+  /** Seedlings pop up out of the ground, one after another `stagger` seconds apart. */
+  spawn(ids: number[], stagger = 0) {
+    if (this.reduced) return;
+    ids.forEach((id, i) => this.spawns.set(id, { t0: this.fxT + i * stagger, burst: false }));
+  }
+
+  /** A ring of colour bursts from a trunk: orange paint when marked, teal when kept. */
+  pop(id: number, color: string) {
+    if (!this.reduced) this.pops.push({ id, t0: this.fxT, color });
+  }
+
+  /**
+   * Show a harvest: the trees (already gone from the forest) tip over one
+   * after another, logs pile up at the edge of the plot, and a timber truck
+   * backs in, loads them and drives away. `done` runs at the end (at once
+   * with reduced motion).
+   */
+  fell(trees: Tree[], done: () => void) {
+    if (this.reduced || !trees.length) { done(); return; }
+    // the trees in front are the ones a child sees: show up to 18 falling
+    const shown = [...trees].sort((a, b) => depthOf(a.id) - depthOf(b.id)).slice(0, 18).sort((a, b) => a.x - b.x);
+    const stagger = Math.min(0.14, 1.4 / shown.length);
+    this.felling = {
+      trees: shown.map((t, i) => ({ t: { ...t, c: { ...t.c } }, t0: this.fxT + 0.25 + i * stagger, dir: t.x > 0.5 ? 1 : -1, landed: false })),
+      landedAt: Infinity, truckAt: Infinity, done,
+    };
+  }
+
+  /** For tests: how many effects are running. */
+  fxInfo() { return { spawns: this.spawns.size, pops: this.pops.length, bits: this.bits.length, felling: this.felling?.trees.length ?? 0 }; }
+
+  /** A harvest is being shown. */
+  busy(): boolean { return this.felling !== null; }
+
+  /** Jump to the end of a harvest being shown (Escape). */
+  skipFelling() {
+    const f = this.felling;
+    if (!f) return;
+    this.felling = null;
+    f.done();
+  }
+
+  private burst(x: number, y: number, n: number, colors: string[], up: number, spread: number, gravity = 260) {
+    for (let i = 0; i < n; i++) {
+      const a = -Math.PI / 2 + (Math.random() - 0.5) * spread;
+      const v = up * (0.5 + Math.random() * 0.7);
+      this.bits.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, age: 0, life: 0.5 + Math.random() * 0.5, color: colors[i % colors.length], r: 1.2 + Math.random() * 1.8, g: gravity });
+    }
+    if (this.bits.length > 260) this.bits.splice(0, this.bits.length - 260);
+  }
+
+  private stepFx(dt: number) {
+    for (const b of this.bits) { b.age += dt; b.x += b.vx * dt; b.y += b.vy * dt; b.vy += b.g * dt; b.vx *= 1 - 1.5 * dt; }
+    if (this.bits.length) this.bits = this.bits.filter(b => b.age < b.life);
+    if (this.pops.length) this.pops = this.pops.filter(p => this.fxT - p.t0 < 0.5);
+    for (const [id, sp] of this.spawns) if (this.fxT - sp.t0 > 1) this.spawns.delete(id);
+  }
+
+  private drawBits() {
+    const c = this.c;
+    for (const b of this.bits) {
+      c.globalAlpha = Math.max(0, 1 - b.age / b.life);
+      c.fillStyle = b.color;
+      c.beginPath(); c.arc(b.x, b.y, b.r, 0, Math.PI * 2); c.fill();
+    }
+    c.globalAlpha = 1;
+  }
+
+  private drawPops(L: ReturnType<ForestScene['layout']>, f: Forest) {
+    const c = this.c;
+    for (const p of this.pops) {
+      const t = f.trees.find(x => x.id === p.id);
+      if (!t) continue;
+      const P = this.place(L, t, 0);
+      const k = (this.fxT - p.t0) / 0.5;
+      const hp = t.h * L.px * P.s;
+      const y = P.base - (t.h > 1.6 ? hp * (1.3 / t.h) : hp * 0.55);
+      c.strokeStyle = p.color;
+      c.globalAlpha = Math.max(0, 1 - k);
+      c.lineWidth = 3 * (1 - k) + 1;
+      c.beginPath(); c.arc(P.x, y, 6 + 26 * k, 0, Math.PI * 2); c.stroke();
+    }
+    c.globalAlpha = 1;
+  }
+
+  /** The harvest show: falling trees, then the log pile and the truck. */
+  private drawFelling(L: ReturnType<ForestScene['layout']>, season: Season, ps: number, rd: number) {
+    const fl = this.felling;
+    if (!fl) return;
+    const c = this.c;
+    const T = this.fxT;
+    let landed = 0;
+    for (const ft of fl.trees) {
+      const t = ft.t;
+      const k = clamp01((T - ft.t0) / 0.8);
+      const P = this.place(L, t, 0);
+      const px = L.px * P.s;
+      const hp = Math.max(3, t.h * px);
+      if (k >= 1 && !ft.landed) {
+        ft.landed = true;
+        // dust where the crown hits the ground, and a thud
+        this.burst(P.x + ft.dir * hp * 0.75, P.base - 2, 14, ['#b9a582', '#9c8b6c', '#d8cdb6'], 120, 1.6, 200);
+        this.onSound?.('thud', Math.max(-0.8, Math.min(0.8, (P.x - L.W / 2) / L.W * 2)));
+      }
+      if (ft.landed) landed++;
+      const fade = clamp01((T - ft.t0 - 0.8) / 0.4);
+      if (fade >= 1) continue;
+      const ang = ft.dir * (k * k) * Math.PI / 2;
+      c.save();
+      c.globalAlpha = 1 - fade;
+      c.translate(P.x, P.base); c.rotate(ang); c.translate(-P.x, -P.base);
+      if (t.h < 1.3) drawSeedling(c, t.sp, P.x, P.base, hp, season, ps, P.depth * 0.1);
+      else drawTree(c, t.sp, P.x, P.base, hp, Math.max(1.2, (t.d / 100) * px * 1.6), hp * crownRatio(t.sp, rd),
+        Math.max(t.h * 0.45, crownWidth(t.sp, t.d)) * px, season, ps, null, P.depth * 0.1, 0, t.id);
+      c.restore();
+    }
+    if (landed === fl.trees.length && fl.landedAt === Infinity) { fl.landedAt = T; fl.truckAt = T + 0.35; this.onSound?.('truck', 0.4); }
+    // the log pile by the edge of the plot, and the timber truck that fetches it
+    const gy = L.groundY + 1;
+    const size = Math.max(4, Math.min(10, L.px * 0.45));
+    // kept on screen, so the truck has room to stop beside it on a phone too
+    const pileX = Math.min(L.W / 2 + L.plotW * 0.56, L.x1 - size * 26);
+    const tk = T - fl.truckAt;
+    const loadK = clamp01((tk - 1.0) / 0.6);
+    const onPile = Math.round(Math.min(12, landed) * (1 - loadK));
+    for (let i = 0; i < onPile; i++) {
+      const row = i < 5 ? 0 : i < 9 ? 1 : i < 12 ? 2 : 3;
+      const col = row === 0 ? i : row === 1 ? i - 5 : i - 9;
+      const x = pileX + (col + row * 0.5) * size * 1.9;
+      const y = gy - size - row * size * 1.7;
+      c.fillStyle = '#7a5530'; c.beginPath(); c.arc(x, y, size, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#e2c48e'; c.beginPath(); c.arc(x, y, size * 0.68, 0, Math.PI * 2); c.fill();
+    }
+    if (tk >= 0) {
+      // backs in (1 s), loads (0.6 s), drives away (1.1 s)
+      const stop = pileX + size * 12;
+      const far = Math.max(L.x1, L.W) + 260;
+      const x = tk < 1 ? lerp(far, stop, easeOut(tk)) : tk < 1.6 ? stop : lerp(stop, far, easeIn(clamp01((tk - 1.6) / 1.1)));
+      drawTruck(c, x, gy, Math.max(0.8, Math.min(2, L.px / 10)), Math.round(Math.min(12, landed) * loadK), season);
+      if (tk > 2.7) { this.felling = null; fl.done(); }
+    }
   }
 
   // ---------- the camera ----------
@@ -278,6 +441,10 @@ export class ForestScene {
     const drought = !!v.rec?.weather.drought;
     const env = this.env = envLook(season, ps, v.rec);
     this.updateCamera(L0, f, dt, v.reducedMotion);
+    this.reduced = v.reducedMotion;
+    if (this.reduced) { this.spawns.clear(); this.pops = []; this.bits = []; if (this.felling) this.skipFelling(); }
+    this.fxT += Math.min(0.05, dt);
+    this.stepFx(Math.min(0.05, dt));
     const s = this.cam.s;
     const cx = this.camX(L0), cy = this.camY(L0);
     // the part of the world on screen
@@ -323,9 +490,13 @@ export class ForestScene {
       this.drawOne(L, t, v, 0, season, ps, g01, rd, true);
     }
 
+    this.drawFelling(L, season, ps, rd);
+    this.drawPops(L, f);
+
     // the soil cutaway, and the animals that live here now
     this.drawSoil(L, v, season, ps);
     if (v.animals?.length) this.drawAnimals(L, v, season);
+    this.drawBits();
     c.restore();
 
     // ---- close by: grass, ferns, stones; light, fog and weather ----
@@ -600,7 +771,22 @@ export class ForestScene {
     const shade = P.depth * 0.1 + (main ? 0 : 0.08) + (this.focusId !== null && this.focusId !== t.id ? 0.14 : 0);
     hazeK = Math.min(0.55, P.depth * 0.38 + (main ? 0 : 0.18));
     hazeRGB = this.env ? rgbOf(this.env.haze) : null;
+    // a seedling just planted pops up out of the ground (increment 2)
+    const spn = this.spawns.size ? this.spawns.get(t.id) : undefined;
+    let grow = 1;
+    if (spn) {
+      const k = (this.fxT - spn.t0) / 0.5;
+      if (k < 0) return;
+      if (!spn.burst && main) {
+        spn.burst = true;
+        this.burst(x, base - 1, 8, ['#6e4f33', '#8a6845', '#5b402a'], 90, 1.4);
+        this.burst(x, base - hp, 4, ['#d9f59a', '#fff6c0'], 40, 2.2, -30);
+        this.onSound?.('plant', Math.max(-0.8, Math.min(0.8, (x - L.W / 2) / L.W * 2)));
+      }
+      grow = k >= 1 ? 1 : easeOutBack(k);
+    }
     c.save();
+    if (grow !== 1) { c.translate(x, base); c.scale(grow, grow); c.translate(-x, -base); }
     c.globalAlpha = alpha * (main ? 1 : 0.7);
     // a slight lean of its own, and the wind: young trees bend most, old ones least
     const wind = v.reducedMotion || dying ? 0 : Math.sin(v.time * (0.7 + hash(t.id + 3) * 0.5) + t.id * 1.7) * 0.012 * (this.env?.wind ?? 1) * look.sway;
@@ -824,6 +1010,32 @@ function hash(n: number): number {
   x = Math.imul(x, 0xc2b2ae35);
   x ^= x >>> 16;
   return (x >>> 0) / 4294967296;
+}
+
+const easeIn = (k: number) => k * k;
+const easeOut = (k: number) => 1 - (1 - k) * (1 - k);
+/** Overshoots a little and settles: a springy pop. */
+const easeOutBack = (k: number) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(k - 1, 3) + c1 * Math.pow(k - 1, 2); };
+
+/** A timber truck (cab on the right) with `logs` on its bed, standing on `y`. */
+function drawTruck(c: CanvasRenderingContext2D, x: number, y: number, s: number, logs: number, season: Season) {
+  const w = 120 * s, h = 34 * s;
+  c.fillStyle = '#1d2a24';
+  for (const wx of [0.12, 0.3, 0.72, 0.88]) { c.beginPath(); c.arc(x + w * wx, y - 7 * s, 7 * s, 0, Math.PI * 2); c.fill(); }
+  c.fillStyle = '#3f5d73'; c.fillRect(x, y - 16 * s, w * 0.66, 5 * s);
+  c.fillStyle = '#2c3e4c';
+  for (const sx of [0.04, 0.32, 0.6]) c.fillRect(x + w * sx, y - h, 3 * s, h - 14 * s);
+  c.fillStyle = '#d9a441'; c.beginPath(); c.roundRect(x + w * 0.7, y - h, w * 0.3, h - 9 * s, 4 * s); c.fill();
+  c.fillStyle = '#bfe0f0'; c.fillRect(x + w * 0.8, y - h + 5 * s, w * 0.15, 9 * s);
+  const r = 4.5 * s;
+  for (let i = 0; i < logs; i++) {
+    const row = Math.floor(i / 5), col = i % 5;
+    const lx = x + w * 0.08 + col * r * 2.1 + (row % 2) * r;
+    const ly = y - 16 * s - r - row * r * 1.8;
+    c.fillStyle = '#7a5530'; c.beginPath(); c.arc(lx, ly, r, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#e2c48e'; c.beginPath(); c.arc(lx, ly, r * 0.65, 0, Math.PI * 2); c.fill();
+  }
+  if (season === 'winter') { c.fillStyle = 'rgba(250,252,255,0.9)'; c.fillRect(x + w * 0.7, y - h - 2 * s, w * 0.3, 3 * s); }
 }
 
 /** #rrggbb with an alpha, as rgba(). */

@@ -34,7 +34,12 @@ export interface VillageHost {
   /** results changed: redraw the forest's numbers */
   refresh(): void;
   announce(text: string): void;
+  /** a small sound: things handed over, or made again from old material */
+  chime(kind: 'give' | 'recycle'): void;
 }
+
+const FLAME = '<svg width="32" height="32" viewBox="0 0 48 48" aria-hidden="true"><path d="M24 4c3 9 13 13 13 25a13 13 0 0 1-26 0c0-7 4-10 6-15 2 5 4 6 5 6-2-6 0-11 2-16z" fill="#ff8a3d"/><path d="M24 22c2 5 7 7 7 13a7 7 0 0 1-14 0c0-4 3-6 4-9 1 2 2 3 3 3z" fill="#ffd166"/></svg>';
+const ARROW = '<svg width="26" height="18" viewBox="0 0 26 18" aria-hidden="true"><path d="M2 9h18M14 3l7 6-7 6" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 const SHELF_ICON = '<rect x="8" y="6" width="32" height="36" rx="2" fill="#d9b98a"/><path d="M8 18h32M8 30h32" stroke="#a8875a" stroke-width="3"/><circle cx="14" cy="12" r="1.2" fill="#a8875a"/><circle cx="30" cy="26" r="1.2" fill="#a8875a"/><circle cx="20" cy="36" r="1.2" fill="#a8875a"/>';
 export function thingIcon(th: ThingId, size = 32): string {
@@ -144,6 +149,15 @@ export class VillageView {
       `${howLine}<span class="acts">${fates}<button type="button" class="btn ghost small" data-thread-obj="${o.id}">${t.followThread}</button></span></div>`;
   }
 
+  /** Game feel: a short picture strip over the village of what just happened (hidden from screen readers; the text says it). */
+  private fx(html: string) {
+    const el = $('m-village-fx');
+    el.innerHTML = html;
+    el.classList.remove('go');
+    void el.offsetWidth;
+    el.classList.add('go');
+  }
+
   private how(fa: Fate, th: ThingId) { return this.t.fateHow[fa](th); }
 
   // ---------- the Carbon Thread ----------
@@ -216,6 +230,8 @@ export class VillageView {
       const bid = b.dataset.deliver as BuildingId;
       const r = deliver(f, bid);
       if (r.n > 0) {
+        this.fx(`${thingIcon(NEEDS[bid].thing, 32)}<b>+${num(Math.round(r.n))}</b>${ARROW}<span>${t.buildings[bid]}</span>`);
+        this.h.chime('give');
         this.msg = t.gave(t.count(r.n, NEEDS[bid].thing), t.to[bid]) + (r.met ? ' ' + t.met(t.buildings[bid]) : '');
         this.h.announce(this.msg);
         this.h.persist();
@@ -225,7 +241,12 @@ export class VillageView {
       return true;
     }
     if (b.dataset.fate && b.dataset.obj) {
-      if (decide(f, Number(b.dataset.obj), b.dataset.fate as Fate)) {
+      const id = Number(b.dataset.obj), fate = b.dataset.fate as Fate;
+      const was = village(f).objects.find(o => o.id === id)?.thing;
+      if (decide(f, id, fate)) {
+        const now = village(f).objects.find(o => o.id === id)?.thing;
+        if (was) this.fx(`${thingIcon(was, 32)}${ARROW}${fate === 'burn' || !now ? FLAME : thingIcon(now, 32)}<span>${t.fates[fate]}</span>`);
+        if (fate !== 'burn') this.h.chime(fate === 'recycle' || fate === 'reuse' ? 'recycle' : 'give');
         this.msg = '';
         this.h.persist();
         this.h.refresh();

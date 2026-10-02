@@ -1,6 +1,6 @@
 # The 2.5D forest: analysis and plan
 
-The brief: turn the Metsäni forest view from a flat 2D side view into a deep, living 2.5D world, without replacing the simulation. Increment 1 (depth and camera) is done. This file records the analysis and the remaining steps.
+The brief: turn the Metsäni forest view from a flat 2D side view into a deep, living 2.5D world, without replacing the simulation. Increment 1 (depth and camera) and increment 2 (game feel) are done. This file records the analysis and the remaining steps.
 
 ## 1. How the forest was rendered
 
@@ -109,10 +109,14 @@ The layer system takes images as well as drawn shapes, so painted sprites can re
 ## 10. The recommended path
 
 1. **Depth and camera (done):** layers, parallax, haze, shadows, wind, foreground, light, fog, rain, camera with focus, and trunk-first hit-testing.
-2. **Juice:**
-   - planting: seedling pop-in, soil particles and a soft sound;
-   - harvest: the tree tips and falls, logs appear and a truck leaves along the road;
-   - recycling: a short machine animation.
+2. **Juice (done):**
+   - planting: seedlings pop up out of the ground one after another, with soil and a soft sound;
+   - harvest: the felled trees tip over and land with a thud, logs pile up at the edge, and a timber truck backs in, loads and drives off before the mills open. Escape or any button skips to the end;
+   - giving your birch: it is felled and driven away before the village opens;
+   - marking and keeping: a ring of paint bursts from the trunk, with a note;
+   - village: delivering shows the thing going to the building ("+2 → Café"); repairing, reusing, recycling and burning show the old thing turning into the new one, or into flame. Each has a short sound;
+   - with reduced motion all of this is skipped: the forest changes at once and the next screen opens straight away. The village strip is hidden from screen readers, because the message line already says what happened.
+   - Cost: none while nothing is happening. A burst of particles is capped at 260.
 3. **Forest → mill → village as one world:** the road leads out of the stand. Opening the mills or the village pans the camera along the road instead of switching screens, and the map zooms out from the stand to the landscape.
 4. **Level of detail for dense stands and small screens:** simplified far trees, fewer copies at the sides, and fewer foreground items on phones.
 5. **Painted art:** replace drawn shapes with painted sprites in the same layers, once the art direction is decided.
