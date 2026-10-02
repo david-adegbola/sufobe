@@ -33,7 +33,9 @@ export type Mode = 'menu' | 'play' | 'pause' | 'results';
 export interface SeasonConfig {
   mode: SeasonMode; seed: string; weather?: Weather[]; from?: Challenge;
   /** a summer for one birch from Metsäni: its tree, and what to do with the score */
-  forest?: { mods: TreeMods; done: (storedG: number) => string };
+  forest?: { mods: TreeMods; done: (storedG: number) => string; home?: boolean };
+  /** the home screen's big button: your birch's next summer in your forest (Phase 6) */
+  birch?: boolean;
 }
 
 interface AppState {

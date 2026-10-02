@@ -7,6 +7,7 @@
  * Plain JSON data only, so a forest can be saved, and copied for a
  * "What if?" twin with structuredClone.
  */
+import type { BirchChange, BirchInfo } from './mybirch';
 import { newLedger, type Ledger } from './carbon';
 import type { PlaceId, YearWeather } from './climate';
 import { SOILS, type Soil, type SoilId } from './soil';
@@ -44,6 +45,8 @@ export interface Tree {
   browsed?: number;
   /** year the child zoomed into this birch with Kasva! */
   zoomed?: number;
+  /** the player's own birch from Kasva! (mybirch.ts) */
+  mine?: boolean;
 }
 
 /** Why a tree died. */
@@ -99,6 +102,8 @@ export interface YearRecord {
   events?: ForestEvent[];
   /** animals seen for the first time this year */
   newAnimals?: AnimalId[];
+  /** what happened to the player's birch line this year (mybirch.ts) */
+  birch?: BirchChange;
 }
 
 export interface HarvestEvent {
@@ -116,6 +121,8 @@ export interface Forest {
   year: number;
   trees: Tree[];
   nextId: number;
+  /** the player's birch line, if this forest has one (mybirch.ts) */
+  birch?: BirchInfo;
   ledger: Ledger;
   pools: Record<ProductKind, number>;
   history: YearRecord[];

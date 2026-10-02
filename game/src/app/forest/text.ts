@@ -244,6 +244,11 @@ const fi = {
   zoomUp: (mm: string) => `Koivusi vuosilusto kasvoi ${mm} mm paksummaksi, koska hoidit ilmarakoja taitavasti.`,
   zoomDown: (mm: string) => `Koivusi vuosilusto jäi ${mm} mm ohuemmaksi. Ensi kesänä uusi yritys!`,
   zoomSame: 'Koivusi kasvoi tänä kesänä tavalliseen tapaan.',
+  myBirch: 'Sinun koivusi',
+  myBirchNote: 'Tämä on Kasva!-pelin koivusi. Se on merkitty säästettäväksi, joten harvennus tai hakkuu ei vie sitä.',
+  birchSmall: 'Puun vuosilustot mitataan 1,3 metrin korkeudelta, eikä koivusi ole vielä niin pitkä. Tänä kesänä se kasvoi pituutta.',
+  birchPassed: 'Vanha koivusi kaatui. Lähin nuori koivu jatkaa sen paikalla, ja nyt se on sinun koivusi.',
+  birchSeeded: 'Vanha koivusi kaatui, mutta sen paikalle nousi uusi koivun taimi. Se on nyt sinun koivusi.',
   describe: (year: number, season: string, where: string, trees: string, tallest: string, logs: number, animals: string) =>
     `Vuosi ${year}, ${season}. ${where}. ${trees}. Pisin puu ${tallest} metriä.${logs ? ` Maassa tai pystyssä ${logs} kuollutta puuta.` : ''}${animals ? ` Eläimiä: ${animals}.` : ''}`,
   treesOf: (n: number, parts: string[]) => n ? `${n} puuta: ${parts.join(', ')}` : 'Ei puita',
@@ -477,6 +482,11 @@ const en: ForestText = {
   zoomUp: (mm: string) => `Your birch's tree ring grew ${mm} mm thicker, because you handled its stomata well.`,
   zoomDown: (mm: string) => `Your birch's tree ring stayed ${mm} mm thinner. Try again next summer!`,
   zoomSame: 'Your birch grew as usual this summer.',
+  myBirch: 'Your birch',
+  myBirchNote: 'This is your birch from Kasva! It is marked to keep, so no thinning or harvest takes it.',
+  birchSmall: 'Tree rings are measured at 1.3 metres up the trunk, and your birch isn’t that tall yet. This summer it grew taller.',
+  birchPassed: 'Your old birch has fallen. The nearest young birch carries on in its place, and now it is your birch.',
+  birchSeeded: 'Your old birch has fallen, but a new birch seedling has come up where it stood. Now that is your birch.',
   describe: (year: number, season: string, where: string, trees: string, tallest: string, logs: number, animals: string) =>
     `Year ${year}, ${season}. ${where}. ${trees}. The tallest tree is ${tallest} metres.${logs ? ` ${logs} dead trees lying or standing.` : ''}${animals ? ` Animals: ${animals}.` : ''}`,
   treesOf: (n: number, parts: string[]) => n ? `${n} trees: ${parts.join(', ')}` : 'No trees',

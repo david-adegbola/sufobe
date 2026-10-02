@@ -10,6 +10,7 @@
  * Deterministic: the weather comes from (place, seed, year) and each tree's
  * fate from (seed, year, tree id), so the same choices give the same forest.
  */
+import { ensureMyBirch } from './mybirch';
 import { makeRng } from '../rng';
 import { move, type Ledger } from './carbon';
 import { PLACES, decayWarmth, warmthFactor, yearWeather } from './climate';
@@ -155,6 +156,8 @@ export function stepYear(f: Forest): YearRecord {
 
   // new trees arriving on their own
   ingrowth(f, standStats(f.trees).G);
+  // the player's birch: if it died, the line passes on
+  const birch = f.birch ? ensureMyBirch(f) ?? undefined : undefined;
 
   // all year: decomposers and products
   const warm = decayWarmth(weather.tempSum);
@@ -174,7 +177,7 @@ export function stepYear(f: Forest): YearRecord {
   const rec: YearRecord = {
     year: f.year, weather, water, springWater,
     stores: { ...l.stores }, flows: l.flows, deaths: dead.size, stats: standStats(f.trees),
-    events, newAnimals,
+    events, newAnimals, ...(birch ? { birch } : {}),
   };
   l.flows = {};
   f.history.push(rec);

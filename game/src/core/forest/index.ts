@@ -15,3 +15,4 @@ export * from './report';
 export * from './products';
 export * from './zoom';
 export * from './compact';
+export * from './mybirch';

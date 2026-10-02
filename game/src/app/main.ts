@@ -59,10 +59,24 @@ function newMenuSeason() {
 newMenuSeason();
 app.sim = menuSim;
 
-/** The big button plays the next story season, then your own tree in new weather. */
+/**
+ * The big button plays the next story season. After the story, it plays your
+ * birch's summer in your forest (Phase 6), or, before you have a forest, your
+ * own tree in new weather.
+ */
 function nextSeason(): SeasonConfig {
   if (app.save.storyIndex < STORY.length) return { mode: 'story', seed: 'story-' + (app.save.storyIndex + 1), weather: STORY[app.save.storyIndex] };
+  if (metsani.birchStatus()) return { mode: 'free', seed: 'birch', birch: true };
   return { mode: 'free', seed: 'r' + Math.random().toString(36).slice(2, 8) };
+}
+
+/** Start what the big button promises; your birch's summer first lives one year in the forest. */
+function playNext() {
+  const cfg = nextSeason();
+  if (!cfg.birch) { start(cfg); return; }
+  const s = metsani.birchSummer(growthMods(app.save.growth));
+  if (!s) { openMetsani(); return; } // Tikka is waiting for an answer
+  start({ mode: 'free', seed: s.z.seed, weather: s.z.weather, forest: { mods: s.z.mods, done: s.done, home: true } });
 }
 const dailyConfig = (): SeasonConfig => ({ mode: 'daily', seed: app.linkSeed ?? dailySeed() });
 
@@ -82,11 +96,18 @@ function renderHome() {
     $('t-theme').textContent = x.story(app.save.storyIndex + 1, STORY.length);
     $('daily-weather').innerHTML = weatherRow(next.weather!);
     $('home-bubble').querySelector('span')!.textContent = x.storyIntro[app.save.storyIndex];
+  } else if (next.birch) {
+    const b = metsani.birchStatus()!;
+    $('t-theme').textContent = x.birchTheme(b.year + 1);
+    $('daily-weather').innerHTML = weatherRow(planWeather(daily.seed));
+    $('home-bubble').querySelector('span')!.textContent = b.question ? x.birchQuestion : x.birchHome(num(b.h, 1));
   } else {
     $('t-theme').textContent = x.theme(finnishDate(daily.seed));
     $('daily-weather').innerHTML = weatherRow(planWeather(daily.seed));
-    $('home-bubble').querySelector('span')!.textContent = x.homeFree;
+    $('home-bubble').querySelector('span')!.textContent = x.birchInvite;
   }
+  const q = next.birch && metsani.birchStatus()!.question;
+  $('btn-play').textContent = q ? x.toForest : x.play;
   face($('home-bubble').querySelector('canvas'));
   renderPwa();
 }
@@ -258,7 +279,8 @@ function finish() {
   // back from a Metsäni birch: say what this summer did to it
   app.forestMsg = app.current.forest ? app.current.forest.done(r.storedG) : null;
   fillResults(r, outcome, false);
-  forestReturn(!!app.current.forest);
+  forestReturn(!!app.current.forest && !app.current.forest.home);
+  $('btn-again').hidden ||= !!app.current.forest?.home; // a summer of your birch happens once
   renderLog();
   renderHome();
   show('results');
@@ -374,7 +396,7 @@ document.addEventListener('click', (e) => {
   if (b.dataset.grow) { pickGrowth(b.dataset.grow as Growth); return; }
   if (b.dataset.badge) { show('cards'); renderCards(b.dataset.badge); return; }
   switch (b.id) {
-    case 'btn-play': case 'btn-next': start(nextSeason()); break;
+    case 'btn-play': case 'btn-next': playNext(); break;
     case 'btn-daily': start(dailyConfig()); app.linkSeed = null; break;
     case 'btn-metsani': openMetsani(); break;
     case 'btn-forest-back': backToForest(); break;
