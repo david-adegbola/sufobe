@@ -32,6 +32,24 @@ export const STAGE_LOOK: Record<TreeStage, { sway: number; lichen: boolean; moss
   old: { sway: 0.8, lichen: true, moss: true },
 };
 
+/**
+ * Level of detail (2.5D, increment 4): how much drawing a tree gets.
+ *   full    every tier, blob, twig and bark mark; lichen and moss
+ *   simple  the same silhouette from fewer shapes, filled in one go
+ * Copies of the forest at the sides, trees only a few pixels tall on screen
+ * and trees at the back of the stand (in the haze, mostly hidden behind the
+ * front ones) are simple; the rest of your own stand keeps its full detail.
+ * Phones switch a little sooner, because there every shape costs more.
+ * `depth` runs 0 (front of the stand) to 1 (back).
+ */
+export type Detail = 'full' | 'simple';
+
+export function treeDetail(screenH: number, side: boolean, phone: boolean, depth = 0): Detail {
+  if (side) return 'simple';
+  if (depth > (phone ? 0.55 : 0.75)) return 'simple';
+  return screenH < (phone ? 26 : 18) ? 'simple' : 'full';
+}
+
 export interface EnvLook {
   /** a colour laid lightly over the whole scene, and how strongly */
   tint: string;

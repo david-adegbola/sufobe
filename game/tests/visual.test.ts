@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { STAGE_LOOK, envLook, treeStage } from '../src/app/forest/visual';
+import { STAGE_LOOK, envLook, treeDetail, treeStage } from '../src/app/forest/visual';
 import { createForest, plant, stepYear } from '../src/core/forest';
 
 describe('visual states (2.5D)', () => {
@@ -30,5 +30,23 @@ describe('visual states (2.5D)', () => {
     expect(envLook('summer', 0.45, wet).rain).toBe(1);
     expect(envLook('summer', 0.45, dry).rain).toBe(0);
     expect(envLook('summer', 0.45, dry).tintAlpha).toBeGreaterThan(envLook('summer', 0.45, rec).tintAlpha);
+  });
+});
+
+describe('level of detail (2.5D, increment 4)', () => {
+  it('keeps full detail for trees in your own stand that are big enough to see', () => {
+    expect(treeDetail(200, false, false, 0.2)).toBe('full');
+    expect(treeDetail(200, false, true, 0.2)).toBe('full');
+  });
+  it('simplifies side copies, tiny trees and the back of the stand', () => {
+    expect(treeDetail(400, true, false)).toBe('simple');
+    expect(treeDetail(10, false, false, 0.1)).toBe('simple');
+    expect(treeDetail(200, false, false, 0.9)).toBe('simple');
+  });
+  it('switches a little sooner on phones', () => {
+    expect(treeDetail(22, false, false, 0.1)).toBe('full');
+    expect(treeDetail(22, false, true, 0.1)).toBe('simple');
+    expect(treeDetail(200, false, false, 0.65)).toBe('full');
+    expect(treeDetail(200, false, true, 0.65)).toBe('simple');
   });
 });

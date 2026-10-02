@@ -1,6 +1,6 @@
 # The 2.5D forest: analysis and plan
 
-The brief: turn the Metsäni forest view from a flat 2D side view into a deep, living 2.5D world, without replacing the simulation. Increments 1 (depth and camera), 2 (game feel) and 3 (one world) are done. This file records the analysis and the remaining steps.
+The brief: turn the Metsäni forest view from a flat 2D side view into a deep, living 2.5D world, without replacing the simulation. Increments 1 (depth and camera), 2 (game feel), 3 (one world) and 4 (level of detail) are done. This file records the analysis and the remaining steps.
 
 ## 1. How the forest was rendered
 
@@ -124,6 +124,23 @@ The layer system takes images as well as drawn shapes, so painted sprites can re
    - the map opens by zooming out from your own stand to the whole landscape;
    - buildings are sized from the screen, not from the trees' metres, so they stay readable for a young (close) or an old (far) stand and fit across a phone. A trip takes 1–2.2 s; Escape or any button arrives at once. With reduced motion there is no glide: the camera is simply there. Two forests side by side ("What if?") open screens directly.
    - Cost: the clearing replaces the side forest that used to fill the right edge of the view, so fewer trees are drawn: the desktop test ran at about 37 fps against 29 before (headless, no GPU).
-4. **Level of detail for dense stands and small screens:** simplified far trees, fewer copies at the sides, and fewer foreground items on phones.
+4. **Level of detail (done, `treeDetail` in `app/forest/visual.ts`):**
+   - Profiling showed that most of a frame is spent filling shapes, and that `drawTree` takes most of the script time. So the rule cuts shapes, not trees: every tree is still drawn where the simulation puts it.
+   - **Full detail:** the trees of your own stand that are big enough to see.
+   - **Simple:** the same silhouette and colours from fewer shapes, filled in one go (a spruce in 3–4 tiers, a pine or birch crown in three blobs, no bark marks, lichen or moss). This applies to:
+     - copies of the forest at the sides;
+     - trees under 18 px tall on screen (26 px on a phone);
+     - trees at the back of the stand (depth over 0.75, or 0.55 on a phone).
+
+     A tree you choose always keeps full detail.
+   - **Phones:** 14 foreground grass blades instead of 26, all drawn as one stroke.
+   - **Measured** in a headless browser with the same forest in both builds; phones at 2× pixel density with a 4× slower CPU; median of 3 runs:
+
+     | Case | Before | After |
+     | --- | --- | --- |
+     | Phone, dense stand, year 12 | 11.3 fps | 15.7 fps |
+     | Phone, normal stand, year 40 | 9.7 fps | 13.3 fps |
+     | Desktop, dense stand, year 12 | 42 fps | 51 fps |
+     | Desktop, normal stand, year 40 | 39 fps | 48 fps |
 5. **Painted art:** replace drawn shapes with painted sprites in the same layers, once the art direction is decided.
 6. **Kasva!'s birch season scene:** give it the same layered depth.
