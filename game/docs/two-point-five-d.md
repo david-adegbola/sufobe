@@ -1,6 +1,6 @@
 # The 2.5D forest: analysis and plan
 
-The brief: turn the Metsäni forest view from a flat 2D side view into a deep, living 2.5D world, without replacing the simulation. Increments 1 (depth and camera), 2 (game feel), 3 (one world) and 4 (level of detail) are done. Increment 5 (painted art) has its pipeline and prompts ready; the paintings themselves are still to be made. This file records the analysis and the remaining steps.
+The brief: turn the Metsäni forest view from a flat 2D side view into a deep, living 2.5D world, without replacing the simulation. Increments 1 (depth and camera), 2 (game feel), 3 (one world), 4 (level of detail) and 6 (Kasva!'s scene) are done. Increment 5 (painted art) has its pipeline and prompts ready; the paintings themselves are still to be made. This file records the analysis and the remaining steps.
 
 ## 1. How the forest was rendered
 
@@ -157,4 +157,20 @@ The layer system takes images as well as drawn shapes, so painted sprites can re
 
      So `docs/art-prompts.md` has the 16 finished prompts (the style bible's anchor and negative prompt in each), the file specs, the steps and the science checklist.
    - **Tested:** a build with three throwaway test-pattern images (not committed) showed each in its layer in summer, with the drawn layers back in winter and no errors.
-6. **Kasva!'s birch season scene:** give it the same layered depth.
+6. **Kasva!'s birch season scene (done, `app/render.ts`, `app/scene/landscape.ts`):**
+   - **Layers:** the hills and lake, the spruce groves and the forest floor are now kept as separate layers, not flattened into one picture. Each is painted 12 % of the screen width wider on both sides.
+     - The part on screen is painted exactly as before: the margins take their chances from their own generator, so the cottage, the boulder and the log stay where they were.
+     - The shareable poster paints no margins and is unchanged apart from the haze.
+   - **Parallax around the tree:** the birch, the floor under it and every CO₂ molecule the player catches stay exactly where the game puts them, so play and tap targets are untouched. Two things move the other layers:
+     - **The menu sliding the tree aside on wide screens:** the far hills follow 15 % of the slide, the groves 35 % and the floor 60 %.
+     - **A slow drift of the view around the tree:** about ±14 px, over tens of seconds. The hills move most, the groves less, the floor hardly at all, and the front spruce boughs the other way.
+   - **Light:**
+     - haze lies along the far hills;
+     - the birch casts a soft shadow on the floor that points away from the sun, long when the sun is low and gone at night.
+   - **Reduced motion:** no drift.
+   - **Cost:** the background is recomposed only when a layer has moved by half a pixel, so a frame still draws one background image. Measured in a headless browser, median of 3 runs:
+
+     | Case | Before | After |
+     | --- | --- | --- |
+     | Phone, 4× slower CPU | 7.7 fps | 7.3 fps (within noise) |
+     | Desktop | 43 fps | 47 fps |

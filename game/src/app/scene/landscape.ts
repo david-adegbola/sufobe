@@ -4,6 +4,11 @@
  * Norway spruces, the forest floor, and dark foreground boughs that frame
  * the scene like the Forest Landscape posters.
  *
+ * 2.5D (increment 6): the layers are kept apart, not flattened, so the
+ * game can move them at different rates (parallax). The back, mid and floor
+ * layers can be painted wider than the screen (`margin`, a share of the
+ * width on each side) so they can slide without showing an edge.
+ *
  * Accuracy notes: low rounded hills, not mountains. Spruces are conical with
  * drooping branch tiers. The floor has moss, blueberry and lingonberry,
  * a glacial boulder, and a fallen log with boletes.
@@ -16,14 +21,19 @@ export interface Layout {
   groundY: number; horizonY: number; lakeBottomY: number; floorTopY: number;
 }
 
-export interface Landscape { back: HTMLCanvasElement; mid: HTMLCanvasElement; floor: HTMLCanvasElement; front: HTMLCanvasElement }
+export interface Landscape {
+  back: HTMLCanvasElement; mid: HTMLCanvasElement; floor: HTMLCanvasElement; front: HTMLCanvasElement;
+  /** css px painted beyond each side of the screen on the back, mid and floor layers */
+  margin: number;
+}
 
-function layer(L: Layout): [HTMLCanvasElement, CanvasRenderingContext2D] {
+/** A layer canvas; `M` css px wider on each side, with x = 0 still at the screen's left edge. */
+function layer(L: Layout, M = 0): [HTMLCanvasElement, CanvasRenderingContext2D] {
   const c = document.createElement('canvas');
-  c.width = Math.ceil(L.W * L.dpr);
+  c.width = Math.ceil((L.W + 2 * M) * L.dpr);
   c.height = Math.ceil(L.H * L.dpr);
   const ctx = c.getContext('2d')!;
-  ctx.setTransform(L.dpr, 0, 0, L.dpr, 0, 0);
+  ctx.setTransform(L.dpr, 0, 0, L.dpr, M * L.dpr, 0);
   return [c, ctx];
 }
 
@@ -37,27 +47,33 @@ function dab(c: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: 
   c.fill();
 }
 
-function ridge(c: CanvasRenderingContext2D, L: Layout, r: Rng, baseY: number, amp: number, color: string, treeColor: string, treeH: number, seedShift: number) {
-  const pts: [number, number][] = [];
+/**
+ * A forested ridge. With `M` > 0 the same curve runs on into the margins
+ * beyond the screen; the trees there take their chances from `rm`, so the
+ * part on screen is the same as without margins.
+ */
+function ridge(c: CanvasRenderingContext2D, L: Layout, r: Rng, baseY: number, amp: number, color: string, treeColor: string, treeH: number, seedShift: number, M = 0, rm: Rng = r) {
+  const pts: [number, number, boolean][] = [];
   const f1 = rand(r, 1.2, 2.2), f2 = rand(r, 3, 5), p1 = rand(r, 0, 6), p2 = rand(r, 0, 6);
-  for (let x = -10; x <= L.W + 10; x += 4) {
+  for (let x = -10 - Math.ceil(M / 4) * 4; x <= L.W + 10 + M; x += 4) {
     const u = x / L.W + seedShift;
     const y = baseY - amp * (0.55 + 0.3 * Math.sin(u * Math.PI * f1 + p1) + 0.15 * Math.sin(u * Math.PI * f2 + p2));
-    pts.push([x, y]);
+    pts.push([x, y, x >= -10 && x <= L.W + 10]);
   }
   c.fillStyle = color;
   c.beginPath();
-  c.moveTo(-10, L.H);
+  c.moveTo(-10 - M, L.H);
   for (const [x, y] of pts) c.lineTo(x, y);
-  c.lineTo(L.W + 10, L.H);
+  c.lineTo(L.W + 10 + M, L.H);
   c.closePath();
   c.fill();
   // forested ridge line: tiny spruce tips
   c.fillStyle = treeColor;
   for (let i = 0; i < pts.length; i++) {
-    const [x, y] = pts[i];
-    if (r() < 0.55) continue;
-    const h = treeH * rand(r, 0.6, 1.3), w = h * 0.32;
+    const [x, y, onScreen] = pts[i];
+    const q = onScreen ? r : rm;
+    if (q() < 0.55) continue;
+    const h = treeH * rand(q, 0.6, 1.3), w = h * 0.32;
     c.beginPath();
     c.moveTo(x, y - h);
     c.lineTo(x + w, y + 2);
@@ -102,24 +118,37 @@ export function spruce(c: CanvasRenderingContext2D, r: Rng, x: number, baseY: nu
   }
 }
 
-export function paintLandscape(L: Layout, rank = 0): Landscape {
+export function paintLandscape(L: Layout, rank = 0, margin = 0): Landscape {
   const r = makeRng('landscape-v1');
+  // the back, mid and floor layers run on M css px beyond each side of the screen; what is drawn there
+  // takes its chances from its own generator, so the part on screen stays as it always was
+  const M = Math.round(L.W * margin);
+  const rm = makeRng('landscape-margins');
+  const inMargin = () => (rm() < 0.5 ? -M + rm() * M : L.W + rm() * M);
 
   // ---------- back: hills, lake, far shore ----------
-  const [back, b] = layer(L);
+  const [back, b] = layer(L, M);
   const hz = L.horizonY;
-  ridge(b, L, r, hz - 4, L.H * 0.11, '#a8c0c4', '#9ab5ba', L.H * 0.012, 0.1);
-  ridge(b, L, r, hz, L.H * 0.075, '#7fa3a3', '#6f9595', L.H * 0.016, 0.6);
-  ridge(b, L, r, hz + 2, L.H * 0.04, '#52807a', '#46726c', L.H * 0.02, 1.3);
+  ridge(b, L, r, hz - 4, L.H * 0.11, '#a8c0c4', '#9ab5ba', L.H * 0.012, 0.1, M, rm);
+  ridge(b, L, r, hz, L.H * 0.075, '#7fa3a3', '#6f9595', L.H * 0.016, 0.6, M, rm);
+  ridge(b, L, r, hz + 2, L.H * 0.04, '#52807a', '#46726c', L.H * 0.02, 1.3, M, rm);
+  // haze lying along the far hills (atmospheric perspective), only over the hills themselves
+  b.globalCompositeOperation = 'source-atop';
+  const haze = b.createLinearGradient(0, hz - L.H * 0.16, 0, hz + 2);
+  haze.addColorStop(0, 'rgba(227, 241, 239, 0.45)');
+  haze.addColorStop(1, 'rgba(227, 241, 239, 0.08)');
+  b.fillStyle = haze;
+  b.fillRect(-M, hz - L.H * 0.16, L.W + 2 * M, L.H * 0.16 + 2);
+  b.globalCompositeOperation = 'source-over';
   // lake
   const lake = b.createLinearGradient(0, hz, 0, L.lakeBottomY);
   lake.addColorStop(0, '#8cbcc4');
   lake.addColorStop(1, '#4f8f9c');
   b.fillStyle = lake;
-  b.fillRect(0, hz, L.W, L.lakeBottomY - hz + 2);
+  b.fillRect(-M, hz, L.W + 2 * M, L.lakeBottomY - hz + 2);
   // reflections of the hills, then shimmer strokes
   b.fillStyle = 'rgba(82, 128, 122, 0.35)';
-  b.fillRect(0, hz, L.W, (L.lakeBottomY - hz) * 0.18);
+  b.fillRect(-M, hz, L.W + 2 * M, (L.lakeBottomY - hz) * 0.18);
   for (let i = 0; i < 90; i++) {
     const y = rand(r, hz + 3, L.lakeBottomY - 2);
     const len = rand(r, 8, 46) * (0.5 + (y - hz) / (L.lakeBottomY - hz));
@@ -129,6 +158,15 @@ export function paintLandscape(L: Layout, rank = 0): Landscape {
     const x = rand(r, 0, L.W);
     b.moveTo(x, y); b.lineTo(x + len, y);
     b.stroke();
+  }
+  // the lake goes on beyond the screen
+  for (let i = 0; i < Math.round(90 * M / L.W); i++) {
+    const y = rand(rm, hz + 3, L.lakeBottomY - 2);
+    const len = rand(rm, 8, 46) * (0.5 + (y - hz) / (L.lakeBottomY - hz));
+    b.strokeStyle = `rgba(232, 246, 246, ${rand(rm, 0.15, 0.5)})`;
+    b.lineWidth = 1.2;
+    const x = inMargin();
+    b.beginPath(); b.moveTo(x, y); b.lineTo(x + len, y); b.stroke();
   }
   // red cottage (mökki) and sauna jetty on the far shore
   const mx = L.W * 0.74, my = hz + 1, ms = Math.max(8, L.H * 0.018);
@@ -169,7 +207,14 @@ export function paintLandscape(L: Layout, rank = 0): Landscape {
   }
 
 
-  const [mid, m] = layer(L);
+  const [mid, m] = layer(L, M);
+  // more spruces stand beyond the screen, behind the ones on it
+  for (let i = 0; i < Math.round(16 * M / L.W * 2); i++) {
+    const back = rm() < 0.5;
+    const h = L.H * (back ? rand(rm, 0.16, 0.24) : rand(rm, 0.22, 0.34));
+    spruce(m, rm, inMargin(), L.floorTopY + (back ? 0 : L.H * 0.012), h,
+      back ? '#2f5a4e' : '#1f4a40', back ? '#3c6a5a' : '#2a5a4a', back ? '#5f8a72' : '#4f7f62');
+  }
   const groves: [number, number][] = [[0.02, 0.3], [0.7, 1.0]];
   for (const [a, z] of groves) {
     const n = Math.round((z - a) * 16);
@@ -183,22 +228,27 @@ export function paintLandscape(L: Layout, rank = 0): Landscape {
   }
 
   // ---------- floor: moss, berries, boulder, log ----------
-  const [floor, f] = layer(L);
+  const [floor, f] = layer(L, M);
   const g = f.createLinearGradient(0, L.floorTopY, 0, L.H);
   g.addColorStop(0, '#6d9450');
   g.addColorStop(0.5, '#4f7a3e');
   g.addColorStop(1, '#335a2c');
   f.fillStyle = g;
   f.beginPath();
-  f.moveTo(0, L.floorTopY + 6);
-  for (let x = 0; x <= L.W; x += 20) f.lineTo(x, L.floorTopY + Math.sin(x * 0.02) * 3);
-  f.lineTo(L.W, L.H); f.lineTo(0, L.H); f.closePath(); f.fill();
+  f.moveTo(-M, L.floorTopY + 6);
+  for (let x = -Math.ceil(M / 20) * 20; x <= L.W + M; x += 20) f.lineTo(x, L.floorTopY + Math.sin(x * 0.02) * 3);
+  f.lineTo(L.W + M, L.H); f.lineTo(-M, L.H); f.closePath(); f.fill();
   const mosses = ['#5e8a42', '#7aa354', '#4a7536', '#8bb35e', '#3f6a33'];
   const span = L.H - L.floorTopY;
   for (let i = 0; i < 1400; i++) {
     const y = L.floorTopY + Math.pow(r(), 0.8) * span;
     const k = (y - L.floorTopY) / span;
     dab(f, rand(r, 0, L.W), y, rand(r, 2, 7) * (0.6 + k), rand(r, 1, 3) * (0.6 + k), rand(r, -0.4, 0.4), mosses[i % mosses.length]);
+  }
+  for (let i = 0; i < Math.round(1400 * M / L.W * 2); i++) {
+    const y = L.floorTopY + Math.pow(rm(), 0.8) * span;
+    const k = (y - L.floorTopY) / span;
+    dab(f, inMargin(), y, rand(rm, 2, 7) * (0.6 + k), rand(rm, 1, 3) * (0.6 + k), rand(rm, -0.4, 0.4), mosses[i % mosses.length]);
   }
   // fallen spruce needles
   f.strokeStyle = 'rgba(120, 84, 48, 0.5)'; f.lineWidth = 1;
@@ -304,5 +354,5 @@ export function paintLandscape(L: Layout, rank = 0): Landscape {
     dab(fr, Math.cos(a) * d + L.W * 0.02, L.H + Math.sin(a) * d * 0.9, L.H * 0.012, L.H * 0.007, rand(r, 0, 3), i % 3 ? '#1f3f26' : '#2c5530');
   }
   for (let i = 0; i < 14; i++) dab(fr, rand(r, 0, L.H * 0.12), L.H - rand(r, 0, L.H * 0.09), 4, 4, 0, '#353a86');
-  return { back, mid, floor, front };
+  return { back, mid, floor, front, margin: M };
 }

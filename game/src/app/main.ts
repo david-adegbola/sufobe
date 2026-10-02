@@ -525,6 +525,7 @@ if (location.hash === '#dbg' || (() => { try { return localStorage.getItem('kasv
   (window as unknown as { __kasva: unknown }).__kasva = {
     skip(ticks: number, hold = false) { for (let i = 0; i < ticks && !app.sim.done; i++) { step(app.sim, hold); if (app.sim.done) finish(); } },
     state: () => ({ tick: app.sim.tick, water: app.sim.water, mode: app.mode, save: app.save }),
+    layers: () => renderer.layerOffsets(),
     setSave(s: unknown) { app.save = migrate(s); persist(); renderer.setRank(rankIndex(app.save.co2LifetimeG)); renderText(); },
     metsani: { open: openMetsani, ...metsani.debug() },
   };
