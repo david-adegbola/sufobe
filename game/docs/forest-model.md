@@ -319,3 +319,31 @@ The player's own decisions, tree by tree, use the same harvest code as the menu 
 - **Hints.** Only kinds in `MUST_ANSWER` (`regen`) stop the year. Other questions are hints: they show on a card, never block playback, and `resolveHint` clears them after one year of playback or when the player starts their birch's summer.
 
 None of this changes the growth model; the tools only add cuts and seedlings through existing paths. `tests/forest/hands.test.ts` checks that marked cuts balance the carbon books, kept trees are never cut, planting is capped, and hints pass on their own.
+
+## Phase 8: question cards (`experiments.ts`)
+
+A question card is an experiment with two forests, A and B. They share a place, soil, tree mix, spacing and seed, and differ in exactly one thing: the place, the soil, the mix, the spacing, or one choice made after `grown` shared years. Both use the same seed, so they get the same weather (for different places, the same draws through each place's climate).
+
+- **Running.** `startTwin` plants and grows a forest to where the question starts, then makes the variant's choice. `stepTwin` runs one year. Tikka asks nothing during an experiment: an empty plot is replanted with the same trees, and any other question is left unanswered.
+- **Measures.** Carbon in the trees, in the forest (trees, deadwood, soil) or in the soil (t CO₂/ha); standing wood and deadwood (m³/ha); the Life index; spruces killed by bark beetles and saplings browsed by moose (per ha, summed over the run); and year-ring width (mm a year). Ring width is compared only on trees standing in both forests at the end, so a cut cannot win just by removing slow-growing trees.
+- **The answer.** `verdict` calls the higher forest the winner, or "about the same" within 10 %. The `answer` field only records what the model gives. The tests run every card with its own seed and eight more, and fail if any answer changes. In development every card also gave the same answer for 31 seeds.
+
+| Card | A vs B | Measure | Years | Model's answer |
+|---|---|---|---|---|
+| soil | spruce on sandy vs clay | tree carbon | 40 | clay |
+| sandPine | spruce vs pine on sandy (south) | wood | 50 | pine |
+| lapland | pine in the south vs Lapland | wood | 50 | south |
+| climate2080 | pine, today (east) vs 2080 | tree carbon | 60 | 2080 |
+| beetle | spruce vs pine, 2080 climate (after 40 years) | beetle kills | 50 | spruce |
+| moose | spruce vs pine + birch | moose browsing | 15 | pine + birch |
+| thinning | 35-year spruce: leave vs thin | ring width | 12 | thin |
+| dense | 1600 vs 2600 seedlings/ha | tree carbon | 25 | dense |
+| mixed | spruce vs spruce + pine + birch | Life | 60 | mixed |
+| woodpecker | 80-year forest: clearcut vs leave | deadwood | 30 | leave |
+| peat | pine on peat vs loam | soil carbon | 30 | peat |
+| continuous | 70-year forest: clearcut vs continuous cover | forest carbon (no products) | 20 | continuous cover |
+
+For reviewers:
+- The thinning card measures the trees left, not the whole stand. The stand-level thinning result is the open issue described above.
+- In this model, pine in Lapland stands at about a tenth of the southern volume after 50 years (35 vs 329 m³/ha). That gap looks too large and should be checked with the calibration.
+- The continuous-cover card counts the forest only. The wood taken out goes to products, which the card's text says.

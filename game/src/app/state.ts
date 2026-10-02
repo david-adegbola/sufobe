@@ -100,5 +100,7 @@ export const sound = new Sound();
 
 /** a challenge link like #c-3a-2840-d2026-10-02 opens the challenge card */
 export const linkChallenge: Challenge | null = decodeChallenge(location.hash);
+/** a teacher's link like #q-thinning opens that question card (Phase 8) */
+export const linkQuestion: string | null = /^#q-([A-Za-z0-9]{1,30})$/.exec(location.hash)?.[1] ?? null;
 /** a transfer link like #t-K1z.… brings progress from another device */
 export const linkTransfer: string | null = /^#t-(K1[zj]\.[A-Za-z0-9_-]+)$/.exec(location.hash)?.[1] ?? null;

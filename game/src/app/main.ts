@@ -12,6 +12,7 @@ import { DT, LIGHT_TICKS, STANDARD_TREE, clock, createSeason, result, step, type
 import { encodeChallenge, randomNick } from '../core/share';
 import { dailySeed, planWeather } from '../core/weather';
 import { Metsani } from './forest/metsani';
+import { cardById } from '../core/forest/experiments';
 import { FOREST_TEXT } from './forest/text';
 import { clearTally, setQuizOn } from './forest/quiz';
 import { initPwa, renderPwa } from './pwa';
@@ -23,7 +24,7 @@ import { countUp, drawRing, fillResults, pickGrowth, showLevelUp } from './resul
 import { ATLAS_TEXT, discover, newCount, renderAtlas, seasonFinds, type AtlasPage } from './atlas';
 import { announce, face, finnishDate, ringIcon, show, weatherRow } from './screens';
 import { copy, openShare, sendChallenge, sharePoster, shareText, type Downloads } from './share';
-import { $, LANG_KEY, LOG_KEY, SOUND_KEY, TESTLOG_KEY, app, canvas, linkChallenge, linkTransfer, load, persist, renderer, shell, sound, store, t, today, ui, type LogRow, type SeasonConfig } from './state';
+import { $, LANG_KEY, LOG_KEY, SOUND_KEY, TESTLOG_KEY, app, canvas, linkChallenge, linkQuestion, linkTransfer, load, persist, renderer, shell, sound, store, t, today, ui, type LogRow, type SeasonConfig } from './state';
 
 renderer.hud.reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 renderer.setRank(rankIndex(app.save.co2LifetimeG));
@@ -44,6 +45,12 @@ function openMetsani() {
   show(null, false);
   canvas.hidden = true;
   metsani.enter();
+}
+/** A question card straight from a teacher's link. */
+function openQuestion(id: string) {
+  show(null, false);
+  canvas.hidden = true;
+  metsani.openLab(id);
 }
 let menuSim!: SeasonState;
 let menuBot = makeExpert();
@@ -503,6 +510,7 @@ shell.renderText = renderText;
 initPwa({ seasons: () => app.save.seasons, lang: () => app.lang });
 renderText();
 if (linkChallenge) { renderChallenge(linkChallenge); show('challenge', false); }
+else if (linkQuestion && cardById(linkQuestion)) { history.replaceState(null, '', location.pathname + location.search); openQuestion(linkQuestion); }
 else if (linkTransfer) { history.replaceState(null, '', location.pathname + location.search); show('about', false); void importCode(linkTransfer); }
 else show('start', false);
 void document.fonts?.load('800 40px "Bricolage Grotesque"');

@@ -22,6 +22,8 @@ import {
 } from '../../core/forest';
 import { Factory, HARVESTS } from './factory';
 import { Tools } from './tools';
+import { Lab } from './lab';
+import { LAB_TEXT } from './labtext';
 import { drawTikka } from '../scene/tikka';
 import type { Lang } from '../text';
 import { ForestScene, forestBudget, seasonOf } from './scene';
@@ -89,11 +91,14 @@ export class Metsani {
   private open: { k: ResultKey; lane: number } | null = null;
   private selected: { id: number; lane: number } | null = null;
   private time = 0;
-  private screen: 'setup' | 'view' = 'setup';
+  private screen: 'setup' | 'view' | 'lab' = 'setup';
+  /** where the question cards were opened from */
+  private labFrom: 'setup' | 'view' = 'setup';
   private empty: Forest | null = null;
   private setupScene: ForestScene;
   private factory: Factory;
   private tools: Tools;
+  private lab: Lab;
   /** years a hint has been open (it passes after one more year) */
   private hintAge = 0;
   private asking: Asking | null = null;
@@ -135,6 +140,15 @@ export class Metsani {
       cutMarked: () => this.factory.startSort('cutMarked'),
       announce: (s) => this.host.announce(s),
     });
+    this.lab = new Lab({
+      lang: () => this.host.lang(),
+      announce: (s) => this.host.announce(s),
+      reducedMotion: this.host.reducedMotion,
+      canvas: this.canvas,
+      done: () => this.save.lab ?? {},
+      record: (id, r) => { this.save = { ...this.save, lab: { ...(this.save.lab ?? {}), [id]: r } }; storeForest(this.save); },
+      exit: () => this.leaveLab(),
+    });
     const s = this.save;
     if (s.current) { this.place = s.current.place; this.soil = s.current.soil; }
     this.species = new Set(s.species);
@@ -160,11 +174,36 @@ export class Metsani {
 
   exit() {
     this.persist();
+    if (this.lab.active) this.lab.close();
     this.active = false;
     this.canvas.hidden = true;
     $('m-setup').hidden = true;
     $('m-view').hidden = true;
     this.host.exit();
+  }
+
+  /** Open the question cards (Phase 8), or one card from a teacher's link. */
+  openLab(id?: string) {
+    if (!this.active) { this.active = true; this.quizStage = quizOn() ? loadTally().stage : 'off'; this.canvas.hidden = false; }
+    if (this.screen !== 'lab') this.labFrom = this.screen === 'view' && this.main ? 'view' : 'setup';
+    this.setPlaying(false);
+    this.select(null);
+    this.screen = 'lab';
+    $('m-setup').hidden = true;
+    $('m-view').hidden = true;
+    this.lab.open(id);
+  }
+
+  /** Back from the question cards to where they were opened. */
+  private leaveLab() {
+    if (this.labFrom === 'view' && this.main) {
+      this.screen = 'view';
+      $('m-view').hidden = false;
+      for (const l of this.lanes) l.scene.resize();
+      this.renderView();
+      this.setPlaying(true);
+      requestAnimationFrame(() => $('btn-m-lab').focus());
+    } else this.showSetup();
   }
 
   /** Step aside for a Kasva! summer, keeping everything as it is. */
@@ -295,6 +334,7 @@ export class Metsani {
 
   /** Escape goes one step back: sheet → card → view → setup → home. */
   escape() {
+    if (this.screen === 'lab') { this.lab.escape(); return; }
     if (this.overlay === 'quiz') return;
     if (this.overlay === 'shelf') { if (this.factory.tracing) { this.factory.tracing = null; this.factory.renderShelf(); } else this.factory.closeShelf(); return; }
     if (this.overlay === 'mills') { this.factory.leaveMills(); return; }
@@ -309,11 +349,11 @@ export class Metsani {
   }
 
   /** Redraw the words after a language change. */
-  rerender() { if (this.screen === 'setup') this.renderSetup(); else this.renderView(); }
+  rerender() { if (this.screen === 'lab') this.lab.rerender(); else if (this.screen === 'setup') this.renderSetup(); else this.renderView(); }
 
-  pause() { if (this.active && this.screen === 'view') this.setPlaying(false); }
+  pause() { if (this.active && this.screen === 'view') this.setPlaying(false); if (this.screen === 'lab') this.lab.pause(); }
 
-  resize() { this.setupScene.resize(); }
+  resize() { this.setupScene.resize(); this.lab.resize(); }
 
   // ---------- setup ----------
 
@@ -356,6 +396,7 @@ export class Metsani {
     if (cur) $('btn-m-continue').textContent = t.continueForest(cur.year);
     $('m-replace').textContent = cur ? t.replaceWarn : '';
     $('btn-m-setup-back').textContent = t.back;
+    $('btn-m-setup-lab').textContent = LAB_TEXT[this.host.lang()].open;
     $('m-earlier-title').textContent = t.earlier;
     const past = this.save.past;
     $('m-earlier').innerHTML = past.length
@@ -574,8 +615,9 @@ export class Metsani {
 
   update(dt: number) {
     if (!this.active) return;
-    if (forestBudget.tick()) { for (const l of this.lanes) l.scene.resize(); this.setupScene.resize(); }
+    if (forestBudget.tick()) { for (const l of this.lanes) l.scene.resize(); this.setupScene.resize(); this.lab.resize(); }
     this.time += dt;
+    if (this.screen === 'lab') { this.lab.update(dt); return; }
     if (this.reportTimer > 0) {
       this.reportTimer -= dt;
       if (this.reportTimer <= 0 && !this.asking) $('m-report').hidden = true;
@@ -670,6 +712,7 @@ export class Metsani {
     $('btn-m-jump').textContent = t.jump10;
     $('btn-m-whatif').textContent = t.whatIfButton;
     $('btn-m-whatif').hidden = this.comparing;
+    $('btn-m-lab').textContent = LAB_TEXT[this.host.lang()].open;
     $('m-keep').hidden = !this.comparing;
     $('btn-m-keep-a').textContent = t.keepA;
     $('btn-m-keep-b').textContent = t.keepB;
@@ -974,6 +1017,8 @@ export class Metsani {
       if (!this.active) return;
       const b = (e.target as HTMLElement).closest('button');
       if (!b) return;
+      if (this.screen === 'lab') { this.lab.click(b); return; }
+      if (b.id === 'btn-m-lab' || b.id === 'btn-m-setup-lab') { this.openLab(); return; }
       if (this.screen === 'view' && this.tools.click(b)) return;
       if (b.id === 'btn-m-hint-choices' && this.main?.f.pending) { $('m-hint').hidden = true; this.ask({ d: this.main.f.pending, lane: 0 }); return; }
       if (b.id === 'btn-m-hint-mark') { $('m-hint').hidden = true; this.tools.setTool('mark'); $<HTMLButtonElement>('m-tools').querySelector<HTMLButtonElement>('[data-tool="mark"]')?.focus(); return; }
@@ -1076,6 +1121,8 @@ export class Metsani {
       select: (id: number | null) => this.select(id === null ? null : { id, lane: 0 }),
       choose: (c: ChoiceId) => this.choose(c),
       whatIf: () => this.openWhatIf(),
+      lab: this.lab.debug(),
+      openLab: (id?: string) => this.openLab(id),
       state: () => ({
         year: this.main?.f.year, p: this.p, lanes: this.lanes.length, asking: this.asking?.d.kind ?? null,
         trees: this.main?.f.trees.map(t => t.id) ?? [], results: this.main?.shown, logs: this.main?.f.logs.length,

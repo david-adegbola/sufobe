@@ -43,6 +43,26 @@ The same guide is published as a one-page web page. This file is the copy kept w
 - Oppilas voi hoitaa metsää itse: merkitä puita kaadettaviksi, jättää puita säästöpuiksi ja istuttaa taimia. Valolinssi näyttää, mitkä puut kärsivät varjosta. Tikan vihjeet eivät pysäytä vuotta; vain uudistaminen avohakkuun jälkeen pitää päättää.
 - Pelin osoite: https://david-adegbola.github.io/sufobe/.
 
+**Kysymyskortit (kokeet)**
+- *Kysymykset*-painikkeesta (metsän alapalkissa tai Metsänin aloitusnäkymässä) avautuu 12 korttia. Jokaisessa on kaksi metsää, A ja B, jotka eroavat vain yhdeltä osin ja saavat saman sään.
+- Oppilas arvaa ensin (A, B tai suunnilleen sama), sitten katsoo metsien kasvavan rinnakkain ja näkee tuloksen ja selityksen. *Kokeile eri säällä* toistaa kokeen toisella säällä.
+- Vastaus tulee aina pelin mallista. Testit tarkistavat, että jokainen kortti antaa saman vastauksen monella eri säällä.
+- Kokeet eivät muuta oppilaan omaa metsää.
+- Linkki avaa kortin suoraan, joten voit jakaa sen luokalle:
+  - Hiekka vai savi? (kuusi hiekalla ja savella, hiili puissa): https://david-adegbola.github.io/sufobe/#q-soil
+  - Kuiva kangas (kuusi ja mänty kuivalla hiekalla, puun määrä): https://david-adegbola.github.io/sufobe/#q-sandPine
+  - Etelä vai Lappi? (sama männikkö etelässä ja Lapissa): https://david-adegbola.github.io/sufobe/#q-lapland
+  - Ilmasto vuonna 2080 (männikkö nykyilmastossa ja lämpimämmässä): https://david-adegbola.github.io/sufobe/#q-climate2080
+  - Kirjanpainaja (kuusikko ja männikkö lämpimässä ilmastossa): https://david-adegbola.github.io/sufobe/#q-beetle
+  - Hirven talviruoka (mitä hirvi syö): https://david-adegbola.github.io/sufobe/#q-moose
+  - Harvennus (vuosilustojen leveys harvennuksen jälkeen): https://david-adegbola.github.io/sufobe/#q-thinning
+  - Harva vai tiheä? (istutustiheys ja hiili ensimmäisinä vuosina): https://david-adegbola.github.io/sufobe/#q-dense
+  - Sekametsä (yhden lajin metsä ja sekametsä, elämä): https://david-adegbola.github.io/sufobe/#q-mixed
+  - Palokärjen koti (vanha metsä: hakkuu tai seisomaan jättäminen, lahopuu): https://david-adegbola.github.io/sufobe/#q-woodpecker
+  - Suon hiili (hiili turpeessa ja kivennäismaassa): https://david-adegbola.github.io/sufobe/#q-peat
+  - Jatkuva kasvatus (avohakkuu ja jatkuva kasvatus, hiili metsässä): https://david-adegbola.github.io/sufobe/#q-continuous
+- Tuntivinkki: anna jokaisen kirjata arvauksensa ja perustelunsa ennen kokeen aloittamista. Keskustelkaa sitten tuloksesta: mikä yllätti, ja miksi?
+
 ## In English
 
 **What is Metsäni?**
@@ -83,3 +103,23 @@ The same guide is published as a one-page web page. This file is the copy kept w
 - In every forest the child's own Kasva! birch stands in the middle, with a yellow ribbon. It is never cut. After the story summers, each Kasva! summer is played for this birch, and each summer is one year in the forest.
 - Children can work the forest by hand: mark trees to cut, keep trees as retention trees, and plant seedlings. The light lens shows which trees suffer from shade. Tikka's hints no longer stop the year; only regeneration after a clearcut must be decided.
 - Game address: https://david-adegbola.github.io/sufobe/.
+
+**Question cards (experiments)**
+- The *Questions* button (in the forest's bottom bar, or on the Metsäni setup screen) opens 12 cards. Each has two forests, A and B, that differ in only one thing and get the same weather.
+- The child guesses first (A, B or about the same), then watches the forests grow side by side and sees the result and why. *Try other weather* runs the experiment again with different weather.
+- The answer always comes from the game's model. Tests check that every card gives the same answer across many different weathers.
+- The experiments never change the child's own forest.
+- A link opens a card directly, so you can share it with the class:
+  - Sand or clay? (spruce on sand and clay, carbon in the trees): https://david-adegbola.github.io/sufobe/#q-soil
+  - Dry heath (spruce and pine on dry sand, wood): https://david-adegbola.github.io/sufobe/#q-sandPine
+  - South or Lapland? (the same pine forest in the south and in Lapland): https://david-adegbola.github.io/sufobe/#q-lapland
+  - The climate in 2080 (pine today and in a warmer climate): https://david-adegbola.github.io/sufobe/#q-climate2080
+  - Bark beetle (spruce and pine in a warmer climate): https://david-adegbola.github.io/sufobe/#q-beetle
+  - The moose's winter food (what moose eat): https://david-adegbola.github.io/sufobe/#q-moose
+  - Thinning (year-ring width after thinning): https://david-adegbola.github.io/sufobe/#q-thinning
+  - Sparse or dense? (planting density and carbon in the first years): https://david-adegbola.github.io/sufobe/#q-dense
+  - Mixed forest (one species or a mix, life): https://david-adegbola.github.io/sufobe/#q-mixed
+  - The black woodpecker's home (an old forest: cut it or leave it, deadwood): https://david-adegbola.github.io/sufobe/#q-woodpecker
+  - Carbon in the bog (carbon in peat and in mineral soil): https://david-adegbola.github.io/sufobe/#q-peat
+  - Continuous cover (clearcut and continuous cover, carbon in the forest): https://david-adegbola.github.io/sufobe/#q-continuous
+- Lesson tip: have everyone write down their guess and their reason before starting. Then talk about the result: what surprised you, and why?

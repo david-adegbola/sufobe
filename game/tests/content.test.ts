@@ -6,7 +6,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { ACHIEVEMENTS, RANKS, STORY } from '../src/core/progress';
-import { ANIMALS, ITEMS, PLACES, SOILS, SPECIES } from '../src/core/forest';
+import { ANIMALS, CARDS, ITEMS, PLACES, SOILS, SPECIES } from '../src/core/forest';
+import { LAB_TEXT } from '../src/app/forest/labtext';
 import { TEXT } from '../src/app/text';
 import { FOREST_TEXT } from '../src/app/forest/text';
 import { ABOUT_UI, aboutSections } from '../src/app/legal';
@@ -46,6 +47,7 @@ describe('Finnish and English say the same things', () => {
     ['class question', QUIZ_UI.fi, QUIZ_UI.en],
     ['class question items', QUIZ.fi, QUIZ.en],
     ['Forest Atlas', ATLAS_TEXT.fi, ATLAS_TEXT.en],
+    ['question cards', LAB_TEXT.fi, LAB_TEXT.en],
   ])('%s', (_, fi, en) => {
     expect(shapeDiff(fi, en)).toEqual([]);
   });
@@ -70,6 +72,13 @@ describe('every id in the game data has its words', () => {
   }
   it('every Atlas event has its words', () => {
     for (const lang of ['fi', 'en'] as const) for (const ev of EVENTS) expect(ATLAS_TEXT[lang].events[ev]?.[1], ev).toBeTruthy();
+  });
+  it('every question card and measure has its words, and no text is left over', () => {
+    for (const lang of ['fi', 'en'] as const) {
+      const t = LAB_TEXT[lang];
+      expect(Object.keys(t.cards).sort()).toEqual(CARDS.map(c => c.id).sort());
+      for (const c of CARDS) expect(t.measures[c.measure]?.name, `${c.id} ${c.measure}`).toBeTruthy();
+    }
   });
   it('class question answers point at real options', () => {
     for (const lang of ['fi', 'en'] as const) {
