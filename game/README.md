@@ -2,7 +2,12 @@
 
 A one-thumb forest game for grades 4–6. You are a silver birch: hold to open your stomata and catch CO₂, save water through heatwaves and nights, and turn carbon into wood.
 
-**Status: Phase 5 (foundation) in progress.** Kasva! and Metsäni will become one game (see the vision assessment). Phase 5 prepares that: one world save, shared number formatting, smaller modules, content checks, and a diagnosis of the thinning issue for the forest scientist. Still open in Phase 5: the expert review of the model, a native-speaker check of the Finnish, and tests on real iPads and Android tablets (`docs/metsani-review-packet.md`).
+**Status: Phase 6 (one world).** The Kasva! birch is now the first tree of your forest:
+- After the ten story summers, the home screen's big button plays your birch's summer. Each summer is one year in your forest, and how you play nudges that year's ring.
+- Your birch wears a yellow ribbon in the forest and is never cut. If it dies, its line passes to the nearest birch.
+- The Forest Atlas (badges, trees, animals, events in the forest, products) replaces the badge cards.
+
+Still open from Phase 5: the expert review of the model, a native-speaker check of the Finnish, and tests on real tablets (`docs/metsani-review-packet.md`).
 
 **Phase 2, progression:** the season has real art and sound, and:
 
@@ -46,9 +51,10 @@ Hold anywhere (or the space bar) to open the stomata. P pauses, M mutes. A link 
   - `screens.ts`, `results.ts`, `share.ts`, `kisat.ts`, `about.ts`: one module per group of screens
   - `storage.ts`: everything saved on the device, in one key (`kasva-world`), moved in from the older keys on first load
   - `format.ts`: numbers and CO₂ amounts in the player's language
+  - `atlas.ts`: the Forest Atlas (what has been found, and the Atlas screen)
   - `render.ts`, `audio.ts`, `text.ts`: the renderer, synthesised sound, and text in FI/EN
 - `src/core/forest/`: the Metsäni forest model: climate, soils, species, a stand of trees that compete for light and water, carbon stores that always add up, thinning and harvest, and wood products. See `docs/forest-model.md`, and `tests/forest/` for the conservation, calibration and determinism tests.
-- `src/app/forest/`: the Metsäni screens: setup (place, soil, trees, spacing), the forest view drawn side-on with seasons and a soil cutaway, the tree card, the five results, and decisions (`metsani.ts`); sorting, mills and the product shelf (`factory.ts`). Saved as the `forest` part of the world save; old years are compacted before saving (`core/forest/compact.ts`).
+- `src/app/forest/`: the Metsäni screens: setup (place, soil, trees, spacing), the forest view drawn side-on with seasons and a soil cutaway, the tree card, the five results, and decisions (`metsani.ts`); sorting, mills and the product shelf (`factory.ts`). Your birch lives in `core/forest/mybirch.ts`. Saved as the `forest` part of the world save; old years are compacted before saving (`core/forest/compact.ts`).
 - `src/app/transfer.ts`: the transfer code, its QR code and the backup file (About screen). `src/app/pwa.ts`: offline copy, install offer and update notice.
 - `docs/metsani-teacher-guide.md` (a one-page lesson guide) and `docs/metsani-review-packet.md` (what the forest scientist, teacher and ecologist should check, and the classroom playtest protocol).
 - `src/app/scene/`: the code-drawn world: palette and moods, landscape layers, silver birch, Tikka, weather icons, HUD.

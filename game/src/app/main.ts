@@ -19,7 +19,8 @@ import { readBackup } from './transfer';
 import { TEXT, type Lang } from './text';
 import { askImport, confirmImport, deleteAllData, importCode, renderAbout, saveBackup, showTransferCode, transferLink } from './about';
 import { renderChallenge, renderKisat } from './kisat';
-import { countUp, drawRing, fillResults, pickGrowth, renderCards, showLevelUp } from './results';
+import { countUp, drawRing, fillResults, pickGrowth, showLevelUp } from './results';
+import { ATLAS_TEXT, discover, newCount, renderAtlas, seasonFinds, type AtlasPage } from './atlas';
 import { announce, face, finnishDate, ringIcon, show, weatherRow } from './screens';
 import { copy, openShare, sendChallenge, sharePoster, shareText, type Downloads } from './share';
 import { $, LANG_KEY, LOG_KEY, SOUND_KEY, TESTLOG_KEY, app, canvas, linkChallenge, linkTransfer, load, persist, renderer, shell, sound, store, t, today, ui, type LogRow, type SeasonConfig } from './state';
@@ -109,7 +110,18 @@ function renderHome() {
   const q = next.birch && metsani.birchStatus()!.question;
   $('btn-play').textContent = q ? x.toForest : x.play;
   face($('home-bubble').querySelector('canvas'));
+  const n = newCount();
+  $('btn-cards').textContent = n ? ATLAS_TEXT[app.lang].buttonNew(n) : ATLAS_TEXT[app.lang].button;
   renderPwa();
+}
+
+// ---------- the Forest Atlas (Phase 6) ----------
+
+let atlasPage: AtlasPage = 'badges';
+function openAtlas(page: AtlasPage = atlasPage, selected?: string) {
+  atlasPage = page;
+  show('cards');
+  renderAtlas(page, app.lang, app.save.achievements, metsani.madeCounts(), selected);
 }
 
 function renderText() {
@@ -119,7 +131,6 @@ function renderText() {
   $('t-title').textContent = x.play;
   $('btn-play').textContent = x.play;
   $('btn-daily').textContent = x.daily;
-  $('btn-cards').textContent = x.cards;
   $('btn-metsani').textContent = FOREST_TEXT[app.lang].homeButton;
   if (metsani.active) metsani.rerender();
   $('btn-radio').innerHTML = sound.muted ? '♪̸' : '♪';
@@ -140,7 +151,8 @@ function renderText() {
   $('t-newbadges').textContent = x.newBadges;
   $('t-levelup').textContent = x.levelUp;
   $('btn-lu-continue').textContent = x.continue;
-  $('t-cards').textContent = x.cardsTitle;
+  $('t-cards').textContent = ATLAS_TEXT[app.lang].title;
+  if (app.visible === 'cards') openAtlas();
   $('btn-cards-close').textContent = x.close;
   $('btn-kisat').textContent = x.kisat;
   $('btn-share').textContent = x.share;
@@ -267,6 +279,7 @@ function finish() {
     app.challengeOutcome = { won: c.won, from: app.current.from, mine: Math.max(r.storedG, app.save.challenges.received[0]?.myBestG ?? 0) };
   }
   persist();
+  discover(seasonFinds(r));
   if (app.testLogOn) {
     const rows = load<LogRow[]>(LOG_KEY, []);
     rows.push({ at: new Date().toISOString(), seed: r.seed, stored: r.storedG, caught: r.caughtG, resp: r.respiredG, combo: r.bestCombo, wilts: r.wilts });
@@ -352,6 +365,15 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyM') toggleMute();
 });
 window.addEventListener('keyup', (e) => { if (e.code === 'Space') press(false); });
+// the Atlas tabs: arrow keys move between pages
+window.addEventListener('keydown', (e) => {
+  const tab = (e.target as HTMLElement).closest?.('[data-atlas-page]') as HTMLElement | null;
+  if (!tab || (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft')) return;
+  const pages: AtlasPage[] = ['badges', 'species', 'animals', 'events', 'products'];
+  const i = pages.indexOf(tab.dataset.atlasPage as AtlasPage);
+  openAtlas(pages[(i + (e.key === 'ArrowRight' ? 1 : pages.length - 1)) % pages.length]);
+  $(`atlas-tab-${atlasPage}`).focus();
+});
 // Escape always goes one step back
 window.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
@@ -394,7 +416,9 @@ document.addEventListener('click', (e) => {
   if (b.dataset.lang) { app.lang = b.dataset.lang as Lang; store(LANG_KEY, app.lang); renderText(); return; }
   if (metsani.active) return; // Metsäni handles its own buttons
   if (b.dataset.grow) { pickGrowth(b.dataset.grow as Growth); return; }
-  if (b.dataset.badge) { show('cards'); renderCards(b.dataset.badge); return; }
+  if (b.dataset.badge) { openAtlas('badges', b.dataset.badge); return; }
+  if (b.dataset.atlasPage) { openAtlas(b.dataset.atlasPage as AtlasPage); $(`atlas-tab-${atlasPage}`).focus(); return; }
+  if (b.dataset.atlasEntry) { openAtlas(b.dataset.atlasOn as AtlasPage, b.dataset.atlasEntry); $('fact').focus?.(); return; }
   switch (b.id) {
     case 'btn-play': case 'btn-next': playNext(); break;
     case 'btn-daily': start(dailyConfig()); app.linkSeed = null; break;
@@ -402,7 +426,7 @@ document.addEventListener('click', (e) => {
     case 'btn-forest-back': backToForest(); break;
     case 'btn-again': start({ ...app.current }); break;
     case 'btn-home': case 'btn-cards-close': toMenu(); break;
-    case 'btn-cards': show('cards'); renderCards(); break;
+    case 'btn-cards': openAtlas(); break;
     case 'btn-lu-continue': show('results'); break;
     case 'btn-pause': pause(true); break;
     case 'btn-resume': pause(false); break;

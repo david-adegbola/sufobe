@@ -50,14 +50,12 @@ export const TEXT = {
     },
     // ---------- progression (Phase 2) ----------
     nextSeason: 'Seuraava kesä',
-    homeFree: 'Tarinakesät on pelattu! Kasvata omaa koivuasi, tai kokeile päivän säätä – siinä kaikilla on sama koivu.',
     birchInvite: 'Koivusi on kasvanut niin isoksi, että se tekee siemeniä! Kasvata metsä sen ympärille: paina Metsäni.',
     birchTheme: (year: number) => `Sinun koivusi · metsäsi ${year}. vuosi`,
     birchHome: (h: string) => `Koivusi on ${h} metriä pitkä. Pelaa sen kesä – jokainen kesä on yksi vuosi metsässäsi.`,
     birchQuestion: 'Tikalla on kysymys metsässäsi. Käy vastaamassa, niin koivusi kesät jatkuvat.',
     toForest: 'Metsään',
     daily: 'Päivän sää',
-    cards: 'Kortit',
     story: (n: number, total: number) => `Tarina ${n}/${total}`,
     storyIntro: [
       'Hei, minä olen Tikka! Pidä sormi ruudulla, niin koivusi avaa ilmaraot ja nappaa hiilidioksidia.',
@@ -97,7 +95,6 @@ export const TEXT = {
     },
     chosen: (name: string, lvl: number) => `Valittu: ${name} ${lvl}/5`,
     newBadges: 'Uusi merkki!',
-    cardsTitle: 'Merkit ja tietokortit',
     locked: 'Ansaitse merkki, niin kortti aukeaa.',
     close: 'Sulje',
     achievements: {
@@ -195,14 +192,12 @@ export const TEXT = {
     },
     // ---------- progression (Phase 2) ----------
     nextSeason: 'Next season',
-    homeFree: "You've played the story summers! Grow your own birch, or try Today's weather, where everyone has the same birch.",
     birchInvite: 'Your birch has grown big enough to make seeds! Grow a forest around it: press My forest.',
     birchTheme: (year: number) => `Your birch · year ${year} of your forest`,
     birchHome: (h: string) => `Your birch is ${h} m tall. Play its summer – every summer is one year in your forest.`,
     birchQuestion: 'Tikka has a question in your forest. Answer it, and your birch’s summers carry on.',
     toForest: 'To the forest',
     daily: "Today's weather",
-    cards: 'Cards',
     story: (n: number, total: number) => `Story ${n}/${total}`,
     storyIntro: [
       "Hi, I'm Tikka! Hold your finger on the screen and your birch opens its stomata to catch carbon dioxide.",
@@ -242,7 +237,6 @@ export const TEXT = {
     },
     chosen: (name: string, lvl: number) => `Chosen: ${name} ${lvl}/5`,
     newBadges: 'New badge!',
-    cardsTitle: 'Badges and fact cards',
     locked: 'Earn the badge to open this card.',
     close: 'Close',
     achievements: {

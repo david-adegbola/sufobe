@@ -1,6 +1,6 @@
 /** The results screen, growth choice, level-up and the card collection. */
 import { num } from './format';
-import { ACHIEVEMENTS, MAX_GROWTH, RANKS, choose, rankProgress, type Growth, type SeasonOutcome } from '../core/progress';
+import { MAX_GROWTH, RANKS, choose, rankProgress, type Growth, type SeasonOutcome } from '../core/progress';
 import { type SeasonResult } from '../core/season';
 import { face, show, weatherRow } from './screens';
 import { nickName } from './share';
@@ -105,21 +105,6 @@ export function showLevelUp(rank: number) {
   renderer.setRank(rank);
   sound.levelUp();
   show('levelup');
-}
-
-export function renderCards(selected?: string) {
-  const x = t();
-  const all = x.achievements as Record<string, { name: string; how: string; fact: string }>;
-  $('cardgrid').innerHTML = ACHIEVEMENTS.map((a) => {
-    const on = app.save.achievements.includes(a.id);
-    return leafBadge(a.id, on, true);
-  }).join('');
-  const fact = $('fact');
-  if (!selected) { fact.hidden = true; return; }
-  const a = all[selected];
-  const on = app.save.achievements.includes(selected);
-  fact.hidden = false;
-  fact.innerHTML = `<h3>${a.name}</h3><p><b>${a.how}</b></p><p>${on ? a.fact : x.locked}</p>`;
 }
 
 /** The trunk's cross-section: one ring per season, the newest drawn last. */

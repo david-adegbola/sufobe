@@ -11,6 +11,7 @@ import { TEXT } from '../src/app/text';
 import { FOREST_TEXT } from '../src/app/forest/text';
 import { ABOUT_UI, aboutSections } from '../src/app/legal';
 import { CORRECT, QUIZ, QUIZ_UI } from '../src/app/forest/quiz';
+import { ATLAS_TEXT, EVENTS } from '../src/app/atlas';
 
 /** Every difference in shape between two text tables, as readable paths. */
 function shapeDiff(a: unknown, b: unknown, path = ''): string[] {
@@ -44,6 +45,7 @@ describe('Finnish and English say the same things', () => {
     ['About sections', aboutSections('fi').map(s => ({ id: s.id, n: s.body.length })), aboutSections('en').map(s => ({ id: s.id, n: s.body.length }))],
     ['class question', QUIZ_UI.fi, QUIZ_UI.en],
     ['class question items', QUIZ.fi, QUIZ.en],
+    ['Forest Atlas', ATLAS_TEXT.fi, ATLAS_TEXT.en],
   ])('%s', (_, fi, en) => {
     expect(shapeDiff(fi, en)).toEqual([]);
   });
@@ -66,6 +68,9 @@ describe('every id in the game data has its words', () => {
       for (const id of Object.keys(SOILS)) expect(t.soils[id], `soil ${id}`).toBeTruthy();
     });
   }
+  it('every Atlas event has its words', () => {
+    for (const lang of ['fi', 'en'] as const) for (const ev of EVENTS) expect(ATLAS_TEXT[lang].events[ev]?.[1], ev).toBeTruthy();
+  });
   it('class question answers point at real options', () => {
     for (const lang of ['fi', 'en'] as const) {
       expect(QUIZ[lang]).toHaveLength(CORRECT.length);

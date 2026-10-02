@@ -11,6 +11,7 @@
  * asked at the end of the year it belongs to, before the next one is stepped.
  */
 import { num } from '../format';
+import { discover, forestFinds } from '../atlas';
 import type { TreeMods } from '../../core/season';
 import {
   CO2_PER_C, PLANTABLE, SOILS, SPACING, SPECIES, applyChoice, createForest, plant, presentAnimals,
@@ -215,6 +216,7 @@ export class Metsani {
       done: (g) => {
         const mm = applyZoom(f, b.id, g, z.expectedG, rec.year);
         storeForest(this.save);
+        discover(forestFinds(f));
         const t = this.t;
         const lines: string[] = [];
         if (rec.birch === 'passed') lines.push(t.birchPassed);
@@ -901,6 +903,14 @@ export class Metsani {
     const m = this.main;
     if (m) this.save = { ...this.save, current: m.f };
     storeForest(this.save);
+    if (this.save.current) discover(forestFinds(this.save.current));
+  }
+
+  /** How many of each item the current forest has made, for the Atlas. */
+  madeCounts(): Partial<Record<ItemId, number>> {
+    const out: Partial<Record<ItemId, number>> = {};
+    for (const r of this.save.current?.receipts ?? []) out[r.item] = (out[r.item] ?? 0) + r.n;
+    return out;
   }
 
   // ---------- events ----------

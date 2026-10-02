@@ -293,3 +293,18 @@ The tests are in `tests/forest/zoom.test.ts`.
 - Drainage of peat, and snow damage.
 - The mill mini-game, recycling and trace-back (F3).
 - All UI.
+
+## Phase 6: your birch (`mybirch.ts`)
+
+The silver birch from Kasva! is a real tree in the player's forest.
+- **New forests** plant it as a sapling in the middle of the plot (x = 0.5). It is marked to keep, so no thinning, harvest or continuous-cover cut takes it. It still grows, competes and can die like any tree.
+- **If it dies,** the line passes to the nearest living birch. If no birch is left, a birch seedling comes up where it stood. `f.birch.generation` counts the hand-overs, and the year record notes the change (`rec.birch`).
+- **Older forests** adopt their tallest birch, or get a sapling if they have none.
+- **Only forests with `f.birch` take part.** The trade-off, calibration and conservation tests use forests without it, so their numbers are unchanged (`tests/forest/mybirch.test.ts` checks this).
+
+**Your birch's summer.** From the home screen, after the story, one Kasva! summer equals one forest year:
+1. `stepYear` runs.
+2. `zoomSeason` builds that year's summer for the player's own grown birch: the Kasva! growth choices, with water scaled by the soil.
+3. `applyZoom` nudges the ring by at most ±40 % of that year's growth, with the carbon moved to or from the air.
+
+Rings are measured at breast height (1.3 m), so a birch below that height only grows taller.
