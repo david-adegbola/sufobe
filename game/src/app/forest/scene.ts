@@ -23,6 +23,7 @@ import { FrameBudget } from '../scene/budget';
 import { LAYER_EXTRA, PARALLAX, drawClouds, mix as mixHexStr, paintDepth, type Band, type DepthLayers } from './depth';
 import type { Season } from './text';
 import { STAGE_LOOK, envLook, treeStage, type EnvLook } from './visual';
+import { drawMillSite, drawRoad, drawVillageSite, inClearing, placeBox, places, type PlaceName, type Places } from './world';
 
 export interface ForestView {
   forest: Forest;
@@ -111,6 +112,18 @@ export class ForestScene {
     trees: { t: Tree; t0: number; dir: number; landed: boolean }[];
     landedAt: number; truckAt: number; done: () => void;
   } | null = null;
+  // ---------- one world (2.5D, increment 3) ----------
+  /** where the road, the mills and the village are this frame */
+  private P: Places | null = null;
+  /** the camera travelling along the road, with the truck or the van when something is carried */
+  private trip: {
+    to: PlaceName | 'home'; t: number; dur: number; from: number;
+    vehicle: Vehicle | null; vFrom: number; done: (() => void) | null;
+  } | null = null;
+  /** where the harvest's loaded truck stood when the trip took over */
+  private handoffX: number | null = null;
+  /** the truck or van left standing where a trip ended */
+  private parked: { x: number; vehicle: Vehicle } | null = null;
   /** sounds for the effects (the host connects them) */
   onSound: ((kind: 'plant' | 'thud' | 'truck', pan: number) => void) | null = null;
   /** space kept free for the HTML bars at the top and bottom, CSS px */
@@ -271,12 +284,12 @@ export class ForestScene {
       c.fillStyle = '#e2c48e'; c.beginPath(); c.arc(x, y, size * 0.68, 0, Math.PI * 2); c.fill();
     }
     if (tk >= 0) {
-      // backs in (1 s), loads (0.6 s), drives away (1.1 s)
+      // backs in (1 s) and loads (0.6 s); then the trip along the road takes over (travel)
       const stop = pileX + size * 12;
       const far = Math.max(L.x1, L.W) + 260;
-      const x = tk < 1 ? lerp(far, stop, easeOut(tk)) : tk < 1.6 ? stop : lerp(stop, far, easeIn(clamp01((tk - 1.6) / 1.1)));
-      drawTruck(c, x, gy, Math.max(0.8, Math.min(2, L.px / 10)), Math.round(Math.min(12, landed) * loadK), season);
-      if (tk > 2.7) { this.felling = null; fl.done(); }
+      const x = tk < 1 ? lerp(far, stop, easeOut(tk)) : stop;
+      drawTruck(c, x, gy, this.truckScale(), Math.round(Math.min(12, landed) * loadK), season);
+      if (tk > 1.7) { this.handoffX = stop; this.felling = null; fl.done(); }
     }
   }
 
@@ -302,7 +315,84 @@ export class ForestScene {
   }
 
   /** Back to the whole stand, as it was. */
-  resetCamera() { this.focusId = null; this.userZoom = 1; this.userPan = 0; }
+  resetCamera() { this.focusId = null; this.userZoom = 1; this.userPan = 0; this.trip = null; this.parked = null; }
+
+  // ---------- travelling along the road (one world) ----------
+
+  /**
+   * Glide along the road to the mills, the village or back home to the
+   * stand; `vehicle` drives along when wood or things are carried. `done`
+   * runs on arrival (at once with reduced motion).
+   */
+  travel(to: PlaceName | 'home', vehicle: Vehicle | null, done?: () => void) {
+    this.focusId = null;
+    this.userZoom = 1;
+    this.parked = null;
+    this.trip = { to, t: 0, dur: 0, from: this.cam.pan, vehicle, vFrom: this.handoffX ?? NaN, done: done ?? null };
+    this.handoffX = null;
+    if (vehicle && !this.reduced) this.onSound?.('truck', 0);
+  }
+
+  /** Arrive at once (Escape, or any button). */
+  skipTravel() { if (this.trip) this.trip.t = Infinity; }
+
+  /** A trip along the road is under way. */
+  travelling(): boolean { return this.trip !== null; }
+
+  /** The camera is out along the road, away from the stand. */
+  away(): boolean { return !!this.P && this.userPan < -(this.P.forestEnd - this.W / 2) * 0.6; }
+
+  /** The mills or the village under a point (CSS px), for tapping them in the world. */
+  placeAt(x: number, y: number): PlaceName | null {
+    const P = this.P;
+    if (!P) return null;
+    const L = this.layout();
+    const wx = (x - this.vx - this.camX(L)) / this.cam.s;
+    const wy = (y - this.vy - this.camY(L)) / this.cam.s;
+    const gy = this.siteY(L);
+    for (const name of ['mills', 'village'] as const) {
+      const b = placeBox(P, name);
+      if (wx >= b.x0 && wx <= b.x1 && wy >= gy - b.h && wy <= L.groundY + 4) return name;
+    }
+    return null;
+  }
+
+  /** For tests: where a place's middle is on screen (CSS px). */
+  placeScreen(name: PlaceName): { x: number; y: number } | null {
+    const P = this.P;
+    if (!P) return null;
+    const L = this.layout();
+    const b = placeBox(P, name);
+    const wx = (b.x0 + b.x1) / 2, wy = this.siteY(L) - b.h * 0.3;
+    return { x: wx * this.cam.s + this.camX(L) + this.vx, y: wy * this.cam.s + this.camY(L) + this.vy };
+  }
+
+  /** The ground line the buildings stand on: behind the road. */
+  private siteY(L: { groundY: number; depthBand: number }) { return L.groundY - L.depthBand * 0.42; }
+
+  private truckScale() { return 0.9 * (this.P?.u ?? 1); }
+
+  /** The pan (zoom 1) that puts a place in the middle of the view. */
+  private tripPan(L: { W: number }, P: Places, to: PlaceName | 'home') {
+    if (to === 'home') return 0;
+    return L.W / 2 - (to === 'mills' ? P.mill : P.village);
+  }
+
+  /** Where the vehicle stops: just before the log yard, or at the start of the village. */
+  private parkX(P: Places, to: PlaceName) { return to === 'mills' ? P.mill - 430 * P.u : P.village - 470 * P.u; }
+
+  private drawTrip(L: ReturnType<ForestScene['layout']>, season: Season) {
+    const P = this.P;
+    if (!P) return;
+    const c = this.c;
+    const gy = L.groundY + 1;
+    const tr = this.trip;
+    if (tr && tr.vehicle && tr.to !== 'home' && tr.dur > 0) {
+      const e = smooth(clamp01(tr.t / tr.dur));
+      const start = Number.isNaN(tr.vFrom) ? (L.W / 2 - tr.from) - L.W * 0.45 : tr.vFrom;
+      drawVehicle(c, lerp(start, this.parkX(P, tr.to), e), gy, this.truckScale(), tr.vehicle, season);
+    } else if (this.parked) drawVehicle(c, this.parked.x, gy, this.truckScale(), this.parked.vehicle, season);
+  }
 
   /** True when the camera has arrived where it is going (tests wait for this). */
   settled(): boolean {
@@ -313,6 +403,28 @@ export class ForestScene {
   private camTarget = { pan: 0, panY: 0, s: 1 };
 
   private updateCamera(L: ReturnType<ForestScene['layout']>, f: Forest, dt: number, reduced: boolean) {
+    const P = this.P = places(L, this.insetTop);
+    const tr = this.trip;
+    if (tr) {
+      const to = this.tripPan(L, P, tr.to);
+      // about a screen and a bit per second, never rushed and never slow
+      if (!tr.dur) tr.dur = Math.max(1, Math.min(2.2, Math.abs(to - tr.from) / (L.W * 1.1)));
+      tr.t += dt;
+      const e = reduced ? 1 : smooth(clamp01(tr.t / tr.dur));
+      const k = reduced ? 1 : Math.min(1, dt * 4);
+      this.cam.pan = lerp(tr.from, to, e);
+      this.cam.panY += (0 - this.cam.panY) * k;
+      this.cam.s += (1 - this.cam.s) * k;
+      this.camTarget = { pan: to, panY: 0, s: 1 };
+      if (e >= 1) {
+        this.userPan = to;
+        this.cam.s = 1; this.cam.panY = 0;
+        this.trip = null;
+        if (tr.vehicle && tr.to !== 'home') this.parked = { x: this.parkX(P, tr.to), vehicle: tr.vehicle };
+        tr.done?.();
+      }
+      return;
+    }
     const avail = Math.max(80, L.groundY - this.insetTop);
     let s = this.userZoom;
     let pan = this.userPan;
@@ -330,9 +442,11 @@ export class ForestScene {
       const mid = P.base - hp * 0.5;
       panY = this.insetTop + avail * 0.5 - L.groundY - (mid - L.groundY) * s;
     }
+    // to the left the forest goes on; to the right the road leads to the mills and the village
     const maxPan = L.plotW * s * 0.8 + L.W * 0.2;
-    pan = Math.max(-maxPan, Math.min(maxPan, pan));
-    if (!t) this.userPan = Math.max(-maxPan, Math.min(maxPan, this.userPan));
+    const minPan = Math.min(-maxPan, -(P.end - L.W / 2) * s);
+    pan = Math.max(minPan, Math.min(maxPan, pan));
+    if (!t) this.userPan = Math.max(minPan, Math.min(maxPan, this.userPan));
     this.camTarget = { pan, panY, s };
     // ease gently; with reduced motion, go straight there
     const k = reduced ? 1 : Math.min(1, dt * 2.6);
@@ -475,6 +589,14 @@ export class ForestScene {
     c.fillRect(L.x0, floorTop, L.x1 - L.x0, L.depthBand + 3);
     this.drawFloor(L, f, season, snow, drought);
     this.drawLogs(L, v, season);
+    // the road out of the stand, the mills and the village
+    const P = this.P!;
+    drawRoad(c, L, P, season, snow);
+    if (P.mill + 360 * P.u > L.x0 && P.mill - 360 * P.u < L.x1) {
+      const busy = this.trip?.vehicle === 'logs' || this.parked?.vehicle === 'logs' ? 1 : 0;
+      drawMillSite(c, P, this.siteY(L), season, time, busy);
+    }
+    if (P.village + 360 * P.u > L.x0 && P.village - 360 * P.u < L.x1) drawVillageSite(c, P, this.siteY(L), season, time, f.village);
 
     // far trees first; the same forest continues at the sides
     const rd = relativeDensity(f.trees);
@@ -486,11 +608,15 @@ export class ForestScene {
     const kMax = Math.ceil((L.x1 - L.W / 2) / L.plotW) + 1;
     this.drawShadows(L, sorted, v, season, kMin, kMax);
     for (const t of sorted) {
-      for (let k = kMin; k <= kMax; k++) if (k !== 0) this.drawOne(L, t, v, k * L.plotW, season, ps, g01, rd, false);
+      for (let k = kMin; k <= kMax; k++) {
+        if (k === 0 || (k > 0 && inClearing(P, this.place(L, t, k * L.plotW).x))) continue;
+        this.drawOne(L, t, v, k * L.plotW, season, ps, g01, rd, false);
+      }
       this.drawOne(L, t, v, 0, season, ps, g01, rd, true);
     }
 
     this.drawFelling(L, season, ps, rd);
+    this.drawTrip(L, season);
     this.drawPops(L, f);
 
     // the soil cutaway, and the animals that live here now
@@ -590,6 +716,7 @@ export class ForestScene {
       for (let k = kMin; k <= kMax; k++) {
         const P = this.place(L, t, k * L.plotW);
         if (P.x < L.x0 - 60 || P.x > L.x1 + 60) continue;
+        if (k > 0 && this.P && inClearing(this.P, P.x)) continue;
         const hp = h * L.px * P.s;
         const w = Math.max(3, Math.max(h * 0.45, crownWidth(t.sp, t.d)) * L.px * P.s);
         c.moveTo(P.x + 2, P.base);
@@ -1012,7 +1139,20 @@ function hash(n: number): number {
   return (x >>> 0) / 4294967296;
 }
 
-const easeIn = (k: number) => k * k;
+/** ease in and out: a trip starts and stops gently */
+const smooth = (k: number) => k * k * (3 - 2 * k);
+
+/** What drives along the road: the timber truck with logs, or the van with things for the village. */
+export type Vehicle = 'logs' | 'goods';
+
+function drawVehicle(c: CanvasRenderingContext2D, x: number, y: number, s: number, v: Vehicle, season: Season) {
+  drawTruck(c, x, y, s, v === 'logs' ? 12 : 0, season);
+  if (v === 'goods') {
+    const w = 120 * s;
+    const colors = ['#f3d9a8', '#c98f52', '#9fb3c8', '#e8c48e'];
+    for (let i = 0; i < 4; i++) { c.fillStyle = colors[i]; c.fillRect(x + w * (0.06 + i * 0.15), y - 16 * s - (12 + (i % 2) * 3) * s, w * 0.13, (12 + (i % 2) * 3) * s); }
+  }
+}
 const easeOut = (k: number) => 1 - (1 - k) * (1 - k);
 /** Overshoots a little and settles: a springy pop. */
 const easeOutBack = (k: number) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(k - 1, 3) + c1 * Math.pow(k - 1, 2); };

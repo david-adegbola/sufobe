@@ -1,6 +1,6 @@
 # The 2.5D forest: analysis and plan
 
-The brief: turn the Metsäni forest view from a flat 2D side view into a deep, living 2.5D world, without replacing the simulation. Increment 1 (depth and camera) and increment 2 (game feel) are done. This file records the analysis and the remaining steps.
+The brief: turn the Metsäni forest view from a flat 2D side view into a deep, living 2.5D world, without replacing the simulation. Increments 1 (depth and camera), 2 (game feel) and 3 (one world) are done. This file records the analysis and the remaining steps.
 
 ## 1. How the forest was rendered
 
@@ -117,7 +117,13 @@ The layer system takes images as well as drawn shapes, so painted sprites can re
    - village: delivering shows the thing going to the building ("+2 → Café"); repairing, reusing, recycling and burning show the old thing turning into the new one, or into flame. Each has a short sound;
    - with reduced motion all of this is skipped: the forest changes at once and the next screen opens straight away. The village strip is hidden from screen readers, because the message line already says what happened.
    - Cost: none while nothing is happening. A burst of particles is capped at 260.
-3. **Forest → mill → village as one world:** the road leads out of the stand. Opening the mills or the village pans the camera along the road instead of switching screens, and the map zooms out from the stand to the landscape.
+3. **Forest → mill → village as one world (done, `app/forest/world.ts`):**
+   - a forest road leaves the stand to the right, through a clearing: first the mills (a log yard, the sawmill with sawn boards, the pulp mill with steam, the biorefinery's tanks), then the village, whose windows light up as its needs are met (the same data as the village screen); after the village the forest begins again. To the left the forest goes on as before;
+   - after a harvest the loaded truck drives out along the road and the camera goes with it to the mills, which then open. The Village button, the products button and giving your birch travel the same way. Closing the screen brings the camera back to the stand;
+   - a child can also drag along the road and tap the mills (the product shelf) or the village;
+   - the map opens by zooming out from your own stand to the whole landscape;
+   - buildings are sized from the screen, not from the trees' metres, so they stay readable for a young (close) or an old (far) stand and fit across a phone. A trip takes 1–2.2 s; Escape or any button arrives at once. With reduced motion there is no glide: the camera is simply there. Two forests side by side ("What if?") open screens directly.
+   - Cost: the clearing replaces the side forest that used to fill the right edge of the view, so fewer trees are drawn: the desktop test ran at about 37 fps against 29 before (headless, no GPU).
 4. **Level of detail for dense stands and small screens:** simplified far trees, fewer copies at the sides, and fewer foreground items on phones.
 5. **Painted art:** replace drawn shapes with painted sprites in the same layers, once the art direction is decided.
 6. **Kasva!'s birch season scene:** give it the same layered depth.
