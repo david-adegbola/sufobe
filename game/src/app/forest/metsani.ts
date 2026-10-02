@@ -24,6 +24,8 @@ import { Factory, HARVESTS } from './factory';
 import { Tools } from './tools';
 import { Lab } from './lab';
 import { VillageView } from './villageview';
+import { MapView } from './mapview';
+import { MAP_TEXT } from './maptext';
 import { VILLAGE_TEXT } from './villagetext';
 import { LAB_TEXT } from './labtext';
 import { drawTikka } from '../scene/tikka';
@@ -73,7 +75,7 @@ export interface Lane {
 }
 
 /** Screens that pause the forest while open. */
-export type Overlay = 'sort' | 'mills' | 'shelf' | 'quiz' | 'village' | null;
+export type Overlay = 'sort' | 'mills' | 'shelf' | 'quiz' | 'village' | 'map' | null;
 
 /** A question on screen: Tikka's, or the child's own "What if?". */
 interface Asking { d: Decision | { kind: 'whatif'; year: number; choices: ChoiceId[] }; lane: number }
@@ -96,12 +98,15 @@ export class Metsani {
   private screen: 'setup' | 'view' | 'lab' = 'setup';
   /** where the question cards were opened from */
   private labFrom: 'setup' | 'view' = 'setup';
+  /** playing the sandbox forest (Phase 10), not the child's own */
+  private sandboxMode = false;
   private empty: Forest | null = null;
   private setupScene: ForestScene;
   private factory: Factory;
   private tools: Tools;
   private lab: Lab;
   private villageView: VillageView;
+  private mapView: MapView;
   /** years a hint has been open (it passes after one more year) */
   private hintAge = 0;
   private asking: Asking | null = null;
@@ -161,6 +166,13 @@ export class Metsani {
       refresh: () => { const m = this.main; if (m) { m.shown = results(m.f); this.renderView(); } },
       announce: (s) => this.host.announce(s),
     });
+    this.mapView = new MapView({
+      lang: () => this.host.lang(),
+      t: () => this.t,
+      forest: () => this.main?.f,
+      setOverlay: (on) => { this.overlay = on ? 'map' : null; if (on) this.setPlaying(false); },
+      announce: (s) => this.host.announce(s),
+    });
     const s = this.save;
     if (s.current) { this.place = s.current.place; this.soil = s.current.soil; }
     this.species = new Set(s.species);
@@ -181,6 +193,7 @@ export class Metsani {
     this.quizStage = quizOn() ? loadTally().stage : 'off';
     this.canvas.hidden = false;
     this.setupScene.resize();
+    this.sandboxMode = false;
     if (this.save.current) this.showView(this.save.current); else this.showSetup();
   }
 
@@ -317,7 +330,7 @@ export class Metsani {
   /** The tip that fits this moment, if any. */
   private maybeTip() {
     const m = this.main;
-    if (!m || this.comparing) return;
+    if (!m || this.comparing || this.sandboxMode) return;
     const y = m.f.year;
     if (y <= 1) { this.tip('start'); return; }
     if (y >= 3 && this.tip('results')) return;
@@ -349,6 +362,7 @@ export class Metsani {
     if (this.screen === 'lab') { this.lab.escape(); return; }
     if (this.overlay === 'quiz') return;
     if (this.overlay === 'village') { this.villageView.escape(); return; }
+    if (this.overlay === 'map') { this.mapView.escape(); return; }
     if (this.overlay === 'shelf') { if (this.factory.tracing) { this.factory.tracing = null; this.factory.renderShelf(); } else this.factory.closeShelf(); return; }
     if (this.overlay === 'mills') { this.factory.leaveMills(); return; }
     if (this.overlay === 'sort') { this.factory.cancelSort(); return; }
@@ -371,6 +385,7 @@ export class Metsani {
   // ---------- setup ----------
 
   private showSetup() {
+    this.sandboxMode = false;
     this.screen = 'setup';
     this.lanes = this.lanes.slice(0, 1);
     $('m-view').hidden = true;
@@ -410,6 +425,8 @@ export class Metsani {
     $('m-replace').textContent = cur ? t.replaceWarn : '';
     $('btn-m-setup-back').textContent = t.back;
     $('btn-m-setup-lab').textContent = LAB_TEXT[this.host.lang()].open;
+    $('btn-m-sandbox').textContent = MAP_TEXT[this.host.lang()].sandboxStart;
+    $('m-sand-intro').textContent = MAP_TEXT[this.host.lang()].sandboxIntro;
     $('m-earlier-title').textContent = t.earlier;
     const past = this.save.past;
     $('m-earlier').innerHTML = past.length
@@ -521,7 +538,11 @@ export class Metsani {
     if (i >= 0) {
       const d = this.lanes[i].f.pending!;
       // Phase 7: most of Tikka's questions are hints, and the forest goes on
-      if (!this.comparing && isHint(d.kind)) { this.showHint(); return true; }
+      if (!this.comparing && isHint(d.kind)) {
+        // in the sandbox Tikka asks nothing: a hint simply passes
+        if (this.sandboxMode) { for (const l of this.lanes) if (l.f.pending && isHint(l.f.pending.kind)) resolveHint(l.f); return true; }
+        this.showHint(); return true;
+      }
       this.ask({ d, lane: i });
       return false;
     }
@@ -641,7 +662,7 @@ export class Metsani {
     }
     if (this.screen === 'view' && this.main) {
       // the "after" class question, once the forest is 30 years old and nothing else is open
-      if (this.quizStage === 'after' && !this.overlay && !this.asking && !this.comparing && this.main.f.year >= AFTER_YEAR) {
+      if (this.quizStage === 'after' && !this.sandboxMode && !this.overlay && !this.asking && !this.comparing && this.main.f.year >= AFTER_YEAR) {
         this.askQuiz('after', () => this.renderView());
       }
       if (this.overlay === 'mills') this.factory.animateMills(dt);
@@ -732,6 +753,15 @@ export class Metsani {
     $('btn-m-lab').textContent = LAB_TEXT[this.host.lang()].open;
     $('btn-m-village').textContent = VILLAGE_TEXT[this.host.lang()].open;
     $('btn-m-village').hidden = this.comparing;
+    $('btn-m-map').textContent = MAP_TEXT[this.host.lang()].open;
+    $('btn-m-map').hidden = this.comparing || this.sandboxMode;
+    $('btn-m-village').hidden = this.comparing || this.sandboxMode;
+    const mt = MAP_TEXT[this.host.lang()];
+    $('m-sandbar').hidden = !this.sandboxMode;
+    $('m-sand-tag').textContent = mt.sandboxBadge;
+    for (const b of $('m-sandbar').querySelectorAll<HTMLButtonElement>('[data-force]')) { b.textContent = mt.events[b.dataset.force as 'drought']; b.hidden = this.comparing; }
+    $('btn-m-sand-new').textContent = mt.newSandbox;
+    $('btn-m-sand-back').textContent = mt.backToMine;
     $('m-keep').hidden = !this.comparing;
     $('btn-m-keep-a').textContent = t.keepA;
     $('btn-m-keep-b').textContent = t.keepB;
@@ -946,6 +976,43 @@ export class Metsani {
     $('m-year').focus();
   }
 
+  // ---------- the sandbox (Phase 10) ----------
+
+  /** The sandbox: a forest of its own to try anything in, from the setup's place, soil and trees. */
+  private openSandbox(fresh: boolean) {
+    let f = fresh ? null : this.save.sandbox ?? null;
+    if (!f) {
+      if (!this.species.size) this.species = new Set(['spruce']);
+      f = createForest({ seed: 's' + Math.random().toString(36).slice(2, 9), place: this.place, soil: this.soil });
+      f.sandbox = true;
+      plant(f, this.mix(), this.spacing);
+      this.save = { ...this.save, sandbox: f };
+      storeForest(this.save);
+    }
+    this.sandboxMode = true;
+    this.showView(f);
+  }
+
+  private leaveSandbox() {
+    this.persist();
+    this.sandboxMode = false;
+    if (this.save.current) this.showView(this.save.current); else this.showSetup();
+  }
+
+  /** Make a drought, a storm or a bark beetle year happen next year in the sandbox. */
+  private force(kind: 'drought' | 'storm' | 'beetle') {
+    const m = this.main;
+    if (!m || !m.f.sandbox) return;
+    const year = m.f.year;
+    const list = (m.f.force ??= {})[kind] ??= [];
+    if (!list.includes(year)) list.push(year);
+    this.persist();
+    const mt = MAP_TEXT[this.host.lang()];
+    const note = mt.eventSet(mt.events[kind], year + 1);
+    $('m-tool-note').textContent = note;
+    this.host.announce(note);
+  }
+
   /** Your birch becomes village things (Phase 9); the line passes to the nearest birch. */
   private giveBirch() {
     const m = this.main;
@@ -1042,7 +1109,7 @@ export class Metsani {
 
   private persist() {
     const m = this.main;
-    if (m) this.save = { ...this.save, current: m.f };
+    if (m) this.save = this.sandboxMode ? { ...this.save, sandbox: m.f } : { ...this.save, current: m.f };
     storeForest(this.save);
     if (this.save.current) discover(forestFinds(this.save.current));
   }
@@ -1063,7 +1130,12 @@ export class Metsani {
       if (!b) return;
       if (this.screen === 'lab') { this.lab.click(b); return; }
       if (b.id === 'btn-m-lab' || b.id === 'btn-m-setup-lab') { this.openLab(); return; }
+      if (b.id === 'btn-m-sandbox') { this.openSandbox(false); return; }
+      if (b.id === 'btn-m-sand-new') { this.persist(); this.openSandbox(true); return; }
+      if (b.id === 'btn-m-sand-back') { this.leaveSandbox(); return; }
+      if (b.dataset.force && this.sandboxMode) { this.force(b.dataset.force as 'drought' | 'storm' | 'beetle'); return; }
       if (this.screen === 'view' && this.villageView.click(b)) return;
+      if (this.screen === 'view' && this.mapView.click(b)) return;
       if (this.screen === 'view' && this.tools.click(b)) return;
       if (b.id === 'btn-m-card-give') { $('m-give').hidden = false; $('btn-m-give-yes').focus(); return; }
       if (b.id === 'btn-m-give-no') { $('m-give').hidden = true; $('btn-m-card-give').focus(); return; }
@@ -1170,9 +1242,14 @@ export class Metsani {
       choose: (c: ChoiceId) => this.choose(c),
       whatIf: () => this.openWhatIf(),
       village: () => this.villageView.open(),
+      map: () => this.mapView.open(),
+      mapState: this.mapView.debug(),
       give: () => this.giveBirch(),
       lab: this.lab.debug(),
       openLab: (id?: string) => this.openLab(id),
+      sandbox: () => this.openSandbox(false),
+      force: (k: 'drought' | 'storm' | 'beetle') => this.force(k),
+      mode: () => (this.sandboxMode ? 'sandbox' : 'own'),
       state: () => ({
         year: this.main?.f.year, p: this.p, lanes: this.lanes.length, asking: this.asking?.d.kind ?? null,
         trees: this.main?.f.trees.map(t => t.id) ?? [], results: this.main?.shown, logs: this.main?.f.logs.length,

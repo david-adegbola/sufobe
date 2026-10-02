@@ -43,6 +43,12 @@ The same guide is published as a one-page web page. This file is the copy kept w
 - Oppilas voi hoitaa metsää itse: merkitä puita kaadettaviksi, jättää puita säästöpuiksi ja istuttaa taimia. Valolinssi näyttää, mitkä puut kärsivät varjosta. Tikan vihjeet eivät pysäytä vuotta; vain uudistaminen avohakkuun jälkeen pitää päättää.
 - Pelin osoite: https://david-adegbola.github.io/sufobe/.
 
+**Kartta ja hiekkalaatikko**
+- *Kartta*-painikkeesta näkyy oppilaan metsä kymmenen naapurimetsän keskellä. Kartalla on myös järvi, tie ja kylä. Jokaiselle naapurimetsälle oppilas valitsee: hoidetaanko vai suojellaanko.
+- Jotkut eläimet tarvitsevat monta metsää: liito-orava vierekkäisiä kuusimetsiä, metso useita männiköitä ja kuukkeli vierekkäisiä vanhoja metsiä. Tie ja järvi katkaisevat yhteyden.
+- Hiekkalaatikossa (Metsänin aloitusnäkymästä) voi kokeilla vapaasti: tuoda kuivan kesän, myrskyn tai kirjanpainajat. Se ei muuta oppilaan omaa metsää.
+- Kysy: Mitkä metsät suojelisit, jotta liito-orava pysyy? Miksi vierekkäiset metsät ovat tärkeämpiä kuin hajallaan olevat?
+
 **Kylä ja hiilen lanka**
 - *Kylä*-painikkeesta (metsän alapalkissa) avautuu kylä, jossa on kuusi kohdetta: uusi talo, kahvila, koulu, kauppa, urheiluseura ja sauna. Oppilas vie niihin metsänsä tuotteita.
 - Kun tavara kuluu loppuun, oppilas päättää: korjataanko, käytetäänkö uudelleen (hirrestä pöytä, pöydästä hylly), kierrätetäänkö vai poltetaanko saunan lämmöksi. Tavarassa pysyy hiiltä niin kauan kuin se on käytössä.
@@ -110,6 +116,12 @@ The same guide is published as a one-page web page. This file is the copy kept w
 - In every forest the child's own Kasva! birch stands in the middle, with a yellow ribbon. It is never cut. After the story summers, each Kasva! summer is played for this birch, and each summer is one year in the forest.
 - Children can work the forest by hand: mark trees to cut, keep trees as retention trees, and plant seedlings. The light lens shows which trees suffer from shade. Tikka's hints no longer stop the year; only regeneration after a clearcut must be decided.
 - Game address: https://david-adegbola.github.io/sufobe/.
+
+**The map and the sandbox**
+- The *Map* button shows the child's forest among ten neighbouring forests, with a lake, a road and the village. For each neighbouring forest the child chooses: managed or protected.
+- Some animals need many forests: the flying squirrel needs neighbouring spruce forests, the capercaillie several pine forests, and the Siberian jay neighbouring old forests. The road and the lake cut the connection.
+- In the sandbox (from the Metsäni setup screen) children can try anything: bring a dry summer, a storm or bark beetles. It does not change their own forest.
+- Ask: Which forests would you protect to keep the flying squirrel? Why do neighbouring forests matter more than scattered ones?
 
 **The village and the Carbon Thread**
 - The *Village* button (in the forest's bottom bar) opens a village with six places: a new house, a café, a school, a shop, a sports club and a sauna. Children take their forest's products where they are needed.

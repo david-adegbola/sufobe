@@ -9,6 +9,7 @@ import { ACHIEVEMENTS, RANKS, STORY } from '../src/core/progress';
 import { ANIMALS, CARDS, ITEMS, PLACES, SOILS, SPECIES } from '../src/core/forest';
 import { LAB_TEXT } from '../src/app/forest/labtext';
 import { VILLAGE_TEXT } from '../src/app/forest/villagetext';
+import { MAP_TEXT } from '../src/app/forest/maptext';
 import { BUILDINGS, REUSE } from '../src/core/forest';
 import { TEXT } from '../src/app/text';
 import { FOREST_TEXT } from '../src/app/forest/text';
@@ -51,6 +52,7 @@ describe('Finnish and English say the same things', () => {
     ['Forest Atlas', ATLAS_TEXT.fi, ATLAS_TEXT.en],
     ['question cards', LAB_TEXT.fi, LAB_TEXT.en],
     ['village', VILLAGE_TEXT.fi, VILLAGE_TEXT.en],
+    ['map and sandbox', MAP_TEXT.fi, MAP_TEXT.en],
   ])('%s', (_, fi, en) => {
     expect(shapeDiff(fi, en)).toEqual([]);
   });

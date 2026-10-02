@@ -134,6 +134,10 @@ export interface Forest {
   nextId: number;
   /** the player's birch line, if this forest has one (mybirch.ts) */
   birch?: BirchInfo;
+  /** sandbox only (Phase 10): forest years when the child made a drought, a storm or a bark beetle year happen */
+  force?: { drought?: number[]; storm?: number[]; beetle?: number[] };
+  /** a sandbox forest: free planting, no questions from Tikka */
+  sandbox?: boolean;
   /** the village: what it needs, and the things in it made from this forest (village.ts, Phase 9) */
   village?: Village;
   /** seedlings the child planted by hand this year (hands.ts) */

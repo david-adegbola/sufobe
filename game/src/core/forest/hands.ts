@@ -42,9 +42,12 @@ export function toggleKeep(f: Forest, id: number): boolean {
 export const markedTrees = (f: Forest): Tree[] => f.trees.filter(t => t.marked && !t.keep);
 
 /** How many more seedlings the child may plant this year. */
+/** In the sandbox (Phase 10) a child can plant many more, but the plot still has room for only so many. */
+export const SANDBOX_PLANT_PER_YEAR = 40;
+
 export function plantsLeft(f: Forest): number {
   const p = f.handPlanted;
-  return PLANT_PER_YEAR - (p && p.year === f.year ? p.n : 0);
+  return (f.sandbox ? SANDBOX_PLANT_PER_YEAR : PLANT_PER_YEAR) - (p && p.year === f.year ? p.n : 0);
 }
 
 /** Plant one seedling at x (0..1 across the plot). Returns it, or null if none are left this year. */
