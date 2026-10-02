@@ -18,7 +18,7 @@ import type { Lang } from '../text';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
 /** Choices that send wood to the mills, and so start the sorting game. */
-export const HARVESTS = new Set<ChoiceId>(['thin', 'thinLight', 'clearcut', 'clearcutKeep', 'cc', 'removeFallen', 'removeHalf', 'removeBeetle']);
+export const HARVESTS = new Set<ChoiceId>(['cutMarked', 'thin', 'thinLight', 'clearcut', 'clearcutKeep', 'cc', 'removeFallen', 'removeHalf', 'removeBeetle']);
 /** How many trunks the child sorts by hand; the harvester does the rest. */
 const SORT_BY_HAND = 10;
 
@@ -45,6 +45,8 @@ export interface FactoryHost {
   /** the harvest is done (or cancelled): carry on with the year */
   afterChoice(): void;
   renderSheet(): void;
+  /** whether a question sheet is open behind the factory screens */
+  asking(): boolean;
 }
 
 export class Factory {
@@ -118,6 +120,8 @@ export class Factory {
     this.sorting = null;
     this.h.setOverlay(null);
     $('m-sort').hidden = true;
+    // cutting marked trees by hand has no question sheet to go back to
+    if (!this.h.asking()) return;
     $('m-decide').hidden = false;
     this.h.renderSheet();
   }

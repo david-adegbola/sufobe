@@ -2,7 +2,13 @@
 
 A one-thumb forest game for grades 4–6. You are a silver birch: hold to open your stomata and catch CO₂, save water through heatwaves and nights, and turn carbon into wood.
 
-**Status: Phase 6 (one world).** The Kasva! birch is now the first tree of your forest:
+**Status: Phase 7 (forestry by hand).** In Metsäni you now work the forest yourself:
+- **Tools:** Look, Mark, Keep and Plant. Tap trees to mark them for cutting (orange stripe) or to keep them (teal band), then press *Cut marked*. Plant up to 8 seedlings a year where you tap, or let *Plant one* find the biggest gap.
+- **Light lens:** a dot on each tree shows how well it is doing (green, yellow, red), so crowding is visible before you thin.
+- **Tikka's hints no longer stop the year.** Only regeneration after a clearcut must be answered; other questions are hints you can open, act on with the Mark tool, or leave. A hint fades after a year.
+- **Animals behave:** the moose browses, the black woodpecker drums, the spotted woodpecker hops and the treecreeper climbs (still when reduced motion is on).
+
+**Phase 6 (one world).** The Kasva! birch is now the first tree of your forest:
 - After the ten story summers, the home screen's big button plays your birch's summer. Each summer is one year in your forest, and how you play nudges that year's ring.
 - Your birch wears a yellow ribbon in the forest and is never cut. If it dies, its line passes to the nearest birch.
 - The Forest Atlas (badges, trees, animals, events in the forest, products) replaces the badge cards.
