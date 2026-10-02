@@ -54,6 +54,9 @@ export function applyZoom(f: Forest, treeId: number, storedG: number, expectedG:
   const k = Math.max(-0.4, Math.min(0.4, (ratio - 1) * 0.6));
   const ring = t.rings.at(-1) ?? 0;
   const extraMm = ring * k;
+  // remember the summer, so its ring can be found again in whatever the tree becomes (Phase 9)
+  const played = { year, mm: Math.round((ring + (Math.abs(extraMm) < 0.01 ? 0 : extraMm)) * 10) / 10 };
+  t.played = [...(t.played ?? []).filter(p => p.year !== year), played].slice(-60);
   if (Math.abs(extraMm) < 0.01) return 0;
   const sp = SPECIES[t.sp];
   const before = t.c;

@@ -162,7 +162,7 @@ export function addLog(f: Forest, t: Tree, cause: DeathCause): void {
   if (t.d < 8) return;
   f.logs.push({
     id: t.id, sp: t.sp, d: t.d, h: t.h, x: t.x, c: t.c.wood, c0: t.c.wood, year: f.year, cause,
-    born: t.born, age: t.age, rings: t.rings.slice(-150),
+    born: t.born, age: t.age, rings: t.rings.slice(-150), ...(t.played ? { played: t.played } : {}),
     // storms lay trees down; others die standing and fall later
     standing: cause !== 'storm',
   });

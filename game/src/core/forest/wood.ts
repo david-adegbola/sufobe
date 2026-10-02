@@ -19,7 +19,7 @@
  */
 import { move, type Store } from './carbon';
 import { BRANCH_SHARE, ROOT_SHARE, type SpeciesId } from './species';
-import type { Forest, HarvestEvent } from './stand';
+import type { Forest, HarvestEvent, Played } from './stand';
 
 export type ProductKind = 'sawn' | 'paper' | 'textile' | 'energy';
 export const PRODUCT_KINDS: ProductKind[] = ['sawn', 'paper', 'textile', 'energy'];
@@ -69,6 +69,11 @@ export interface TreeSnap {
   rings: number[];
   year: number;
   how: HarvestEvent['kind'];
+  /** Kasva! summers played as this tree (Phase 9) */
+  played?: Played[];
+  /** carbon in the tree when it was cut, kg, and how much of it stayed in the forest (stump, roots, branches, needles) */
+  c?: number;
+  left?: number;
 }
 
 export type ItemId = 'table' | 'beam' | 'notebook' | 'box' | 'shirt' | 'sauna';

@@ -209,6 +209,42 @@
     .btn[disabled] { opacity: 0.45; cursor: default; transform: none; }
 
 
+    /* Phase 9: the village and the Carbon Thread */
+    .vmain { display: grid; gap: 10px; }
+    #m-village-canvas { width: 100%; height: auto; border-radius: 12px; background: #9cc9e6; }
+    .vmsg { margin: 0; font: 700 1.15rem/1.2 var(--hand); color: var(--sun); min-height: 0; }
+    .vmsg:empty { display: none; }
+    .vgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+    .vneed { background: rgba(255,255,255,0.07); border: 1.5px solid var(--line); border-radius: 14px; padding: 10px 12px; display: grid; gap: 4px; align-content: start; font-size: 0.85rem; }
+    .vneed h4 { margin: 0; display: flex; gap: 8px; align-items: center; font: 800 1rem/1.1 var(--display); color: var(--paper); }
+    .vneed .bar { height: 8px; background: rgba(255,255,255,0.12); border-radius: 999px; overflow: hidden; }
+    .vneed .bar i { display: block; height: 100%; background: var(--sun); }
+    .vneed small { color: var(--muted); }
+    .vlist { display: grid; gap: 6px; }
+    .vlist:empty { display: none; }
+    .vrow { display: grid; grid-template-columns: 34px 1fr; gap: 4px 10px; align-items: center; background: rgba(255,255,255,0.06); border-radius: 12px; padding: 6px 10px; font-size: 0.85rem; }
+    .vrow svg { grid-row: span 2; }
+    .vrow .acts { grid-column: 2; display: flex; gap: 6px; flex-wrap: wrap; }
+    .vrow .acts .btn { font-size: 0.82rem; padding: 7px 12px 9px; }
+    .vrow.played { border: 1.5px solid var(--sun); }
+    .vmine { display: flex; gap: 6px; flex-wrap: wrap; }
+    .vmine:empty { display: none; }
+    #m-village h4:empty { display: none; }
+    .vthread { display: grid; gap: 10px; }
+    .vthread .tracetree canvas { width: 120px; height: 120px; }
+    .thread { list-style: none; margin: 0; padding: 0 0 0 16px; border-left: 3px solid var(--sun); display: grid; gap: 8px; }
+    .thread li { position: relative; font-size: 0.9rem; line-height: 1.35; }
+    .thread li::before { content: ""; position: absolute; left: -23.5px; top: 4px; width: 11px; height: 11px; border-radius: 50%; background: var(--deep); border: 2.5px solid var(--sun); }
+    .thread li b { font-family: var(--display); color: var(--sun); margin-right: 4px; }
+    .thread li.summer::before { background: var(--sun); }
+    .thread li.air::before { background: #9fc3d9; border-color: #9fc3d9; }
+    .nowbar { display: flex; height: 12px; border-radius: 999px; overflow: hidden; margin: 4px 0; }
+    .nb-village { background: #ffc83d; } .nb-stock { background: #f2a93b; } .nb-forest { background: #8a6845; } .nb-air { background: #9fc3d9; }
+    .nowkey { display: flex; gap: 10px; flex-wrap: wrap; font-size: 0.8rem; }
+    .nowkey i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+    .givebox { background: rgba(255, 200, 61, 0.14); border: 1.5px solid var(--sun); border-radius: 12px; padding: 8px 10px; font-size: 0.85rem; }
+    .givebox p { margin: 0 0 6px; }
+
     /* Phase 8: question cards */
     #m-lab .panel { width: min(100%, 760px); text-align: left; justify-items: stretch; }
     #m-lab h2 { margin: 0; font: 800 1.6rem/1.1 var(--display); color: var(--sun); }
@@ -695,6 +731,11 @@
       <div class="row" style="justify-content:flex-start">
         <button type="button" class="btn ghost small" id="btn-m-card-mark"></button>
         <button type="button" class="btn ghost small" id="btn-m-card-keep"></button>
+        <button type="button" class="btn ghost small" id="btn-m-card-give" hidden></button>
+      </div>
+      <div class="givebox" id="m-give" hidden role="group" aria-labelledby="m-give-q">
+        <p id="m-give-q"></p>
+        <div class="row"><button type="button" class="btn small" id="btn-m-give-yes"></button><button type="button" class="btn ghost small" id="btn-m-give-no"></button></div>
       </div>
       <button type="button" class="btn small" id="btn-m-zoom" hidden></button>
       <p class="note" id="m-zoom-note"></p>
@@ -744,6 +785,27 @@
         </div>
       </div>
     </section>
+    <section class="moverlay glass" id="m-village" hidden role="dialog" aria-labelledby="m-village-title">
+      <div class="head"><h3 id="m-village-title" tabindex="-1"></h3><button type="button" class="icon" id="btn-m-village-close">✕</button></div>
+      <div id="m-village-main" class="vmain">
+        <canvas id="m-village-canvas" width="640" height="170" aria-hidden="true"></canvas>
+        <p class="note" id="m-village-intro"></p>
+        <p class="vmsg" id="m-village-msg" role="status"></p>
+        <div class="vmine" id="m-village-mine"></div>
+        <h4 id="m-village-worn-title"></h4>
+        <div class="vlist" id="m-village-worn"></div>
+        <div class="vgrid" id="m-village-needs"></div>
+        <h4 id="m-village-use-title"></h4>
+        <div class="vlist" id="m-village-use"></div>
+      </div>
+      <div id="m-thread" class="vthread" hidden>
+        <h4 id="m-thread-title" tabindex="-1"></h4>
+        <div class="tracetree"><canvas id="m-thread-rings" width="160" height="160" aria-hidden="true"></canvas><div><p id="m-thread-tree"></p><p class="note" id="m-thread-played"></p></div></div>
+        <ol class="thread" id="m-thread-steps"></ol>
+        <div id="m-thread-now"></div>
+        <div class="row"><button type="button" class="btn small" id="btn-m-thread-back"></button></div>
+      </div>
+    </section>
     <section class="moverlay glass" id="m-quiz" hidden role="dialog" aria-labelledby="m-quiz-title">
       <h3 id="m-quiz-title" tabindex="-1"></h3>
       <p class="note" id="m-quiz-note"></p>
@@ -759,6 +821,7 @@
         <button type="button" class="icon wide" id="btn-m-jump"></button>
         <button type="button" class="icon wide whatif" id="btn-m-whatif"></button>
         <button type="button" class="icon wide" id="btn-m-lab"></button>
+        <button type="button" class="icon wide" id="btn-m-village"></button>
       </div>
       <div class="mtools" id="m-tools" role="toolbar" aria-labelledby="m-tools-label">
         <span class="sr-only" id="m-tools-label"></span>

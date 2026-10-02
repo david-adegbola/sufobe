@@ -63,7 +63,7 @@ export interface HarvestOptions {
   residues?: boolean;
 }
 
-function take(f: Forest, chosen: Tree[], kind: HarvestEvent['kind'], opt: HarvestOptions = {}): Harvest {
+export function take(f: Forest, chosen: Tree[], kind: HarvestEvent['kind'], opt: HarvestOptions = {}): Harvest {
   const out = newHarvest();
   const ids = new Set(chosen.map(t => t.id));
   for (const t of chosen) {
@@ -71,11 +71,16 @@ function take(f: Forest, chosen: Tree[], kind: HarvestEvent['kind'], opt: Harves
       toGround(f.ledger, t);
       continue;
     }
-    f.felled.push({ id: t.id, sp: t.sp, born: t.born, age: t.age, h: t.h, d: t.d, rings: t.rings.slice(-150), year: f.year, how: kind });
+    const c = t.c.wood + t.c.foliage + t.c.fine;
+    const p0 = f.ledger.stores.products;
     fell(f, {
       id: t.id, sp: t.sp, d: t.d, volume: stemVolume(SPECIES[t.sp], t.d, t.h),
       wood: t.c.wood, foliage: t.c.foliage, fine: t.c.fine,
     }, out, { bin: opt.sort?.[t.id], residues: opt.residues });
+    f.felled.push({
+      id: t.id, sp: t.sp, born: t.born, age: t.age, h: t.h, d: t.d, rings: t.rings.slice(-150), year: f.year, how: kind,
+      ...(t.played ? { played: t.played } : {}), c, left: c - (f.ledger.stores.products - p0),
+    });
     t.c = { wood: 0, foliage: 0, fine: 0 };
   }
   f.trees = f.trees.filter(t => !ids.has(t.id));
@@ -155,8 +160,12 @@ export function salvage(f: Forest, logs: Log[], opt: HarvestOptions = {}): Harve
     const stem = Math.min(l.c / (1 + BRANCH_SHARE + ROOT_SHARE), f.ledger.stores.deadwood);
     if (stem <= 0) continue;
     const fresh = f.year - l.year <= 1;
-    f.felled.push({ id: l.id, sp: l.sp, born: l.born ?? 0, age: l.age ?? 0, h: l.h, d: l.d, rings: l.rings ?? [], year: f.year, how: 'salvage' });
+    const p0 = f.ledger.stores.products;
     mill(f, 'deadwood', l.id, l.sp, l.d, stem, out, fresh && l.cause === 'storm' ? 0.7 : 0, opt.sort?.[l.id]);
+    f.felled.push({
+      id: l.id, sp: l.sp, born: l.born ?? 0, age: l.age ?? 0, h: l.h, d: l.d, rings: l.rings ?? [], year: f.year, how: 'salvage',
+      ...(l.played ? { played: l.played } : {}), c: l.c, left: l.c - (f.ledger.stores.products - p0),
+    });
     out.count++;
     out.volume += stemVolume(SPECIES[l.sp], l.d, l.h);
   }

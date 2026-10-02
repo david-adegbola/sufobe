@@ -38,6 +38,7 @@ Read `forest-model.md` first (about 15 minutes). Then:
 - [ ] **Question cards (Phase 8).** `forest-model.md`, "Phase 8", lists the 12 experiments and what the model answers. Is each answer right for Finnish forests, and is each "why" text fair? Two to look at closely:
   - Lapland pine after 50 years has only about a tenth of the southern volume (35 vs 329 m³/ha). That gap looks too large.
   - The 2080 card says pine grows more in the warmer climate. Is that a fair simplification for a child?
+- [ ] **Village (Phase 9).** Check the lifetimes in use (beam 60, table 25, shelf 15, shirt 3 and notebook or box 1 year), the repair years, and the 10 % loss when a beam becomes a table or a table a particleboard shelf (`forest-model.md`, "Phase 9"). Is "burn it for heat" a fair end for a worn thing in Finland?
 - [ ] **Neutrality.** Clear-cutting and continuous cover are offered as equal choices with honest trade-offs. Does the game take a side anywhere?
 
 ## 2. Primary teacher (grades 4–6): words and the lesson
@@ -47,6 +48,7 @@ Read `forest-model.md` first (about 15 minutes). Then:
 - [ ] **Class question.** Are the four multiple-choice questions fair, clear and unambiguous? Should any be changed?
 - [ ] **Curriculum.** Which parts of the curriculum (environmental studies, grades 3–6) does this support? We have deliberately not written objective codes; please add them if useful.
 - [ ] **Question cards.** Do children make a guess before running a card? Can they explain the result afterwards? (This is the Phase 8 gate.)
+- [ ] **The village and the Carbon Thread.** Can a child find a village thing that came from their birch, and say which summer's ring is in it? (This is the Phase 9 gate.) Is giving the birch to the village a choice children are comfortable with?
 - [ ] **Accessibility in class.** Can a child who uses a keyboard, or a screen reader, play? The forest has a spoken description, trees can be chosen with the arrow keys, and every screen works with Tab and Escape.
 
 ## 3. Forest ecologist: life and animals

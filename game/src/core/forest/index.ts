@@ -18,3 +18,4 @@ export * from './compact';
 export * from './mybirch';
 export * from './hands';
 export * from './experiments';
+export * from './village';

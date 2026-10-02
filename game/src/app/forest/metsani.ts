@@ -16,13 +16,15 @@ import type { TreeMods } from '../../core/season';
 import {
   CO2_PER_C, PLANTABLE, SOILS, SPACING, SPECIES, applyChoice, createForest, plant, presentAnimals,
   applyZoom, canZoom, results, standStats, stemVolume, stepYear,
-  yearReport, zoomSeason, ensureMyBirch, myBirch, plantMyBirch, isHint, resolveHint, type ZoomSeason,
+  yearReport, zoomSeason, ensureMyBirch, myBirch, plantMyBirch, isHint, resolveHint, canGive, giveMyBirch, type ZoomSeason,
   type AnimalId, type ChoiceId, type Decision, type Forest, type ItemId, type PlaceId, type Results, type SoilId,
   type SortBin, type SpeciesId, type Spacing, type Tree, type YearRecord, type YearReport,
 } from '../../core/forest';
 import { Factory, HARVESTS } from './factory';
 import { Tools } from './tools';
 import { Lab } from './lab';
+import { VillageView } from './villageview';
+import { VILLAGE_TEXT } from './villagetext';
 import { LAB_TEXT } from './labtext';
 import { drawTikka } from '../scene/tikka';
 import type { Lang } from '../text';
@@ -71,7 +73,7 @@ export interface Lane {
 }
 
 /** Screens that pause the forest while open. */
-export type Overlay = 'sort' | 'mills' | 'shelf' | 'quiz' | null;
+export type Overlay = 'sort' | 'mills' | 'shelf' | 'quiz' | 'village' | null;
 
 /** A question on screen: Tikka's, or the child's own "What if?". */
 interface Asking { d: Decision | { kind: 'whatif'; year: number; choices: ChoiceId[] }; lane: number }
@@ -99,6 +101,7 @@ export class Metsani {
   private factory: Factory;
   private tools: Tools;
   private lab: Lab;
+  private villageView: VillageView;
   /** years a hint has been open (it passes after one more year) */
   private hintAge = 0;
   private asking: Asking | null = null;
@@ -148,6 +151,15 @@ export class Metsani {
       done: () => this.save.lab ?? {},
       record: (id, r) => { this.save = { ...this.save, lab: { ...(this.save.lab ?? {}), [id]: r } }; storeForest(this.save); },
       exit: () => this.leaveLab(),
+    });
+    this.villageView = new VillageView({
+      lang: () => this.host.lang(),
+      t: () => this.t,
+      forest: () => this.main?.f,
+      setOverlay: (on) => { this.overlay = on ? 'village' : null; if (on) this.setPlaying(false); },
+      persist: () => this.persist(),
+      refresh: () => { const m = this.main; if (m) { m.shown = results(m.f); this.renderView(); } },
+      announce: (s) => this.host.announce(s),
     });
     const s = this.save;
     if (s.current) { this.place = s.current.place; this.soil = s.current.soil; }
@@ -336,6 +348,7 @@ export class Metsani {
   escape() {
     if (this.screen === 'lab') { this.lab.escape(); return; }
     if (this.overlay === 'quiz') return;
+    if (this.overlay === 'village') { this.villageView.escape(); return; }
     if (this.overlay === 'shelf') { if (this.factory.tracing) { this.factory.tracing = null; this.factory.renderShelf(); } else this.factory.closeShelf(); return; }
     if (this.overlay === 'mills') { this.factory.leaveMills(); return; }
     if (this.overlay === 'sort') { this.factory.cancelSort(); return; }
@@ -585,6 +598,10 @@ export class Metsani {
     // the year now playing counts as the first of the jump; stop at Tikka's questions
     this.p = 1;
     if (!this.endYear(true)) { this.showReport(); return; }
+    // a hint showing when the child jumps is left as it is (it never stops the forest);
+    // a new question on the way stops the jump, so the child still sees it
+    for (const l of this.lanes) if (l.f.pending && isHint(l.f.pending.kind)) resolveHint(l.f);
+    $('m-hint').hidden = true;
     for (let i = 0; i < years - 2; i++) {
       if (this.lanes.some(l => l.f.pending)) break;
       for (const l of this.lanes) stepYear(l.f);
@@ -713,6 +730,8 @@ export class Metsani {
     $('btn-m-whatif').textContent = t.whatIfButton;
     $('btn-m-whatif').hidden = this.comparing;
     $('btn-m-lab').textContent = LAB_TEXT[this.host.lang()].open;
+    $('btn-m-village').textContent = VILLAGE_TEXT[this.host.lang()].open;
+    $('btn-m-village').hidden = this.comparing;
     $('m-keep').hidden = !this.comparing;
     $('btn-m-keep-a').textContent = t.keepA;
     $('btn-m-keep-b').textContent = t.keepB;
@@ -927,6 +946,24 @@ export class Metsani {
     $('m-year').focus();
   }
 
+  /** Your birch becomes village things (Phase 9); the line passes to the nearest birch. */
+  private giveBirch() {
+    const m = this.main;
+    const b = m ? myBirch(m.f) : undefined;
+    if (!m || !b || this.comparing) return;
+    if (!giveMyBirch(m.f)) return;
+    const vt = VILLAGE_TEXT[this.host.lang()];
+    const made = new Map<ItemId, number>();
+    for (const r of m.f.receipts) if (r.tree === b.id) made.set(r.item, (made.get(r.item) ?? 0) + r.n);
+    const list = [...made].filter(([, n]) => n >= 0.5).sort((x, y) => (x[0] === 'sauna' ? 1 : 0) - (y[0] === 'sauna' ? 1 : 0)).map(([it, n]) => vt.count(n, it)).join(', ');
+    m.shown = results(m.f);
+    m.animals = presentAnimals(m.f);
+    this.select(null);
+    this.persist();
+    this.renderView();
+    this.villageView.open(vt.gaveBirch(list));
+  }
+
   private openWhatIf() {
     if (this.asking || this.comparing || !this.main) return;
     this.ask({ d: { kind: 'whatif', year: this.main.f.year, choices: ['thin', 'cc', 'clearcutKeep', 'nothing'] }, lane: 0 });
@@ -979,6 +1016,13 @@ export class Metsani {
     $('btn-m-card-close').setAttribute('aria-label', t.card.close);
     drawRings($<HTMLCanvasElement>('m-rings'), tree.rings);
     this.tools.renderCard(tree, lane === this.main);
+    const vt = VILLAGE_TEXT[this.host.lang()];
+    $('btn-m-card-give').hidden = !(canGive(tree) && lane === this.main && !this.comparing);
+    $('btn-m-card-give').textContent = vt.giveButton;
+    $('m-give').hidden = true;
+    $('m-give-q').textContent = vt.giveQ;
+    $('btn-m-give-yes').textContent = vt.giveYes;
+    $('btn-m-give-no').textContent = vt.giveNo;
     const zoomable = !this.comparing && lane === this.main && canZoom(tree, lane?.rec);
     $('btn-m-zoom').hidden = !zoomable;
     $('btn-m-zoom').textContent = t.zoomButton;
@@ -1019,7 +1063,11 @@ export class Metsani {
       if (!b) return;
       if (this.screen === 'lab') { this.lab.click(b); return; }
       if (b.id === 'btn-m-lab' || b.id === 'btn-m-setup-lab') { this.openLab(); return; }
+      if (this.screen === 'view' && this.villageView.click(b)) return;
       if (this.screen === 'view' && this.tools.click(b)) return;
+      if (b.id === 'btn-m-card-give') { $('m-give').hidden = false; $('btn-m-give-yes').focus(); return; }
+      if (b.id === 'btn-m-give-no') { $('m-give').hidden = true; $('btn-m-card-give').focus(); return; }
+      if (b.id === 'btn-m-give-yes') { this.giveBirch(); return; }
       if (b.id === 'btn-m-hint-choices' && this.main?.f.pending) { $('m-hint').hidden = true; this.ask({ d: this.main.f.pending, lane: 0 }); return; }
       if (b.id === 'btn-m-hint-mark') { $('m-hint').hidden = true; this.tools.setTool('mark'); $<HTMLButtonElement>('m-tools').querySelector<HTMLButtonElement>('[data-tool="mark"]')?.focus(); return; }
       if (b.id === 'btn-m-hint-later') { $('m-hint').hidden = true; if (this.main) resolveHint(this.main.f); this.persist(); return; }
@@ -1121,6 +1169,8 @@ export class Metsani {
       select: (id: number | null) => this.select(id === null ? null : { id, lane: 0 }),
       choose: (c: ChoiceId) => this.choose(c),
       whatIf: () => this.openWhatIf(),
+      village: () => this.villageView.open(),
+      give: () => this.giveBirch(),
       lab: this.lab.debug(),
       openLab: (id?: string) => this.openLab(id),
       state: () => ({
@@ -1142,7 +1192,8 @@ function face(cv: HTMLCanvasElement | null) {
 }
 
 /** The trunk's cross-section with one ring per year (widths from the model). */
-export function drawRings(cv: HTMLCanvasElement, rings: number[]) {
+/** A trunk's cross-section. `mark` holds ring indices to show in gold: the summers the child played (Phase 9). */
+export function drawRings(cv: HTMLCanvasElement, rings: number[], mark?: Set<number>) {
   const c = cv.getContext('2d')!;
   const S = cv.width;
   c.clearRect(0, 0, S, S);
@@ -1157,10 +1208,10 @@ export function drawRings(cv: HTMLCanvasElement, rings: number[]) {
   c.beginPath(); c.arc(S / 2, S / 2, R + 3, 0, Math.PI * 2); c.fill();
   let r = R;
   for (let i = rings.length - 1; i >= 0; i--) {
-    c.fillStyle = i % 2 ? '#e9c88e' : '#f3d9a8';
+    c.fillStyle = mark?.has(i) ? '#ffc83d' : i % 2 ? '#e9c88e' : '#f3d9a8';
     c.beginPath(); c.arc(S / 2, S / 2, r, 0, Math.PI * 2); c.fill();
-    c.strokeStyle = '#a57a45';
-    c.lineWidth = 1;
+    c.strokeStyle = mark?.has(i) ? '#b07a00' : '#a57a45';
+    c.lineWidth = mark?.has(i) ? 2 : 1;
     c.stroke();
     r -= (Math.max(0.2, rings[i]) / total) * R;
   }
