@@ -22,7 +22,7 @@ import { makeRng } from '../../core/rng';
 import { FrameBudget } from '../scene/budget';
 import { LAYER_EXTRA, PARALLAX, drawClouds, mix as mixHexStr, paintDepth, type Band, type DepthLayers } from './depth';
 import type { Season } from './text';
-import { STAGE_LOOK, envLook, treeStage, type EnvLook } from './visual';
+import { STAGE_LOOK, envLook, treeDetail, treeStage, type EnvLook } from './visual';
 import { drawMillSite, drawRoad, drawVillageSite, inClearing, placeBox, places, type PlaceName, type Places } from './world';
 
 export interface ForestView {
@@ -734,12 +734,16 @@ export class ForestScene {
     c.lineWidth = 2;
     c.lineCap = 'round';
     const y = groundOnScreen + 12 * (1 + (this.cam.s - 1) * PARALLAX.foreground);
-    for (let i = 0; i < 26; i++) {
+    // fewer blades on a phone, all in one stroke (level of detail)
+    const n = L.W < 520 ? 14 : 26;
+    c.beginPath();
+    for (let i = 0; i < n; i++) {
       const x = ((hash(i + 400) * L.W * 1.2 + this.cam.pan * PARALLAX.foreground) % (L.W * 1.2) + L.W * 1.2) % (L.W * 1.2) - L.W * 0.1;
       const h = 22 + hash(i + 900) * 26;
       const bend = Math.sin(time * (1.1 + hash(i) * 0.6) + i) * 5 * wind + 4;
-      c.beginPath(); c.moveTo(x, y); c.quadraticCurveTo(x + bend * 0.3, y - h * 0.6, x + bend, y - h); c.stroke();
+      c.moveTo(x, y); c.quadraticCurveTo(x + bend * 0.3, y - h * 0.6, x + bend, y - h);
     }
+    c.stroke();
   }
 
   /** Sunbeams slanting down through the canopy (screen space, soft). */
@@ -928,9 +932,11 @@ export class ForestScene {
       drawSeedling(c, t.sp, x, base, hp, season, ps, shade);
     } else {
       const trunkW = Math.max(1.2, (d / 100) * px * 1.6);
+      // level of detail: side copies and tiny far trees are drawn from fewer shapes (increment 4)
+      const lite = treeDetail(hp * this.cam.s, !main, L.W < 520, this.focusId === t.id || v.selected === t.id ? 0 : P.depth) === 'simple';
       drawTree(c, t.sp, x, base, hp, trunkW, hp * ratio, crownW, season, ps,
-        deadNow ? (cause === 'beetle' ? '#b5522f' : '#8b6a45') : null, shade, lean, t.id);
-      if (!deadNow && hp > 40) drawAge(c, t.sp, x, base, hp, trunkW, hp * ratio, crownW, season, look, t.id, lean);
+        deadNow ? (cause === 'beetle' ? '#b5522f' : '#8b6a45') : null, shade, lean, t.id, lite);
+      if (!deadNow && !lite && hp > 40) drawAge(c, t.sp, x, base, hp, trunkW, hp * ratio, crownW, season, look, t.id, lean);
     }
     if (main && !dying && (t.marked || (t.keep && !t.mine))) {
       // marked to cut: an orange paint stripe; kept: a teal band (your own birch has its yellow ribbon)
@@ -1275,7 +1281,7 @@ function darken(col: string, k: number): string {
 }
 
 function drawTree(c: CanvasRenderingContext2D, sp: SpeciesId, x: number, base: number, h: number, trunkW: number,
-  crownLen: number, crownW: number, season: Season, ps: number, deadColor: string | null, shade: number, lean: number, id: number) {
+  crownLen: number, crownW: number, season: Season, ps: number, deadColor: string | null, shade: number, lean: number, id: number, lite = false) {
   const dead = deadColor !== null;
   const topX = x + lean * h;
   const winter = season === 'winter';
@@ -1287,7 +1293,7 @@ function drawTree(c: CanvasRenderingContext2D, sp: SpeciesId, x: number, base: n
     c.beginPath();
     c.moveTo(x - trunkW / 2, base); c.lineTo(topX - trunkW * 0.15, base - h * 0.96); c.lineTo(topX + trunkW * 0.15, base - h * 0.96); c.lineTo(x + trunkW / 2, base);
     c.fill();
-    if (trunkW > 2.5) {
+    if (trunkW > 2.5 && !lite) {
       c.fillStyle = '#26221e';
       const n = Math.floor(h / 9);
       for (let i = 1; i < n; i++) {
@@ -1315,6 +1321,7 @@ function drawTree(c: CanvasRenderingContext2D, sp: SpeciesId, x: number, base: n
   }
 
   // crown
+  if (lite) { drawCrownLite(c, sp, x, topX, base, h, trunkW, crownLen, crownW, season, ps, dead ? deadCol : null, shade, id); return; }
   if (sp === 'spruce') {
     const tiers = Math.max(3, Math.min(9, Math.round(crownLen / 9)));
     const col = dead ? deadCol : darken('#2c5a3c', shade);
@@ -1392,6 +1399,77 @@ function drawTree(c: CanvasRenderingContext2D, sp: SpeciesId, x: number, base: n
       }
       c.globalAlpha /= leaves.amount;
     }
+  }
+}
+
+/**
+ * The crown from few shapes, each colour filled once (level of detail): a
+ * spruce's cone in three or four tiers, a pine's and a birch's crown in
+ * three blobs. The silhouette and the colours stay those of the full tree.
+ */
+function drawCrownLite(c: CanvasRenderingContext2D, sp: SpeciesId, x: number, topX: number, base: number, h: number, trunkW: number,
+  crownLen: number, crownW: number, season: Season, ps: number, deadColor: string | null, shade: number, id: number) {
+  const top = base - h;
+  const winter = season === 'winter';
+  if (sp === 'spruce') {
+    const tiers = crownLen > 40 ? 4 : 3;
+    c.fillStyle = deadColor ?? darken('#25503a', shade);
+    c.beginPath();
+    for (let i = 0; i < tiers; i++) {
+      const yTop = top + crownLen * (i / tiers);
+      const yBot = top + crownLen * Math.min(1, (i + 1.6) / tiers);
+      const w = crownW * (0.18 + 0.82 * ((i + 1) / tiers)) / 2;
+      const cx = topX + (x - topX) * ((yBot - top) / h);
+      c.moveTo(cx, yTop); c.lineTo(cx - w, yBot + 2); c.lineTo(cx + w, yBot + 2); c.closePath();
+    }
+    c.fill();
+    if (winter && !deadColor) {
+      c.fillStyle = 'rgba(250,252,255,0.9)';
+      c.beginPath();
+      for (let i = 0; i < tiers; i++) {
+        const yBot = top + crownLen * Math.min(1, (i + 1.6) / tiers);
+        const w = crownW * (0.18 + 0.82 * ((i + 1) / tiers)) / 2;
+        const cx = topX + (x - topX) * ((yBot - top) / h);
+        c.moveTo(cx - w * 0.7, yBot); c.lineTo(cx, yBot - Math.max(1.5, crownLen * 0.05)); c.lineTo(cx + w * 0.7, yBot); c.closePath();
+      }
+      c.fill();
+    }
+    return;
+  }
+  let color: string, amount = 1;
+  if (sp === 'pine') color = deadColor ?? darken('#3d6236', shade);
+  else {
+    const leaves = deadColor ? { color: deadColor, amount: 0.6 } : sp === 'aspen' ? aspenLeaves(season, ps) : birchLeaves(season, ps);
+    color = darken(leaves.color, shade + 0.05);
+    amount = leaves.amount;
+    if (amount < 0.5) {
+      // bare: two branches show the shape
+      c.strokeStyle = darken('#4a3c36', shade);
+      c.lineWidth = Math.max(0.8, trunkW * 0.25);
+      c.beginPath();
+      for (const side of [-1, 1]) {
+        const by = top + crownLen * (side < 0 ? 0.35 : 0.55);
+        const bx = topX + (x - topX) * ((by - top) / h);
+        c.moveTo(bx, by); c.lineTo(bx + side * crownW * 0.35, by - crownLen * 0.15);
+      }
+      c.stroke();
+    }
+  }
+  if (amount <= 0.02) return;
+  c.globalAlpha *= amount;
+  c.fillStyle = color;
+  c.beginPath();
+  for (let i = 0; i < 3; i++) {
+    const bx = topX + (hash(id * 3 + i) - 0.5) * crownW * (sp === 'pine' ? 0.7 : 0.6);
+    const by = top + crownLen * (sp === 'pine' ? 0.15 + 0.25 * i : 0.2 + 0.3 * i);
+    const rw = crownW * (sp === 'pine' ? 0.32 : 0.34), rh = Math.max(2.5, crownLen * (sp === 'pine' ? 0.18 : 0.24));
+    c.moveTo(bx + rw, by); c.ellipse(bx, by, rw, rh, 0, 0, Math.PI * 2);
+  }
+  c.fill();
+  c.globalAlpha /= amount;
+  if (winter && sp === 'pine' && !deadColor) {
+    c.fillStyle = 'rgba(250,252,255,0.85)';
+    c.beginPath(); c.ellipse(topX, top + crownLen * 0.1, crownW * 0.25, Math.max(1.2, crownLen * 0.06), 0, Math.PI, 0); c.fill();
   }
 }
 

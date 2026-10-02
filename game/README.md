@@ -2,6 +2,11 @@
 
 A one-thumb forest game for grades 4–6. You are a silver birch: hold to open your stomata and catch CO₂, save water through heatwaves and nights, and turn carbon into wood.
 
+**2.5D level of detail (increment 4).** The forest draws faster, mostly on phones:
+- **Simpler shapes where nobody looks closely:** the copies of the forest at the sides, tiny far trees and the back of the stand are drawn from fewer shapes with the same silhouette and colours. Your own trees up front, and any tree you choose, keep full detail.
+- **Phones:** fewer foreground grass blades.
+- **Measured:** about 37–39 % faster on a slow phone and 22–24 % faster on desktop, in a test browser (`docs/two-point-five-d.md`).
+
 **2.5D one world (increment 3).** The forest, the mills and the village are now one place:
 - **The road:** a forest road leaves your stand through a clearing to the mills (log yard, sawmill, pulp mill, biorefinery) and on to the village, whose windows light up as its needs are met.
 - **Travel:** after a harvest the loaded truck drives to the mills and the camera follows; the Village and products buttons, and giving your birch, travel the same way. Closing the screen brings you back to the forest. Escape or any button skips the trip.
