@@ -56,7 +56,21 @@ export class MapView {
     this.save();
     this.sel = this.sel ?? { x: land.cells.find(c => c.kind === 'home')!.x, y: land.cells.find(c => c.kind === 'home')!.y };
     this.render();
+    this.zoomOut();
     requestAnimationFrame(() => $('m-map-title').focus());
+  }
+
+  /** 2.5D, one world: start close on your own stand and zoom out to the whole landscape. */
+  private zoomOut() {
+    const grid = $('m-map-grid');
+    const home = grid.querySelector<HTMLElement>('.mapcell.home');
+    if (!home) return;
+    const g = grid.getBoundingClientRect(), h = home.getBoundingClientRect();
+    grid.style.transformOrigin = `${h.left - g.left + h.width / 2}px ${h.top - g.top + h.height / 2}px`;
+    grid.style.setProperty('--mapz', String(Math.max(1.5, Math.min(4, g.width / Math.max(1, h.width)))));
+    grid.classList.remove('zoomout');
+    void grid.offsetWidth;
+    grid.classList.add('zoomout');
   }
 
   close() {

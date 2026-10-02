@@ -2,6 +2,13 @@
 
 A one-thumb forest game for grades 4–6. You are a silver birch: hold to open your stomata and catch CO₂, save water through heatwaves and nights, and turn carbon into wood.
 
+**2.5D one world (increment 3).** The forest, the mills and the village are now one place:
+- **The road:** a forest road leaves your stand through a clearing to the mills (log yard, sawmill, pulp mill, biorefinery) and on to the village, whose windows light up as its needs are met.
+- **Travel:** after a harvest the loaded truck drives to the mills and the camera follows; the Village and products buttons, and giving your birch, travel the same way. Closing the screen brings you back to the forest. Escape or any button skips the trip.
+- **Explore:** drag along the road and tap the mills or the village to go in.
+- **Map:** opens by zooming out from your forest to the landscape.
+- **Reduced motion:** no glide or zoom; screens open straight away.
+
 **2.5D game feel (increment 2).** Actions now feel like they happen in the world:
 - **Planting:** seedlings pop up out of the soil one after another, with a puff of earth and a soft sound.
 - **Harvest:** the felled trees fall, logs pile up and a timber truck fetches them before the mills open. Escape or any button skips the show. Giving your birch plays the same scene before the village.

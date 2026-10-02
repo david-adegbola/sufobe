@@ -78,7 +78,7 @@ export interface Lane {
 }
 
 /** Screens that pause the forest while open. */
-export type Overlay = 'sort' | 'felling' | 'mills' | 'shelf' | 'quiz' | 'village' | 'map' | null;
+export type Overlay = 'sort' | 'felling' | 'travel' | 'mills' | 'shelf' | 'quiz' | 'village' | 'map' | null;
 
 /** A question on screen: Tikka's, or the child's own "What if?". */
 interface Asking { d: Decision | { kind: 'whatif'; year: number; choices: ChoiceId[] }; lane: number }
@@ -132,7 +132,7 @@ export class Metsani {
       main: () => this.main,
       lanes: () => this.lanes,
       overlay: () => this.overlay,
-      setOverlay: (v) => { this.overlay = v; },
+      setOverlay: (v) => { this.overlay = v; if (v === null) this.comeHome(); },
       spacing: () => this.spacing,
       reducedMotion: this.host.reducedMotion,
       mix: () => this.mix(),
@@ -145,7 +145,8 @@ export class Metsani {
         $('m-decide').hidden = true;
         this.tools.render();
         m.scene.focus(null);
-        m.scene.fell(trees, () => { m.scene.spawn(planted, 0.02); done(); });
+        // the loaded truck drives out along the road and the camera goes with it to the mills
+        m.scene.fell(trees, () => { m.scene.spawn(planted, 0.02); m.scene.travel('mills', 'logs', done); });
       },
     });
     this.tools = new Tools({
@@ -172,7 +173,7 @@ export class Metsani {
       lang: () => this.host.lang(),
       t: () => this.t,
       forest: () => this.main?.f,
-      setOverlay: (on) => { this.overlay = on ? 'village' : null; if (on) this.setPlaying(false); },
+      setOverlay: (on) => { this.overlay = on ? 'village' : null; if (on) this.setPlaying(false); else this.comeHome(); },
       persist: () => this.persist(),
       refresh: () => { const m = this.main; if (m) { m.shown = results(m.f); this.renderView(); } },
       announce: (s) => this.host.announce(s),
@@ -376,7 +377,8 @@ export class Metsani {
     if (this.overlay === 'village') { this.villageView.escape(); return; }
     if (this.overlay === 'map') { this.mapView.escape(); return; }
     if (this.overlay === 'shelf') { if (this.factory.tracing) { this.factory.tracing = null; this.factory.renderShelf(); } else this.factory.closeShelf(); return; }
-    if (this.overlay === 'felling') { this.main?.scene.skipFelling(); return; }
+
+    if (this.overlay === 'felling' || this.overlay === 'travel') { this.skipShow(); return; }
     if (this.overlay === 'mills') { this.factory.leaveMills(); return; }
     if (this.overlay === 'sort') { this.factory.cancelSort(); return; }
     if (this.asking && this.asking.d.kind === 'whatif') { this.closeSheet(); return; }
@@ -1039,6 +1041,30 @@ export class Metsani {
     this.host.announce(note);
   }
 
+  // ---------- one world: along the road (2.5D, increment 3) ----------
+
+  /** Travel along the road to the mills or the village, then open it. Two forests side by side open it at once. */
+  private goTo(place: 'mills' | 'village', open: () => void) {
+    const m = this.main;
+    if (!m || this.comparing) { open(); return; }
+    this.select(null);
+    this.overlay = 'travel';
+    this.setPlaying(false);
+    m.scene.travel(place, null, () => { if (this.overlay === 'travel') this.overlay = null; open(); });
+  }
+
+  /** When a screen out along the road closes, the camera goes back to the stand. */
+  private comeHome() {
+    const m = this.main;
+    if (m && !this.comparing && m.scene.away()) m.scene.travel('home', null);
+  }
+
+  /** Jump to the end of a harvest being shown, or of a trip along the road. */
+  private skipShow() {
+    this.main?.scene.skipFelling();
+    this.main?.scene.skipTravel();
+  }
+
   /** Your birch becomes village things (Phase 9); the line passes to the nearest birch. */
   private giveBirch() {
     const m = this.main;
@@ -1058,7 +1084,7 @@ export class Metsani {
     // 2.5D: the birch is felled and driven away before the village opens
     this.overlay = 'felling';
     this.setPlaying(false);
-    m.scene.fell([gone], () => this.villageView.open(vt.gaveBirch(list)));
+    m.scene.fell([gone], () => m.scene.travel('village', 'goods', () => this.villageView.open(vt.gaveBirch(list))));
   }
 
   private openWhatIf() {
@@ -1170,12 +1196,13 @@ export class Metsani {
       if (!b) return;
       if (this.screen === 'lab') { this.lab.click(b); return; }
       // while a harvest is shown, any button jumps to its end
-      if (this.overlay === 'felling') { this.main?.scene.skipFelling(); return; }
+      if (this.overlay === 'felling' || this.overlay === 'travel') { this.skipShow(); return; }
       if (b.id === 'btn-m-lab' || b.id === 'btn-m-setup-lab') { this.openLab(); return; }
       if (b.id === 'btn-m-sandbox') { this.openSandbox(false); return; }
       if (b.id === 'btn-m-sand-new') { this.persist(); this.openSandbox(true); return; }
       if (b.id === 'btn-m-sand-back') { this.leaveSandbox(); return; }
       if (b.dataset.force && this.sandboxMode) { this.force(b.dataset.force as 'drought' | 'storm' | 'beetle'); return; }
+      if (b.id === 'btn-m-village' && this.screen === 'view') { this.goTo('village', () => this.villageView.open()); return; }
       if (this.screen === 'view' && this.villageView.click(b)) return;
       if (this.screen === 'view' && this.mapView.click(b)) return;
       if (this.screen === 'view' && this.tools.click(b)) return;
@@ -1207,7 +1234,7 @@ export class Metsani {
       if (b.dataset.qa !== undefined) { this.answerQuiz(Number(b.dataset.qa)); return; }
       if (b.dataset.bin) { this.factory.setBin(Number(b.dataset.tree), b.dataset.bin as SortBin); return; }
       if (b.dataset.item) { this.factory.tracing = { item: b.dataset.item as ItemId, k: 0 }; this.factory.renderShelf(); $('m-trace-title').focus(); return; }
-      if (b.dataset.shelf !== undefined) { this.factory.openShelf(Number(b.dataset.shelf)); return; }
+      if (b.dataset.shelf !== undefined) { const n = Number(b.dataset.shelf); if (n === 0) this.goTo('mills', () => this.factory.openShelf(0)); else this.factory.openShelf(n); return; }
       if (b.dataset.result) {
         const k = b.dataset.result as ResultKey;
         const lane = Number(b.dataset.lane ?? 0);
@@ -1259,6 +1286,10 @@ export class Metsani {
     let pinch = 0;
     const tap = (x: number, y: number) => {
       if (this.tools.tap(x, y)) return;
+      // the mills and the village stand in the world too: tap them to go in
+      const place = this.comparing ? null : this.main?.scene.placeAt(x, y);
+      if (place === 'village') { this.goTo('village', () => this.villageView.open()); return; }
+      if (place === 'mills') { this.goTo('mills', () => this.factory.openShelf(0)); return; }
       for (let i = 0; i < this.lanes.length; i++) {
         const id = this.lanes[i].scene.hit(x, y);
         if (id !== null) { this.select({ id, lane: i }); return; }
@@ -1346,6 +1377,8 @@ export class Metsani {
       treeBase: (id: number) => this.main ? this.main.scene.treeBase(this.main.f, id) : null,
       camSettled: () => this.main?.scene.settled() ?? true,
       fx: () => ({ overlay: this.overlay, ...(this.main?.scene.fxInfo() ?? {}) }),
+      world: () => ({ overlay: this.overlay, away: this.main?.scene.away() ?? false, travelling: this.main?.scene.travelling() ?? false }),
+      placeScreen: (n: 'mills' | 'village') => this.main?.scene.placeScreen(n) ?? null,
     };
   }
 }
