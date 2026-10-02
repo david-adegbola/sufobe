@@ -30,6 +30,7 @@ import { VILLAGE_TEXT } from './villagetext';
 import { LAB_TEXT } from './labtext';
 import { drawTikka } from '../scene/tikka';
 import type { Lang } from '../text';
+import type { Sound } from '../audio';
 import { ForestScene, forestBudget, seasonOf } from './scene';
 import { addPast, loadForest, storeForest, type ForestSave } from './save';
 import { FOREST_TEXT } from './text';
@@ -52,6 +53,8 @@ export interface MetsaniHost {
   /** play a Kasva! summer for one birch; `done` gets the score and returns a line for the results */
   zoomIn(z: ZoomSeason, done: (storedG: number) => string): void;
   reducedMotion: boolean;
+  /** forest sounds (planting, felling, the truck, the village) */
+  sound: Pick<Sound, 'plant' | 'tag' | 'thud' | 'truck' | 'recycle' | 'give'>;
 }
 
 type TipKey = 'start' | 'results' | 'fast' | 'zoom' | 'whatIf' | 'shelf';
@@ -75,7 +78,7 @@ export interface Lane {
 }
 
 /** Screens that pause the forest while open. */
-export type Overlay = 'sort' | 'mills' | 'shelf' | 'quiz' | 'village' | 'map' | null;
+export type Overlay = 'sort' | 'felling' | 'mills' | 'shelf' | 'quiz' | 'village' | 'map' | null;
 
 /** A question on screen: Tikka's, or the child's own "What if?". */
 interface Asking { d: Decision | { kind: 'whatif'; year: number; choices: ChoiceId[] }; lane: number }
@@ -137,6 +140,13 @@ export class Metsani {
       afterChoice: () => this.afterChoice(),
       renderSheet: () => this.renderSheet(),
       asking: () => !!this.asking,
+      fell: (trees, planted, done) => {
+        const m = this.main!;
+        $('m-decide').hidden = true;
+        this.tools.render();
+        m.scene.focus(null);
+        m.scene.fell(trees, () => { m.scene.spawn(planted, 0.02); done(); });
+      },
     });
     this.tools = new Tools({
       t: () => this.t,
@@ -145,6 +155,7 @@ export class Metsani {
       setPlaying: (on) => this.setPlaying(on),
       persist: () => this.persist(),
       refresh: () => { this.renderCard(); this.describe(); },
+      tag: (keep, pan) => this.host.sound.tag(keep, pan),
       cutMarked: () => this.factory.startSort('cutMarked'),
       announce: (s) => this.host.announce(s),
     });
@@ -165,6 +176,7 @@ export class Metsani {
       persist: () => this.persist(),
       refresh: () => { const m = this.main; if (m) { m.shown = results(m.f); this.renderView(); } },
       announce: (s) => this.host.announce(s),
+      chime: (k) => { if (k === 'give') this.host.sound.give(); else this.host.sound.recycle(); },
     });
     this.mapView = new MapView({
       lang: () => this.host.lang(),
@@ -364,6 +376,7 @@ export class Metsani {
     if (this.overlay === 'village') { this.villageView.escape(); return; }
     if (this.overlay === 'map') { this.mapView.escape(); return; }
     if (this.overlay === 'shelf') { if (this.factory.tracing) { this.factory.tracing = null; this.factory.renderShelf(); } else this.factory.closeShelf(); return; }
+    if (this.overlay === 'felling') { this.main?.scene.skipFelling(); return; }
     if (this.overlay === 'mills') { this.factory.leaveMills(); return; }
     if (this.overlay === 'sort') { this.factory.cancelSort(); return; }
     if (this.asking && this.asking.d.kind === 'whatif') { this.closeSheet(); return; }
@@ -459,8 +472,10 @@ export class Metsani {
     plantMyBirch(f);
     this.save = { ...this.save, current: f, species: [...this.species], spacing: this.spacing };
     this.persist();
-    if (this.quizStage === 'before') this.askQuiz('before', () => this.showView(f));
-    else this.showView(f);
+    // 2.5D: the new seedlings pop up out of the ground one after another
+    const go = () => { this.showView(f); this.main?.scene.spawn(f.trees.map(t => t.id), Math.min(0.05, 1.5 / f.trees.length)); };
+    if (this.quizStage === 'before') this.askQuiz('before', go);
+    else go();
   }
 
   private summary(f: Forest) {
@@ -474,8 +489,11 @@ export class Metsani {
   // ---------- lanes and years ----------
 
   private newLane(f: Forest): Lane {
+    const scene = new ForestScene(this.canvas);
+    const snd = this.host.sound;
+    scene.onSound = (kind, pan) => { if (kind === 'plant') snd.plant(pan); else if (kind === 'thud') snd.thud(pan); else snd.truck(); };
     return {
-      f, scene: new ForestScene(this.canvas), prev: new Map(), dying: [], rec: f.history.at(-1),
+      f, scene, prev: new Map(), dying: [], rec: f.history.at(-1),
       before: null, shown: f.year > 0 ? results(f) : null, report: null, animals: presentAnimals(f),
     };
   }
@@ -950,7 +968,9 @@ export class Metsani {
     if (c === 'plant' && !this.planting) { this.planting = true; this.renderSheet(); return; }
     if (HARVESTS.has(c) && !this.comparing && !this.factory.sorting) { this.factory.startSort(c); return; }
     const lane = this.lanes[a.lane];
+    const had = new Set(lane.f.trees.map(t => t.id));
     applyChoice(lane.f, c, { mix: this.mix(), spacing: this.spacing });
+    lane.scene.spawn(lane.f.trees.filter(t => !had.has(t.id)).map(t => t.id), 0.02);
     if (c === 'plant') this.save = { ...this.save, species: [...this.species], spacing: this.spacing };
     this.afterChoice();
   }
@@ -1024,6 +1044,7 @@ export class Metsani {
     const m = this.main;
     const b = m ? myBirch(m.f) : undefined;
     if (!m || !b || this.comparing) return;
+    const gone = structuredClone(b);
     if (!giveMyBirch(m.f)) return;
     const vt = VILLAGE_TEXT[this.host.lang()];
     const made = new Map<ItemId, number>();
@@ -1034,7 +1055,10 @@ export class Metsani {
     this.select(null);
     this.persist();
     this.renderView();
-    this.villageView.open(vt.gaveBirch(list));
+    // 2.5D: the birch is felled and driven away before the village opens
+    this.overlay = 'felling';
+    this.setPlaying(false);
+    m.scene.fell([gone], () => this.villageView.open(vt.gaveBirch(list)));
   }
 
   private openWhatIf() {
@@ -1145,6 +1169,8 @@ export class Metsani {
       const b = (e.target as HTMLElement).closest('button');
       if (!b) return;
       if (this.screen === 'lab') { this.lab.click(b); return; }
+      // while a harvest is shown, any button jumps to its end
+      if (this.overlay === 'felling') { this.main?.scene.skipFelling(); return; }
       if (b.id === 'btn-m-lab' || b.id === 'btn-m-setup-lab') { this.openLab(); return; }
       if (b.id === 'btn-m-sandbox') { this.openSandbox(false); return; }
       if (b.id === 'btn-m-sand-new') { this.persist(); this.openSandbox(true); return; }
@@ -1319,6 +1345,7 @@ export class Metsani {
       }),
       treeBase: (id: number) => this.main ? this.main.scene.treeBase(this.main.f, id) : null,
       camSettled: () => this.main?.scene.settled() ?? true,
+      fx: () => ({ overlay: this.overlay, ...(this.main?.scene.fxInfo() ?? {}) }),
     };
   }
 }

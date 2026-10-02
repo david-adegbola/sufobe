@@ -241,6 +241,14 @@
     /* Phase 9: the village and the Carbon Thread */
     .vmain { display: grid; gap: 10px; }
     #m-village-canvas { width: 100%; height: auto; border-radius: 12px; background: #9cc9e6; }
+    .vstage { position: relative; }
+    .vfx { position: absolute; left: 50%; top: 50%; display: flex; gap: 8px; align-items: center; padding: 8px 14px; border-radius: 999px;
+      background: rgba(20,32,26,0.86); color: var(--paper); font: 800 1rem/1 var(--display); white-space: nowrap; opacity: 0; pointer-events: none; transform: translate(-50%, -50%); }
+    .vfx.go { animation: vfx 1.9s ease-out both; }
+    .vfx b { color: var(--sun); }
+    @keyframes vfx { 0% { opacity: 0; transform: translate(-50%, -20%) scale(0.8); } 15% { opacity: 1; transform: translate(-50%, -50%) scale(1.06); }
+      25% { transform: translate(-50%, -50%) scale(1); } 75% { opacity: 1; transform: translate(-50%, -50%); } 100% { opacity: 0; transform: translate(-50%, -90%); } }
+    @media (prefers-reduced-motion: reduce) { .vfx.go { animation: none; opacity: 0; } }
     .vmsg { margin: 0; font: 700 1.15rem/1.2 var(--hand); color: var(--sun); min-height: 0; }
     .vmsg:empty { display: none; }
     .vgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
@@ -823,7 +831,7 @@
     <section class="moverlay glass" id="m-village" hidden role="dialog" aria-labelledby="m-village-title">
       <div class="head"><h3 id="m-village-title" tabindex="-1"></h3><button type="button" class="icon" id="btn-m-village-close">✕</button></div>
       <div id="m-village-main" class="vmain">
-        <canvas id="m-village-canvas" width="640" height="170" aria-hidden="true"></canvas>
+        <div class="vstage"><canvas id="m-village-canvas" width="640" height="170" aria-hidden="true"></canvas><div class="vfx" id="m-village-fx" aria-hidden="true"></div></div>
         <p class="note" id="m-village-intro"></p>
         <p class="vmsg" id="m-village-msg" role="status"></p>
         <div class="vmine" id="m-village-mine"></div>

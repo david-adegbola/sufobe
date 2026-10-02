@@ -161,6 +161,70 @@ export class Sound {
 
   dawn() { this.warbler(0.3); }
 
+  // ---------- forest actions (2.5D, increment 2): short, soft, never shrill ----------
+
+  /** Filtered noise with a quick attack and a fall: thuds, puffs and rumbles. */
+  private burst(freq: number, dur: number, vol: number, pan = 0, type: BiquadFilterType = 'lowpass', when = 0) {
+    const c = this.ctx;
+    if (!c || !this.noise) return;
+    const at = c.currentTime + when;
+    const s = c.createBufferSource(); s.buffer = this.noise;
+    const f = c.createBiquadFilter(); f.type = type; f.frequency.value = freq;
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, at);
+    g.gain.exponentialRampToValueAtTime(vol, at + Math.min(0.03, dur * 0.2));
+    g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    const p = c.createStereoPanner(); p.pan.value = pan;
+    s.connect(f).connect(g).connect(p).connect(this.master);
+    s.start(at, Math.random()); s.stop(at + dur + 0.05);
+  }
+
+  /** A seedling goes into the ground: a puff of soil and a low string. */
+  plant(pan = 0) {
+    if (!this.ctx || !this.plucks.length) return;
+    this.burst(900, 0.18, 0.12, pan);
+    this.play(this.plucks[3], 0.3, 0.05, pan);
+  }
+
+  /** Paint on a trunk (marked) or a band around it (kept). */
+  tag(keep: boolean, pan = 0) {
+    if (!this.ctx || !this.plucks.length) return;
+    this.play(this.plucks[keep ? 6 : 8], 0.25, 0, pan);
+  }
+
+  /** A felled tree lands: a soft, deep thud. */
+  thud(pan = 0) {
+    this.burst(140, 0.45, 0.35, pan);
+    this.burst(400, 0.15, 0.08, pan, 'bandpass', 0.02);
+  }
+
+  /** The timber truck: a low rumble that swells and fades. */
+  truck(dur = 2.4) {
+    const c = this.ctx;
+    if (!c || !this.noise) return;
+    const at = c.currentTime;
+    const s = c.createBufferSource(); s.buffer = this.noise; s.loop = true;
+    const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 160;
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, at);
+    g.gain.exponentialRampToValueAtTime(0.22, at + dur * 0.35);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    s.connect(f).connect(g).connect(this.master);
+    s.start(at); s.stop(at + dur + 0.05);
+  }
+
+  /** Something made again from old material: three rising strings. */
+  recycle() {
+    if (!this.ctx || !this.plucks.length) return;
+    [4, 7, 9].forEach((n, i) => this.play(this.plucks[n], 0.3, i * 0.09));
+  }
+
+  /** Things handed over in the village: a small chime. */
+  give() {
+    if (!this.ctx || !this.plucks.length) return;
+    this.play(this.plucks[7], 0.3); this.play(this.plucks[10], 0.25, 0.08);
+  }
+
   /** A new badge: a bright two-string chime. */
   badge() {
     if (!this.ctx) return;
