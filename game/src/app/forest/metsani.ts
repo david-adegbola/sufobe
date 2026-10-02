@@ -754,6 +754,11 @@ export class Metsani {
     $('btn-m-village').textContent = VILLAGE_TEXT[this.host.lang()].open;
     $('btn-m-village').hidden = this.comparing;
     $('btn-m-map').textContent = MAP_TEXT[this.host.lang()].open;
+    $('m-cam').setAttribute('aria-label', t.cam.label);
+    $('btn-m-cam-in').setAttribute('aria-label', t.cam.zoomIn);
+    $('btn-m-cam-out').setAttribute('aria-label', t.cam.zoomOut);
+    $('btn-m-cam-home').setAttribute('aria-label', t.cam.home);
+    $('m-cam').hidden = this.comparing;
     $('btn-m-map').hidden = this.comparing || this.sandboxMode;
     $('btn-m-village').hidden = this.comparing || this.sandboxMode;
     const mt = MAP_TEXT[this.host.lang()];
@@ -953,6 +958,7 @@ export class Metsani {
   /** "What if?": copy the forest, give each copy one of the two choices, and play them side by side. */
   private startCompare(ca: ChoiceId, cb: ChoiceId) {
     const a = this.main!;
+    a.scene.resetCamera();
     const twin = this.newLane(structuredClone(a.f));
     twin.rec = a.rec;
     twin.shown = a.shown;
@@ -1052,7 +1058,17 @@ export class Metsani {
 
   private select(sel: { id: number; lane: number } | null) {
     this.selected = sel;
+    // 2.5D: the camera gently moves to the chosen tree, and back out when it is let go
+    if (!this.comparing) this.main?.scene.focus(sel ? sel.id : null);
     this.renderCard();
+  }
+
+  /** Camera buttons and keys: closer, further away, the whole forest. */
+  private camera(what: 'in' | 'out' | 'home') {
+    const s = this.main?.scene;
+    if (!s || this.comparing) return;
+    if (what === 'home') { this.select(null); s.resetCamera(); return; }
+    s.zoomBy(what === 'in' ? 1.25 : 0.8);
   }
 
   private renderCard() {
@@ -1137,6 +1153,9 @@ export class Metsani {
       if (this.screen === 'view' && this.villageView.click(b)) return;
       if (this.screen === 'view' && this.mapView.click(b)) return;
       if (this.screen === 'view' && this.tools.click(b)) return;
+      if (b.id === 'btn-m-cam-in') { this.camera('in'); return; }
+      if (b.id === 'btn-m-cam-out') { this.camera('out'); return; }
+      if (b.id === 'btn-m-cam-home') { this.camera('home'); return; }
       if (b.id === 'btn-m-card-give') { $('m-give').hidden = false; $('btn-m-give-yes').focus(); return; }
       if (b.id === 'btn-m-give-no') { $('m-give').hidden = true; $('btn-m-card-give').focus(); return; }
       if (b.id === 'btn-m-give-yes') { this.giveBirch(); return; }
@@ -1208,20 +1227,63 @@ export class Metsani {
       if (el.id === 'm-residues' && this.factory.sorting) this.factory.sorting.residues = el.checked;
       if (el.id === 'm-recycle' && this.factory.shelfLane()) { this.factory.shelfLane()!.f.recycle = el.checked; this.persist(); this.factory.renderShelf(); }
     });
-    this.canvas.addEventListener('pointerdown', (e) => {
-      if (!this.active || this.screen !== 'view') return;
-      const r = this.canvas.getBoundingClientRect();
-      if (this.tools.tap(e.clientX - r.left, e.clientY - r.top)) return;
+    // a tap picks a tree or uses a tool; a drag moves through the forest; two fingers (or the wheel) zoom
+    const pointers = new Map<number, { x: number; y: number; x0: number; y0: number }>();
+    let dragged = false;
+    let pinch = 0;
+    const tap = (x: number, y: number) => {
+      if (this.tools.tap(x, y)) return;
       for (let i = 0; i < this.lanes.length; i++) {
-        const id = this.lanes[i].scene.hit(e.clientX - r.left, e.clientY - r.top);
+        const id = this.lanes[i].scene.hit(x, y);
         if (id !== null) { this.select({ id, lane: i }); return; }
       }
       this.select(null);
+    };
+    this.canvas.addEventListener('pointerdown', (e) => {
+      if (!this.active || this.screen !== 'view') return;
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY });
+      if (pointers.size === 1) dragged = false;
+      if (pointers.size === 2) { const [a, b] = [...pointers.values()]; pinch = Math.hypot(a.x - b.x, a.y - b.y); dragged = true; }
+      try { this.canvas.setPointerCapture(e.pointerId); } catch { /* synthetic events */ }
     });
+    this.canvas.addEventListener('pointermove', (e) => {
+      const p = pointers.get(e.pointerId);
+      if (!p || !this.active || this.screen !== 'view' || this.comparing) return;
+      const dx = e.clientX - p.x;
+      p.x = e.clientX; p.y = e.clientY;
+      if (pointers.size === 2) {
+        const [a, b] = [...pointers.values()];
+        const d = Math.hypot(a.x - b.x, a.y - b.y);
+        if (pinch > 0 && d > 0) this.main?.scene.zoomBy(d / pinch);
+        pinch = d;
+        return;
+      }
+      if (!dragged && Math.hypot(e.clientX - p.x0, e.clientY - p.y0) < 8) return;
+      if (!dragged) { dragged = true; this.canvas.classList.add('dragging'); }
+      this.main?.scene.panBy(dx);
+    });
+    const up = (e: PointerEvent) => {
+      const p = pointers.get(e.pointerId);
+      pointers.delete(e.pointerId);
+      if (pointers.size === 0) this.canvas.classList.remove('dragging');
+      if (!p || dragged || !this.active || this.screen !== 'view') return;
+      const r = this.canvas.getBoundingClientRect();
+      tap(p.x0 - r.left, p.y0 - r.top);
+    };
+    this.canvas.addEventListener('pointerup', up);
+    this.canvas.addEventListener('pointercancel', (e) => { pointers.delete(e.pointerId); dragged = true; this.canvas.classList.remove('dragging'); });
+    this.canvas.addEventListener('wheel', (e) => {
+      if (!this.active || this.screen !== 'view' || this.comparing) return;
+      e.preventDefault();
+      this.main?.scene.zoomBy(e.deltaY < 0 ? 1.1 : 0.9);
+    }, { passive: false });
     this.canvas.addEventListener('keydown', (e) => {
       if (!this.active || this.screen !== 'view') return;
       if (e.key === 'ArrowRight') { e.preventDefault(); this.cycle(1); }
       if (e.key === 'ArrowLeft') { e.preventDefault(); this.cycle(-1); }
+      if (e.key === '+' || e.key === '=') { e.preventDefault(); this.camera('in'); }
+      if (e.key === '-') { e.preventDefault(); this.camera('out'); }
+      if (e.key === '0') { e.preventDefault(); this.camera('home'); }
     });
     window.addEventListener('keydown', (e) => {
       if (!this.active || this.screen !== 'view' || this.asking || this.overlay) return;
@@ -1256,6 +1318,7 @@ export class Metsani {
         seen: this.main?.f.seen, report: this.main?.report?.cause,
       }),
       treeBase: (id: number) => this.main ? this.main.scene.treeBase(this.main.f, id) : null,
+      camSettled: () => this.main?.scene.settled() ?? true,
     };
   }
 }

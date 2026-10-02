@@ -1,7 +1,14 @@
 /**
- * The Metsäni forest view, drawn in the same flat poster style as Kasva!:
- * the stand from the side, each tree at its real height and age, the season,
- * and a cut through the soil showing its texture, the water and the roots.
+ * The Metsäni forest view, drawn in the same poster style as Kasva!: the
+ * stand from the side, each tree at its real height and age, the season, and
+ * a cut through the soil showing its texture, the water and the roots.
+ *
+ * 2.5D: the stand sits in a deep landscape (depth.ts): clouds, two mountain
+ * ridges, a far and a mid forest and haze behind it, grass and stones in
+ * front, each layer moving with the camera at its own rate (parallax). A
+ * camera can pan, zoom and gently focus on a chosen tree. Trees cast
+ * shadows, sway in the wind, and far ones fade into the haze. How things look
+ * comes from the simulation through visual.ts (tree stage, season, weather).
  *
  * Species are drawn to be recognisable at a glance (forest-sim style bible):
  * spruce a dark cone of drooping tiers; pine with orange upper bark and a
@@ -13,7 +20,9 @@ import {
 } from '../../core/forest';
 import { makeRng } from '../../core/rng';
 import { FrameBudget } from '../scene/budget';
+import { LAYER_EXTRA, PARALLAX, drawClouds, mix as mixHexStr, paintDepth, type Band, type DepthLayers } from './depth';
 import type { Season } from './text';
+import { STAGE_LOOK, envLook, treeStage, type EnvLook } from './visual';
 
 export interface ForestView {
   forest: Forest;
@@ -39,7 +48,8 @@ export function seasonOf(p: number): { season: Season; ps: number } {
   return { season: (['spring', 'summer', 'autumn', 'winter'] as const)[i], ps: p * 4 - i };
 }
 
-interface Hit { id: number; x0: number; y0: number; x1: number; y1: number }
+/** Where a tree can be tapped: its trunk (checked first) and its crown. */
+interface Hit { id: number; x0: number; y0: number; x1: number; y1: number; tx0: number; tx1: number; ty0: number; cx: number; base: number }
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
@@ -70,9 +80,21 @@ export class ForestScene {
   private vx = 0;
   private vy = 0;
   private dpr = 1;
-  private hills: HTMLCanvasElement | null = null;
-  private hillsKey = '';
+  private layers: DepthLayers | null = null;
+  private layersKey = '';
+  private soilBase: HTMLCanvasElement | null = null;
+  /** sky, sun, mountains, distant forests and haze, composed once and reused while the camera is still */
+  private bg: HTMLCanvasElement | null = null;
+  private bgKey = '';
+  private soilKey = '';
   private hits: Hit[] = [];
+  /** the camera: pan (css px), vertical shift, zoom; eased towards the target each frame */
+  private cam = { pan: 0, panY: 0, s: 1 };
+  private userPan = 0;
+  private userZoom = 1;
+  private focusId: number | null = null;
+  /** this frame's look of the world, from visual.ts */
+  private env: EnvLook | null = null;
   /** space kept free for the HTML bars at the top and bottom, CSS px */
   insetTop = 70;
   insetBottom = 190;
@@ -90,13 +112,80 @@ export class ForestScene {
     this.canvas.height = Math.round(this.H * this.dpr);
     this.vx = 0;
     this.vy = 0;
-    this.hillsKey = '';
+    this.layersKey = '';
+    this.soilKey = '';
+    this.bgKey = '';
   }
+
+  // ---------- the camera ----------
+
+  /** Slide the view sideways (css px), as when a finger drags across the forest. */
+  panBy(dx: number) {
+    this.focusId = null;
+    this.userPan += dx;
+  }
+
+  /** Zoom in (> 1) or out (< 1), between the whole stand and a close look. */
+  zoomBy(k: number) {
+    this.focusId = null;
+    this.userZoom = Math.max(1, Math.min(2.6, this.userZoom * k));
+    if (this.userZoom === 1) this.userPan *= 0.5;
+  }
+
+  /** Gently move to one tree (its id), or back to the whole forest (null). */
+  focus(id: number | null) {
+    this.focusId = id;
+    if (id === null) { this.userZoom = 1; this.userPan = 0; }
+  }
+
+  /** Back to the whole stand, as it was. */
+  resetCamera() { this.focusId = null; this.userZoom = 1; this.userPan = 0; }
+
+  /** True when the camera has arrived where it is going (tests wait for this). */
+  settled(): boolean {
+    const t = this.camTarget;
+    return Math.abs(t.pan - this.cam.pan) < 0.5 && Math.abs(t.panY - this.cam.panY) < 0.5 && Math.abs(t.s - this.cam.s) < 0.003;
+  }
+
+  private camTarget = { pan: 0, panY: 0, s: 1 };
+
+  private updateCamera(L: ReturnType<ForestScene['layout']>, f: Forest, dt: number, reduced: boolean) {
+    const avail = Math.max(80, L.groundY - this.insetTop);
+    let s = this.userZoom;
+    let pan = this.userPan;
+    let panY = (s - 1) * avail * 0.35;
+    const t = this.focusId !== null ? f.trees.find(x => x.id === this.focusId) : undefined;
+    if (t) {
+      const P = this.place(L, t, 0);
+      const hp = Math.max(6, t.h * L.px * P.s);
+      s = Math.max(1.2, Math.min(2.4, (avail * 0.55) / hp));
+      // on a phone the tree card covers much of the view: move gently, zoom only a little
+      if (L.W < 520) s = Math.min(s, 1.35);
+      // keep the tree clear of the tree card on wide screens
+      const tx = L.W > 760 ? (L.W - 340) / 2 : L.W / 2;
+      pan = tx - P.x * s - (L.W / 2) * (1 - s);
+      const mid = P.base - hp * 0.5;
+      panY = this.insetTop + avail * 0.5 - L.groundY - (mid - L.groundY) * s;
+    }
+    const maxPan = L.plotW * s * 0.8 + L.W * 0.2;
+    pan = Math.max(-maxPan, Math.min(maxPan, pan));
+    if (!t) this.userPan = Math.max(-maxPan, Math.min(maxPan, this.userPan));
+    this.camTarget = { pan, panY, s };
+    // ease gently; with reduced motion, go straight there
+    const k = reduced ? 1 : Math.min(1, dt * 2.6);
+    this.cam.pan += (pan - this.cam.pan) * k;
+    this.cam.panY += (panY - this.cam.panY) * k;
+    this.cam.s += (s - this.cam.s) * k;
+  }
+
+  /** The world-to-screen offset of the stand (css px, inside the viewport). */
+  private camX(L: { W: number }) { return (L.W / 2) * (1 - this.cam.s) + this.cam.pan; }
+  private camY(L: { groundY: number }) { return L.groundY * (1 - this.cam.s) + this.cam.panY; }
 
   /** Draw into part of the canvas only (CSS px). Call after the canvas has its size. */
   setViewport(x: number, y: number, w: number, h: number) {
     this.dpr = forestBudget.dpr();
-    if (w !== this.W || h !== this.H) { this.hillsKey = ''; this.zoom = 0; }
+    if (w !== this.W || h !== this.H) { this.layersKey = ''; this.soilKey = ''; this.zoom = 0; }
     this.vx = x; this.vy = y; this.W = w; this.H = h;
   }
 
@@ -112,7 +201,8 @@ export class ForestScene {
     const px = this.zoom || 20;
     const plotW = 20 * px;
     const plotX = (W - plotW) / 2;
-    return { W, H, soilH, groundY, depthBand, px, plotW, plotX };
+    // the part of the world on screen (world x), set by the camera in draw()
+    return { W, H, soilH, groundY, depthBand, px, plotW, plotX, x0: 0, x1: W };
   }
 
   /** Zoom so the tallest tree fills the space between the bars. */
@@ -144,6 +234,17 @@ export class ForestScene {
     x -= this.vx;
     y -= this.vy;
     if (x < 0 || y < 0 || x > this.W || y > this.H) return null;
+    const L = this.layout();
+    x = (x - this.camX(L)) / this.cam.s;
+    y = (y - this.camY(L)) / this.cam.s;
+    // a trunk under the finger wins: the one closest to the finger, so in a dense stand the tree you point at is the one you get
+    let best: Hit | null = null, bestD = Infinity;
+    for (const h of this.hits) {
+      if (x < h.tx0 || x > h.tx1 || y < h.ty0 || y > h.y1) continue;
+      const d = Math.abs(x - h.cx) + 0.25 * Math.abs(y - (h.base - 6));
+      if (d < bestD) { bestD = d; best = h; }
+    }
+    if (best) return best.id;
     for (let i = this.hits.length - 1; i >= 0; i--) {
       const h = this.hits[i];
       if (x >= h.x0 && x <= h.x1 && y >= h.y0 && y <= h.y1) return h.id;
@@ -154,7 +255,8 @@ export class ForestScene {
   /** Where across the plot a point is (CSS px), 0..1, or null outside the plot. */
   plotFraction(x: number): number | null {
     const L = this.layout();
-    const f = (x - this.vx - L.W / 2) / L.plotW + 0.5;
+    const wx = (x - this.vx - this.camX(L)) / this.cam.s;
+    const f = (wx - L.W / 2) / L.plotW + 0.5;
     return f >= 0 && f <= 1 ? f : null;
   }
 
@@ -162,67 +264,202 @@ export class ForestScene {
   treeBase(f: Forest, id: number): { x: number; y: number } | null {
     const t = f.trees.find(tr => tr.id === id);
     if (!t) return null;
-    const P = this.place(this.layout(), t, 0);
-    return { x: P.x + this.vx, y: P.base + this.vy };
+    const L = this.layout();
+    const P = this.place(L, t, 0);
+    return { x: P.x * this.cam.s + this.camX(L) + this.vx, y: P.base * this.cam.s + this.camY(L) + this.vy };
   }
 
   draw(v: ForestView, dt = 0) {
     const c = this.c;
     this.updateZoom(v.forest, dt);
-    const L = this.layout();
+    const L0 = this.layout();
     const { season, ps } = seasonOf(v.p);
     const f = v.forest;
     const drought = !!v.rec?.weather.drought;
+    const env = this.env = envLook(season, ps, v.rec);
+    this.updateCamera(L0, f, dt, v.reducedMotion);
+    const s = this.cam.s;
+    const cx = this.camX(L0), cy = this.camY(L0);
+    // the part of the world on screen
+    const L = { ...L0, x0: -cx / s - 2, x1: (L0.W - cx) / s + 2 };
+    const floorTop = L.groundY - L.depthBand;
+    const time = v.reducedMotion ? 0 : v.time;
     c.setTransform(this.dpr, 0, 0, this.dpr, this.dpr * this.vx, this.dpr * this.vy);
     c.save();
     c.beginPath(); c.rect(0, 0, L.W, L.H); c.clip();
 
-    // sky
-    const [top, bottom] = SKIES[season];
-    const g = c.createLinearGradient(0, 0, 0, L.groundY);
-    g.addColorStop(0, top);
-    g.addColorStop(1, drought && season === 'summer' ? '#f3dcb0' : bottom);
-    c.fillStyle = g;
-    c.fillRect(0, 0, L.W, L.groundY + 2);
-    this.drawSun(L, season);
+    // ---- far away: sky, sun, mountains, distant forests and haze (cached), then drifting clouds ----
+    const groundOnScreen = L.groundY * s + cy;
+    this.ensureLayers(L, season, f.place === 'lapland', env.haze);
+    const bgKey = `${this.layersKey}|${this.cam.pan.toFixed(1)}|${this.cam.panY.toFixed(1)}|${s.toFixed(3)}|${drought}|${env.tint}|${this.insetTop}`;
+    if (bgKey !== this.bgKey || !this.bg) { this.bgKey = bgKey; this.paintBackground(L, season, drought, env, groundOnScreen, floorTop * s + cy); }
+    c.drawImage(this.bg!, 0, 0, L.W, L.H);
+    drawClouds(c, L.W, this.insetTop, Math.max(this.insetTop + 40, floorTop * s + cy - L.H * 0.3), time, this.cam.pan * PARALLAX.clouds, season);
 
-    // distant hills (a fell in Lapland)
-    this.paintHills(L, f.place === 'lapland');
-    if (this.hills) c.drawImage(this.hills, 0, 0, L.W, L.H);
-    c.fillStyle = season === 'winter' ? 'rgba(238,244,250,0.45)' : season === 'autumn' ? 'rgba(220,150,70,0.12)' : 'rgba(0,0,0,0)';
-    c.fillRect(0, 0, L.W, L.groundY);
-
-    // the forest floor: a plane going back into the plot
+    // ---- the stand, under the camera ----
+    c.save();
+    c.translate(cx, cy);
+    c.scale(s, s);
     const snow = snowCover(v.p, f.place);
-    const floorTop = L.groundY - L.depthBand;
     const fg = c.createLinearGradient(0, floorTop, 0, L.groundY);
     fg.addColorStop(0, darken(floorColor(season, ps, drought), 0.25));
     fg.addColorStop(1, floorColor(season, ps, drought));
     c.fillStyle = fg;
-    c.fillRect(0, floorTop, L.W, L.depthBand + 3);
+    c.fillRect(L.x0, floorTop, L.x1 - L.x0, L.depthBand + 3);
     this.drawFloor(L, f, season, snow, drought);
     this.drawLogs(L, v, season);
 
-    // the stand, far trees first; the same forest continues faintly at the sides
+    // far trees first; the same forest continues at the sides
     const rd = relativeDensity(f.trees);
     const g01 = clamp01((v.p - 0.25) / 0.25);
     const all = [...f.trees, ...v.dying.filter(d => !f.trees.some(t => t.id === d.id))];
     const sorted = all.sort((a, b) => depthOf(b.id) - depthOf(a.id) || a.x - b.x);
     this.hits = [];
-    const tiles = Math.ceil((L.W / Math.max(1, L.plotW)) / 2) + 1;
+    const kMin = Math.floor((L.x0 - L.W / 2) / L.plotW) - 1;
+    const kMax = Math.ceil((L.x1 - L.W / 2) / L.plotW) + 1;
+    this.drawShadows(L, sorted, v, season, kMin, kMax);
     for (const t of sorted) {
-      for (let k = -tiles; k <= tiles; k++) if (k !== 0) this.drawOne(L, t, v, k * L.plotW, season, ps, g01, rd, false);
+      for (let k = kMin; k <= kMax; k++) if (k !== 0) this.drawOne(L, t, v, k * L.plotW, season, ps, g01, rd, false);
       this.drawOne(L, t, v, 0, season, ps, g01, rd, true);
     }
 
-    // the soil cutaway
+    // the soil cutaway, and the animals that live here now
     this.drawSoil(L, v, season, ps);
-
-    // animals that live here now
     if (v.animals?.length) this.drawAnimals(L, v, season);
+    c.restore();
 
-    // falling snow or leaves
-    if (!v.reducedMotion) this.drawParticles(L, season, ps, v.time);
+    // ---- close by: grass, ferns, stones; light, fog and weather ----
+    this.drawLayer(L, this.layers!.foreground, PARALLAX.foreground, L.groundY + 12 - this.layers!.fgH);
+    if (!v.reducedMotion) this.drawBlades(L, season, time, env.wind, groundOnScreen);
+    if (env.beams > 0) this.drawBeams(L, env.beams, groundOnScreen);
+    if (env.fog > 0) {
+      const fy = floorTop * s + cy;
+      const fogG = c.createLinearGradient(0, fy - 70, 0, groundOnScreen);
+      fogG.addColorStop(0, 'rgba(236,240,238,0)');
+      fogG.addColorStop(0.6, `rgba(236,240,238,${0.55 * env.fog})`);
+      fogG.addColorStop(1, `rgba(236,240,238,${0.25 * env.fog})`);
+      c.fillStyle = fogG;
+      c.fillRect(0, fy - 70, L.W, groundOnScreen - fy + 70);
+    }
+    if (!v.reducedMotion) this.drawParticles(L, season, ps, v.time, env.rain, groundOnScreen);
+    c.restore();
+  }
+
+  /** Compose the far background into one image: redrawn only when the camera, the view or the season changes. */
+  private paintBackground(L: ReturnType<ForestScene['layout']>, season: Season, drought: boolean, env: EnvLook, groundOnScreen: number, horizon: number) {
+    if (!this.bg) this.bg = document.createElement('canvas');
+    const cw = Math.round(L.W * this.dpr), ch = Math.round(L.H * this.dpr);
+    if (this.bg.width !== cw || this.bg.height !== ch) { this.bg.width = cw; this.bg.height = ch; }
+    const main = this.c;
+    const c = this.c = this.bg.getContext('2d')!;
+    c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    c.clearRect(0, 0, L.W, L.H);
+    const [top, bottom] = SKIES[season];
+    // the season's light is mixed into the sky itself
+    const g = c.createLinearGradient(0, 0, 0, Math.max(10, groundOnScreen));
+    g.addColorStop(0, mixHexStr(top, env.tint, env.tintAlpha * 2));
+    g.addColorStop(1, mixHexStr(drought && season === 'summer' ? '#f3dcb0' : bottom, env.tint, env.tintAlpha * 2));
+    c.fillStyle = g;
+    c.fillRect(0, 0, L.W, Math.min(L.H, groundOnScreen + 4));
+    this.drawSun(L, season, this.cam.pan * 0.02);
+    const ly = this.layers!;
+    this.drawLayer(L, ly.farRidge, PARALLAX.farRidge);
+    this.drawLayer(L, ly.nearRidge, PARALLAX.nearRidge);
+    this.drawLayer(L, ly.farForest, PARALLAX.farForest);
+    // haze lying along the horizon, so the far layers fade into the air
+    const hz = c.createLinearGradient(0, horizon - L.H * 0.14, 0, horizon + 4);
+    hz.addColorStop(0, hexA(env.haze, 0));
+    hz.addColorStop(1, hexA(env.haze, 0.55));
+    c.fillStyle = hz;
+    c.fillRect(0, horizon - L.H * 0.14, L.W, L.H * 0.14 + 4);
+    this.drawLayer(L, ly.midForest, PARALLAX.midForest);
+    this.c = main;
+  }
+
+  /** Paint the depth layers again when the view, the season or the place changes. */
+  private ensureLayers(L: ReturnType<ForestScene['layout']>, season: Season, fell: boolean, haze: string) {
+    const key = `${L.W}x${L.H}:${Math.round(L.groundY)}:${Math.round(L.depthBand)}:${season}:${fell}:${haze}:${this.dpr}`;
+    if (key === this.layersKey && this.layers) return;
+    this.layersKey = key;
+    this.layers = paintDepth(L.W, L.H, L.groundY - L.depthBand, L.groundY, season, fell, haze, this.dpr);
+  }
+
+  /**
+   * One depth layer: it moves `k` times as much as the stand when the camera
+   * pans and zooms (parallax). Repeated sideways so its edge never shows.
+   */
+  private drawLayer(L: ReturnType<ForestScene['layout']>, band: Band, k: number, y = band.y) {
+    const img = band.cv, h = band.h;
+    const c = this.c;
+    const ly = this.layers!;
+    const s = 1 + (this.cam.s - 1) * k;
+    const tx = (L.W / 2) * (1 - s) + this.cam.pan * k;
+    const ty = L.groundY * (1 - s) + this.cam.panY * k;
+    c.save();
+    c.translate(tx, ty);
+    c.scale(s, s);
+    // where the layer's left edge lands, and enough copies to cover the view
+    const left = -L.W * LAYER_EXTRA / 2;
+    const vx0 = -tx / s, vx1 = (L.W - tx) / s;
+    const n0 = Math.floor((vx0 - left) / ly.w), n1 = Math.floor((vx1 - left) / ly.w);
+    for (let n = n0; n <= n1; n++) c.drawImage(img, left + n * ly.w, y, ly.w, h);
+    c.restore();
+  }
+
+  /** Soft shadows on the forest floor, long and pointing away from a low sun. */
+  private drawShadows(L: ReturnType<ForestScene['layout']>, trees: Tree[], v: ForestView, season: Season, kMin: number, kMax: number) {
+    const c = this.c;
+    const len = season === 'winter' ? 1.6 : season === 'summer' ? 0.6 : 1;
+    c.fillStyle = season === 'winter' ? 'rgba(90,120,160,0.16)' : 'rgba(20,40,25,0.2)';
+    c.beginPath();
+    for (const t of trees) {
+      if (v.dying.some(d => d.id === t.id) && v.p >= 0.8) continue;
+      const prev = v.prev.get(t.id);
+      const h = prev ? lerp(prev.h, t.h, clamp01((v.p - 0.25) / 0.25)) : t.h;
+      for (let k = kMin; k <= kMax; k++) {
+        const P = this.place(L, t, k * L.plotW);
+        if (P.x < L.x0 - 60 || P.x > L.x1 + 60) continue;
+        const hp = h * L.px * P.s;
+        const w = Math.max(3, Math.max(h * 0.45, crownWidth(t.sp, t.d)) * L.px * P.s);
+        c.moveTo(P.x + 2, P.base);
+        c.ellipse(P.x - hp * 0.14 * len, P.base + 1, w * 0.45 + hp * 0.13 * len, Math.max(1.5, w * 0.08 + L.depthBand * 0.03), 0, 0, Math.PI * 2);
+      }
+    }
+    c.fill();
+  }
+
+  /** A few tall blades of grass in front that bend in the wind (screen space). */
+  private drawBlades(L: ReturnType<ForestScene['layout']>, season: Season, time: number, wind: number, groundOnScreen: number) {
+    if (season === 'winter') return;
+    const c = this.c;
+    c.strokeStyle = season === 'autumn' ? '#a8903e' : season === 'spring' ? '#9ccb62' : '#5f9c48';
+    c.lineWidth = 2;
+    c.lineCap = 'round';
+    const y = groundOnScreen + 12 * (1 + (this.cam.s - 1) * PARALLAX.foreground);
+    for (let i = 0; i < 26; i++) {
+      const x = ((hash(i + 400) * L.W * 1.2 + this.cam.pan * PARALLAX.foreground) % (L.W * 1.2) + L.W * 1.2) % (L.W * 1.2) - L.W * 0.1;
+      const h = 22 + hash(i + 900) * 26;
+      const bend = Math.sin(time * (1.1 + hash(i) * 0.6) + i) * 5 * wind + 4;
+      c.beginPath(); c.moveTo(x, y); c.quadraticCurveTo(x + bend * 0.3, y - h * 0.6, x + bend, y - h); c.stroke();
+    }
+  }
+
+  /** Sunbeams slanting down through the canopy (screen space, soft). */
+  private drawBeams(L: ReturnType<ForestScene['layout']>, amount: number, groundOnScreen: number) {
+    const c = this.c;
+    const sx = L.W * 0.82 + this.cam.pan * 0.02;
+    const sy = this.insetTop + 10;
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 4; i++) {
+      const x = L.W * (0.18 + i * 0.17);
+      const w = 26 + i * 10;
+      const gr = c.createLinearGradient(sx, sy, x, groundOnScreen);
+      gr.addColorStop(0, `rgba(255,238,180,${0.07 * amount})`);
+      gr.addColorStop(1, 'rgba(255,238,180,0)');
+      c.fillStyle = gr;
+      c.beginPath(); c.moveTo(sx - 6, sy); c.lineTo(sx + 6, sy); c.lineTo(x + w, groundOnScreen); c.lineTo(x - w, groundOnScreen); c.closePath(); c.fill();
+    }
     c.restore();
   }
 
@@ -321,11 +558,11 @@ export class ForestScene {
     }
   }
 
-  private drawSun(L: ReturnType<ForestScene['layout']>, season: Season) {
+  private drawSun(L: ReturnType<ForestScene['layout']>, season: Season, shift = 0) {
     const c = this.c;
     const span = L.groundY - this.insetTop;
     const y = this.insetTop + span * (season === 'winter' ? 0.55 : season === 'summer' ? 0.12 : 0.3);
-    const x = L.W * 0.82;
+    const x = L.W * 0.82 + shift;
     const r = Math.max(16, Math.min(34, L.W * 0.04));
     const glow = c.createRadialGradient(x, y, r * 0.3, x, y, r * 3);
     glow.addColorStop(0, 'rgba(255,236,170,0.7)');
@@ -334,42 +571,6 @@ export class ForestScene {
     c.beginPath(); c.arc(x, y, r * 3, 0, Math.PI * 2); c.fill();
     c.fillStyle = '#ffe7a0';
     c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill();
-  }
-
-  private paintHills(L: ReturnType<ForestScene['layout']>, fell: boolean) {
-    const key = `${L.W}x${L.H}:${fell}`;
-    if (key === this.hillsKey) return;
-    this.hillsKey = key;
-    const cv = document.createElement('canvas');
-    cv.width = Math.round(L.W * this.dpr);
-    cv.height = Math.round(L.H * this.dpr);
-    const c = cv.getContext('2d')!;
-    c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    const r = makeRng('hills');
-    const ridge = (base: number, amp: number, color: string, tips: string, tipH: number, bare = false) => {
-      const pts: [number, number][] = [];
-      const f1 = 1.4 + r(), p1 = r() * 6;
-      for (let x = -10; x <= L.W + 10; x += 6) {
-        const u = x / L.W;
-        const bump = bare ? Math.exp(-Math.pow((u - 0.3) / 0.22, 2)) * 1.6 : 0;
-        pts.push([x, base - amp * (0.5 + 0.35 * Math.sin(u * Math.PI * f1 + p1) + bump)]);
-      }
-      c.fillStyle = color;
-      c.beginPath(); c.moveTo(-10, L.groundY + 4);
-      for (const [x, y] of pts) c.lineTo(x, y);
-      c.lineTo(L.W + 10, L.groundY + 4); c.closePath(); c.fill();
-      c.fillStyle = tips;
-      for (const [x, y] of pts) {
-        if (r() < 0.45) continue;
-        if (bare && y < base - amp * 1.15) continue; // bare fell top above the tree line
-        const h = tipH * (0.6 + 0.7 * r());
-        c.beginPath(); c.moveTo(x - h * 0.18, y + 1); c.lineTo(x, y - h); c.lineTo(x + h * 0.18, y + 1); c.fill();
-      }
-    };
-    const gy = L.groundY;
-    ridge(gy - L.H * 0.16, L.H * 0.08, '#9fb7b6', '#8aa6a4', 7, fell);
-    ridge(gy - L.H * 0.08, L.H * 0.06, '#6f9086', '#5f8277', 10);
-    this.hills = cv;
   }
 
   private drawOne(L: ReturnType<ForestScene['layout']>, t: Tree, v: ForestView, ox: number,
@@ -389,22 +590,35 @@ export class ForestScene {
     const x = P.x;
     const base = P.base;
     const px = L.px * P.s;
-    if (x < -L.plotW * 0.3 || x > L.W + L.plotW * 0.3) return;
+    if (x < L.x0 - L.plotW * 0.3 || x > L.x1 + L.plotW * 0.3) return;
     const hp = Math.max(3, h * px);
+    const stage = treeStage({ h, age: t.age, sp: t.sp });
+    const look = STAGE_LOOK[stage];
     const crownW = Math.max(h * 0.45, crownWidth(t.sp, d)) * px;
     const ratio = h < 1.3 ? 0.9 : crownRatio(t.sp, rd);
-    const shade = P.depth * 0.28 + (main ? 0 : 0.12);
+    // far trees fade towards the haze (atmospheric perspective); when the camera looks at one tree, the others step back
+    const shade = P.depth * 0.1 + (main ? 0 : 0.08) + (this.focusId !== null && this.focusId !== t.id ? 0.14 : 0);
+    hazeK = Math.min(0.55, P.depth * 0.38 + (main ? 0 : 0.18));
+    hazeRGB = this.env ? rgbOf(this.env.haze) : null;
     c.save();
     c.globalAlpha = alpha * (main ? 1 : 0.7);
-    const lean = (hash(t.id) - 0.5) * 0.04;
+    // a slight lean of its own, and the wind: young trees bend most, old ones least
+    const wind = v.reducedMotion || dying ? 0 : Math.sin(v.time * (0.7 + hash(t.id + 3) * 0.5) + t.id * 1.7) * 0.012 * (this.env?.wind ?? 1) * look.sway;
+    const lean = (hash(t.id) - 0.5) * 0.04 + wind;
     if (fall > 0) {
       c.translate(x, base);
       c.rotate((hash(t.id + 5) < 0.5 ? -1 : 1) * fall * Math.PI / 2);
       c.translate(-x, -base);
     }
-    if (h < 1.3 && !dying) drawSeedling(c, t.sp, x, base, hp, season, ps, shade);
-    else drawTree(c, t.sp, x, base, hp, Math.max(1.2, (d / 100) * px * 1.6), hp * ratio, crownW, season, ps,
-      deadNow ? (cause === 'beetle' ? '#b5522f' : '#8b6a45') : null, shade, lean, t.id);
+    if (h < 1.3 && !dying) {
+      c.translate(x, base); c.rotate(wind * 3); c.translate(-x, -base);
+      drawSeedling(c, t.sp, x, base, hp, season, ps, shade);
+    } else {
+      const trunkW = Math.max(1.2, (d / 100) * px * 1.6);
+      drawTree(c, t.sp, x, base, hp, trunkW, hp * ratio, crownW, season, ps,
+        deadNow ? (cause === 'beetle' ? '#b5522f' : '#8b6a45') : null, shade, lean, t.id);
+      if (!deadNow && hp > 40) drawAge(c, t.sp, x, base, hp, trunkW, hp * ratio, crownW, season, look, t.id, lean);
+    }
     if (main && !dying && (t.marked || (t.keep && !t.mine))) {
       // marked to cut: an orange paint stripe; kept: a teal band (your own birch has its yellow ribbon)
       const tw = Math.max(3, (d / 100) * px * 1.6) + 2;
@@ -432,9 +646,12 @@ export class ForestScene {
       c.beginPath(); c.moveTo(x + tw / 2, y - 2); c.lineTo(x + tw / 2 + 9, y + 3); c.lineTo(x + tw / 2 + 5, y + 6); c.lineTo(x + tw / 2, y + 2); c.closePath(); c.fill(); c.stroke();
     }
     c.restore();
+    hazeK = 0;
     if (main && !dying) {
       const w = Math.max(crownW, 14);
-      this.hits.push({ id: t.id, x0: x - w / 2, x1: x + w / 2, y0: base - hp, y1: base + 4 });
+      // the trunk below the crown, at least a finger wide
+      const tw = Math.max(12, (d / 100) * px * 1.6 + 8);
+      this.hits.push({ id: t.id, x0: x - w / 2, x1: x + w / 2, y0: base - hp, y1: base + 4, tx0: x - tw / 2, tx1: x + tw / 2, ty0: base - Math.max(14, hp * (1 - ratio)), cx: x, base });
       if (v.selected === t.id) {
         c.strokeStyle = '#ffc83d';
         c.lineWidth = 3;
@@ -447,18 +664,20 @@ export class ForestScene {
 
   private drawFloor(L: ReturnType<ForestScene['layout']>, f: Forest, season: Season, snow: number, drought: boolean) {
     const c = this.c;
-    const r = makeRng('floor');
     const lai = f.history.at(-1)?.stats.lai ?? 0;
-    const n = Math.round((L.W / 5) * (1 - 0.5 * Math.min(1, lai / 4)));
-    for (let i = 0; i < n; i++) {
-      const x = r() * L.W;
-      const y = L.groundY - r() * L.depthBand;
-      const kind = r();
+    const keep = 1 - 0.5 * Math.min(1, lai / 4);
+    // one tuft per 5 px of world, placed from its own hash, so the floor stays put as the camera moves
+    for (let i = Math.floor(L.x0 / 5); i <= Math.ceil(L.x1 / 5); i++) {
+      if (hash(i * 3 + 1) > keep) continue;
+      const x = i * 5 + hash(i * 7 + 2) * 5;
+      const y = L.groundY - hash(i * 11 + 3) * L.depthBand;
+      const kind = hash(i * 13 + 4);
       if (kind < 0.5) {
         // blueberry and lingonberry tufts
         c.fillStyle = season === 'autumn' ? (kind < 0.25 ? '#b5452f' : '#8a5a2a') : drought && season === 'summer' ? '#7f8a45' : '#4f7d3c';
         c.beginPath(); c.ellipse(x, y - 3, 5, 3.5, 0, 0, Math.PI * 2); c.fill();
         if (season === 'summer' && kind < 0.12) { c.fillStyle = '#3b4f9a'; c.beginPath(); c.arc(x + 2, y - 3, 1.4, 0, Math.PI * 2); c.fill(); }
+        if (season === 'spring' && kind < 0.06) { c.fillStyle = '#f7f5ee'; c.beginPath(); c.arc(x - 2, y - 5, 1.6, 0, Math.PI * 2); c.fill(); }
       } else {
         c.fillStyle = '#6f9a4a';
         c.beginPath(); c.ellipse(x, y - 1, 6, 2, 0, 0, Math.PI * 2); c.fill();
@@ -466,61 +685,78 @@ export class ForestScene {
     }
     if (snow > 0) {
       c.fillStyle = `rgba(246,250,253,${0.55 + 0.45 * snow})`;
-      c.fillRect(0, L.groundY - L.depthBand, L.W, L.depthBand + 3);
+      c.fillRect(L.x0, L.groundY - L.depthBand, L.x1 - L.x0, L.depthBand + 3);
     }
+  }
+
+  /** The soil's colour, layers, stones and grain: painted once per soil and size, wide enough to pan across. */
+  private paintSoil(L: ReturnType<ForestScene['layout']>, soilId: SoilId) {
+    const key = `${L.W}x${L.H}:${Math.round(L.soilH)}:${soilId}:${this.dpr}`;
+    if (key === this.soilKey && this.soilBase) return;
+    this.soilKey = key;
+    const W3 = L.W * 3, h = L.soilH;
+    const cv = document.createElement('canvas');
+    cv.width = Math.round(W3 * this.dpr);
+    cv.height = Math.round((h + 4) * this.dpr);
+    const c = cv.getContext('2d')!;
+    c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    const soil = SOILS[soilId];
+    const look = SOIL_LOOK[soilId];
+    c.fillStyle = look.base;
+    c.fillRect(0, 0, W3, h);
+    c.fillStyle = soilId === 'peat' ? '#2e2016' : '#3f2c1d';
+    c.fillRect(0, 0, W3, Math.max(5, h * 0.08));
+    const r = makeRng('soil-' + soilId);
+    const soilDepth = soilId === 'rocky' ? h * 0.32 : h;
+    if (soilId === 'rocky') {
+      c.fillStyle = '#8e9296';
+      for (let x = -20; x < W3 + 40; x += 34 + r() * 30) {
+        const w = 40 + r() * 50;
+        c.beginPath();
+        c.moveTo(x, h); c.lineTo(x + w * 0.1, soilDepth + r() * 8); c.lineTo(x + w * 0.6, soilDepth - 4 + r() * 6); c.lineTo(x + w, soilDepth + r() * 10); c.lineTo(x + w, h);
+        c.fill();
+      }
+      c.fillStyle = '#9fa3a7';
+      c.fillRect(0, h * 0.75, W3, h * 0.25);
+    }
+    for (let i = 0; i < W3 * h / 140; i++) {
+      const x = r() * W3;
+      const y = h * 0.1 + r() * (soilDepth - h * 0.1);
+      if (soilId === 'clay') { c.fillStyle = look.dark; c.fillRect(x, y, 10 + r() * 16, 1.4); }
+      else if (soilId === 'peat') { c.strokeStyle = look.grain; c.lineWidth = 1; c.beginPath(); c.moveTo(x, y); c.lineTo(x + 6 * (r() - 0.5), y + 5 * r()); c.stroke(); }
+      else if (soilId === 'loam' && r() < 0.06) { c.fillStyle = '#9b9690'; c.beginPath(); c.ellipse(x, y, 3 + r() * 4, 2 + r() * 3, r(), 0, Math.PI * 2); c.fill(); }
+      else { c.fillStyle = r() < 0.5 ? look.grain : look.dark; c.fillRect(x, y, 1.6, 1.6); }
+    }
+    // soil food: small pale dots, more in fertile soil
+    c.fillStyle = 'rgba(255,248,220,0.55)';
+    const rn = makeRng('food');
+    for (let i = 0; i < (W3 / 18) * soil.nutrients; i++) c.fillRect(rn() * W3, 6 + rn() * soilDepth * 0.6, 2, 2);
+    this.soilBase = cv;
   }
 
   private drawSoil(L: ReturnType<ForestScene['layout']>, v: ForestView, season: Season, ps: number) {
     const c = this.c;
     const f = v.forest;
-    const soil = SOILS[f.soil];
-    const look = SOIL_LOOK[f.soil];
     const y0 = L.groundY + 2;
     const h = L.soilH;
-    c.fillStyle = look.base;
-    c.fillRect(0, y0, L.W, h);
-    // humus layer on top
-    c.fillStyle = f.soil === 'peat' ? '#2e2016' : '#3f2c1d';
-    c.fillRect(0, y0, L.W, Math.max(5, h * 0.08));
-    const r = makeRng('soil-' + f.soil);
     const soilDepth = f.soil === 'rocky' ? h * 0.32 : h;
-    if (f.soil === 'rocky') {
-      c.fillStyle = '#8e9296';
-      for (let x = -20; x < L.W + 40; x += 34 + r() * 30) {
-        const w = 40 + r() * 50;
-        c.beginPath();
-        c.moveTo(x, y0 + h);
-        c.lineTo(x + w * 0.1, y0 + soilDepth + r() * 8);
-        c.lineTo(x + w * 0.6, y0 + soilDepth - 4 + r() * 6);
-        c.lineTo(x + w, y0 + soilDepth + r() * 10);
-        c.lineTo(x + w, y0 + h);
-        c.fill();
-      }
-      c.fillStyle = '#9fa3a7';
-      c.fillRect(0, y0 + h * 0.75, L.W, h * 0.25);
-    }
-    // texture
-    for (let i = 0; i < L.W * h / 140; i++) {
-      const x = r() * L.W;
-      const y = y0 + h * 0.1 + r() * (soilDepth - h * 0.1);
-      if (f.soil === 'clay') { c.fillStyle = look.dark; c.fillRect(x, y, 10 + r() * 16, 1.4); }
-      else if (f.soil === 'peat') { c.strokeStyle = look.grain; c.lineWidth = 1; c.beginPath(); c.moveTo(x, y); c.lineTo(x + 6 * (r() - 0.5), y + 5 * r()); c.stroke(); }
-      else if (f.soil === 'loam' && r() < 0.06) { c.fillStyle = '#9b9690'; c.beginPath(); c.ellipse(x, y, 3 + r() * 4, 2 + r() * 3, r(), 0, Math.PI * 2); c.fill(); }
-      else { c.fillStyle = r() < 0.5 ? look.grain : look.dark; c.fillRect(x, y, 1.6, 1.6); }
-    }
+    this.paintSoil(L, f.soil);
+    // the painted soil covers world x from -W to 2W; repeat it if the camera looks further
+    const W3 = L.W * 3;
+    for (let n = Math.floor((L.x0 + L.W) / W3); n <= Math.floor((L.x1 + L.W) / W3); n++) c.drawImage(this.soilBase!, -L.W + n * W3, y0, W3, h + 4);
     // water: rises in spring, sinks through a dry summer, refills in autumn
     const level = waterLevel(v, season, ps) * soilDepth * 0.92;
     const wy = y0 + soilDepth - level;
     c.fillStyle = 'rgba(52,140,215,0.55)';
-    c.fillRect(0, wy, L.W, level);
+    c.fillRect(L.x0, wy, L.x1 - L.x0, level);
     c.strokeStyle = 'rgba(160,215,245,0.85)';
     c.lineWidth = 2;
     c.beginPath();
-    for (let x = 0; x <= L.W; x += 8) c.lineTo(x, wy + Math.sin(x * 0.08 + v.time * 1.5) * (v.reducedMotion ? 0 : 1.2));
+    for (let x = Math.floor(L.x0 / 8) * 8; x <= L.x1; x += 8) c.lineTo(x, wy + Math.sin(x * 0.08 + v.time * 1.5) * (v.reducedMotion ? 0 : 1.2));
     c.stroke();
     if (season === 'winter') {
       c.fillStyle = 'rgba(225,240,250,0.55)';
-      c.fillRect(0, y0, L.W, h * 0.18 * clamp01(ps * 2));
+      c.fillRect(L.x0, y0, L.x1 - L.x0, h * 0.18 * clamp01(ps * 2));
     }
     // roots of the trees on the plot
     c.lineCap = 'round';
@@ -528,7 +764,7 @@ export class ForestScene {
       const x = this.place(L, t, 0).x;
       const depth = Math.min(soilDepth * (f.soil === 'peat' ? 0.35 : 0.9), (4 + Math.sqrt(t.h) * 9) * (h / 100));
       const spread = Math.min(L.plotW / 6, 4 + t.h * L.px * 0.12);
-      if (x < -20 || x > L.W + 20) continue;
+      if (x < L.x0 - 20 || x > L.x1 + 20) continue;
       c.strokeStyle = t.sp === 'birch' ? 'rgba(225,205,170,0.55)' : 'rgba(205,170,120,0.55)';
       c.lineWidth = Math.max(0.8, Math.min(3, t.d / 12));
       const rr = makeRng('root' + t.id);
@@ -537,22 +773,31 @@ export class ForestScene {
         c.beginPath(); c.moveTo(x, y0); c.quadraticCurveTo(x + (ex - x) * 0.3, y0 + depth * 0.5, ex, y0 + depth * (0.5 + rr() * 0.5)); c.stroke();
       }
     }
-    // soil food: small pale dots, more in fertile soil
-    c.fillStyle = 'rgba(255,248,220,0.55)';
-    const rn = makeRng('food');
-    for (let i = 0; i < (L.W / 18) * soil.nutrients; i++) c.fillRect(rn() * L.W, y0 + 6 + rn() * soilDepth * 0.6, 2, 2);
-    // depth shade at the bottom edge
+    // depth shade at the bottom edge, and the dark below
     const fade = c.createLinearGradient(0, y0 + h - 18, 0, y0 + h);
     fade.addColorStop(0, 'rgba(7,31,27,0)');
     fade.addColorStop(1, 'rgba(7,31,27,0.9)');
     c.fillStyle = fade;
-    c.fillRect(0, y0 + h - 18, L.W, 18);
+    c.fillRect(L.x0, y0 + h - 18, L.x1 - L.x0, 18);
     c.fillStyle = '#071f1b';
-    c.fillRect(0, y0 + h, L.W, L.H - y0 - h);
+    c.fillRect(L.x0, y0 + h, L.x1 - L.x0, L.H * 2);
   }
 
-  private drawParticles(L: ReturnType<ForestScene['layout']>, season: Season, ps: number, time: number) {
+  private drawParticles(L: ReturnType<ForestScene['layout']>, season: Season, ps: number, time: number, rain = 0, groundOnScreen = L.groundY) {
     const c = this.c;
+    L = { ...L, groundY: Math.max(40, groundOnScreen) };
+    if (rain > 0) {
+      // a summer shower: thin slanting streaks
+      c.strokeStyle = `rgba(200,220,240,${0.55 * rain})`;
+      c.lineWidth = 1.2;
+      c.beginPath();
+      for (let i = 0; i < 90; i++) {
+        const x = (hash(i + 300) * L.W + time * 60) % L.W;
+        const y = (hash(i + 700) * L.groundY + time * (380 + hash(i) * 120)) % L.groundY;
+        c.moveTo(x, y); c.lineTo(x - 4, y + 12);
+      }
+      c.stroke();
+    }
     if (season === 'winter') {
       c.fillStyle = 'rgba(255,255,255,0.85)';
       for (let i = 0; i < 70; i++) {
@@ -579,6 +824,38 @@ function hash(n: number): number {
   x = Math.imul(x, 0xc2b2ae35);
   x ^= x >>> 16;
   return (x >>> 0) / 4294967296;
+}
+
+/** #rrggbb with an alpha, as rgba(). */
+function hexA(col: string, a: number): string {
+  const n = parseInt(col.slice(1), 16);
+  return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`;
+}
+
+/**
+ * Signs of age (visual.ts): moss at the foot of mature trees, and beard
+ * lichen (naava) hanging from the branches of old spruces and pines, which
+ * grows in clean air in old forests.
+ */
+function drawAge(c: CanvasRenderingContext2D, sp: SpeciesId, x: number, base: number, h: number, trunkW: number,
+  crownLen: number, crownW: number, season: Season, look: { lichen: boolean; moss: boolean }, id: number, lean: number) {
+  if (look.moss && season !== 'winter') {
+    c.fillStyle = 'rgba(96,140,64,0.85)';
+    c.beginPath(); c.ellipse(x - trunkW * 0.2, base - 2, trunkW * 0.75, Math.max(2, trunkW * 0.35), 0, Math.PI, 0); c.fill();
+  }
+  if (look.lichen && (sp === 'spruce' || sp === 'pine')) {
+    c.strokeStyle = 'rgba(196,204,180,0.85)';
+    c.lineWidth = 1;
+    c.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const u = 0.25 + 0.6 * hash(id * 17 + i);
+      const y = base - h + crownLen * u;
+      const bx = x + lean * (base - y) + (hash(id * 19 + i) - 0.5) * crownW * 0.7;
+      const len = 4 + 7 * hash(id * 23 + i);
+      c.moveTo(bx, y); c.lineTo(bx + 0.8, y + len);
+    }
+    c.stroke();
+  }
 }
 
 /** How far back in the plot a tree stands, 0 (front) .. 1 (back). */
@@ -630,13 +907,19 @@ function birchLeaves(season: Season, ps: number): { color: string; amount: numbe
   return { color: '#e8b83a', amount: 0 };
 }
 
-/** Darken a colour given as #rrggbb or rgb(r,g,b). */
+/** While a tree is drawn: how far its colours fade towards the haze, and the haze colour (atmospheric perspective). */
+let hazeK = 0;
+let hazeRGB: [number, number, number] | null = null;
+const rgbOf = (hex: string): [number, number, number] => { const n = parseInt(hex.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
+
+/** Darken a colour given as #rrggbb or rgb(r,g,b), then fade it into the haze if the tree being drawn is far away. */
 function darken(col: string, k: number): string {
   let r: number, g: number, b: number;
   if (col.startsWith('#')) { const n = parseInt(col.slice(1), 16); r = n >> 16; g = (n >> 8) & 255; b = n & 255; }
   else [r, g, b] = (col.match(/\d+/g) ?? ['0', '0', '0']).map(Number);
-  const f = (v: number) => Math.round(v * (1 - k));
-  return `rgb(${f(r)},${f(g)},${f(b)})`;
+  const f = (v: number, hz: number) => Math.round(v * (1 - k) * (1 - hazeK) + hz * hazeK);
+  const [hr, hg, hb] = hazeK > 0 && hazeRGB ? hazeRGB : [0, 0, 0];
+  return `rgb(${f(r, hr)},${f(g, hg)},${f(b, hb)})`;
 }
 
 function drawTree(c: CanvasRenderingContext2D, sp: SpeciesId, x: number, base: number, h: number, trunkW: number,
