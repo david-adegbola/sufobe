@@ -30,6 +30,8 @@ export interface ForestView {
   reducedMotion: boolean;
   /** animals living in the forest now */
   animals?: AnimalId[];
+  /** the light lens: colour each tree by the light it got last year (Phase 7) */
+  lens?: boolean;
 }
 
 export function seasonOf(p: number): { season: Season; ps: number } {
@@ -147,6 +149,13 @@ export class ForestScene {
       if (x >= h.x0 && x <= h.x1 && y >= h.y0 && y <= h.y1) return h.id;
     }
     return null;
+  }
+
+  /** Where across the plot a point is (CSS px), 0..1, or null outside the plot. */
+  plotFraction(x: number): number | null {
+    const L = this.layout();
+    const f = (x - this.vx - L.W / 2) / L.plotW + 0.5;
+    return f >= 0 && f <= 1 ? f : null;
   }
 
   /** Screen position of a tree's base, for keyboard focus rings and tests. */
@@ -268,21 +277,39 @@ export class ForestScene {
       return { x: P.x, y: P.base - t.h * L.px * P.s * frac, w: Math.max(2, (t.d / 100) * L.px * P.s * 1.6) };
     };
     const bob = v.reducedMotion ? 0 : Math.sin(v.time * 2) * 1.5;
+    // Phase 7: each animal does what it does in a forest (still when motion is reduced)
+    const tt = v.reducedMotion ? 0 : v.time;
     for (const a of v.animals ?? []) {
       if (a === 'moose') {
-        const x = L.W * 0.28, y = L.groundY - L.depthBand * 0.35;
-        drawMoose(c, x, y, 34 * k, season);
+        // it ambles about and now and then lowers its head to browse a sapling
+        const x = L.W * 0.28 + Math.sin(tt * 0.08) * L.W * 0.08, y = L.groundY - L.depthBand * 0.35;
+        drawMoose(c, x, y, 34 * k, season, Math.max(0, Math.sin(tt * 0.9)) ** 3);
       } else if (a === 'capercaillie') {
         drawCapercaillie(c, L.W * 0.66, L.groundY - L.depthBand * 0.2, 20 * k);
       } else if (a === 'blackWoodpecker') {
         const snag = f.logs.find(l => l.standing && l.d > 20);
         const p = snag ? (() => { const P = this.place(L, { id: snag.id, x: snag.x } as Tree, 0); return { x: P.x, y: P.base - snag.h * L.px * P.s * 0.4, w: (snag.d / 100) * L.px * 1.6 }; })() : at(trunkOf(t => t.d >= 30), 0.35);
-        if (p) drawWoodpecker(c, p.x + p.w / 2, p.y + bob, 14 * k, '#151515', '#d7262b', false);
+        if (p) {
+          // the black woodpecker drums on dead wood in short bursts, and chips fly
+          const drumming = !v.reducedMotion && tt % 4 < 0.7;
+          const jx = drumming ? Math.abs(Math.sin(tt * 55)) * 2.5 * k : 0;
+          drawWoodpecker(c, p.x + p.w / 2 - jx, p.y + bob, 14 * k, '#151515', '#d7262b', false);
+          if (drumming) {
+            c.fillStyle = '#d9b98a';
+            for (let i = 0; i < 3; i++) {
+              const u = ((tt * 3 + i * 0.33) % 1);
+              c.fillRect(p.x + p.w / 2 + (4 + u * 14) * k, p.y - 6 * k + u * u * 22 * k - i * 3 * k, 2 * k, 2 * k);
+            }
+          }
+        }
       } else if (a === 'spottedWoodpecker') {
         const p = at(trunkOf(t => (t.sp === 'spruce' || t.sp === 'pine') && t.d >= 18, 1), 0.55);
-        if (p) drawWoodpecker(c, p.x - p.w / 2 - 10 * k, p.y - bob, 11 * k, '#1d1d1d', '#d7262b', true);
+        // the spotted woodpecker hops up its trunk, then flies back down
+        if (p) drawWoodpecker(c, p.x - p.w / 2 - 10 * k, p.y - bob - (Math.floor(tt * 2) % 8) * 3.5 * k, 11 * k, '#1d1d1d', '#d7262b', true);
       } else if (a === 'treecreeper') {
         const p = at(trunkOf(t => t.d >= 28, 2), 0.25);
+        // the treecreeper creeps up the bark looking for insects, then starts again from the foot
+        if (p) p.y -= ((tt * 6) % 40) * k;
         if (p) { c.fillStyle = '#7b5a3a'; c.beginPath(); c.ellipse(p.x + p.w / 2, p.y + bob * 2, 3.2 * k, 6 * k, -0.3, 0, Math.PI * 2); c.fill(); c.fillStyle = '#f3efe3'; c.beginPath(); c.ellipse(p.x + p.w / 2 + 1.8 * k, p.y + bob * 2, 1.5 * k, 4.5 * k, -0.3, 0, Math.PI * 2); c.fill(); }
       } else if (a === 'siberianJay') {
         const p = at(trunkOf(t => t.sp === 'spruce' || t.sp === 'pine', 3), 0.5);
@@ -378,7 +405,23 @@ export class ForestScene {
     if (h < 1.3 && !dying) drawSeedling(c, t.sp, x, base, hp, season, ps, shade);
     else drawTree(c, t.sp, x, base, hp, Math.max(1.2, (d / 100) * px * 1.6), hp * ratio, crownW, season, ps,
       deadNow ? (cause === 'beetle' ? '#b5522f' : '#8b6a45') : null, shade, lean, t.id);
-    if (t.mine && !dying) {
+    if (main && !dying && (t.marked || (t.keep && !t.mine))) {
+      // marked to cut: an orange paint stripe; kept: a teal band (your own birch has its yellow ribbon)
+      const tw = Math.max(3, (d / 100) * px * 1.6) + 2;
+      const y = base - (h > 1.6 ? hp * (1.3 / h) : hp * 0.55);
+      c.fillStyle = t.marked ? '#ff6a2b' : '#3fd0c0';
+      c.strokeStyle = 'rgba(16, 36, 28, 0.85)';
+      c.lineWidth = 1;
+      c.beginPath(); c.rect(x - tw / 2, y - (t.marked ? 6 : 2.5), tw, t.marked ? 12 : 5); c.fill(); c.stroke();
+    }
+    if (main && v.lens && !dying) {
+      // how much light this tree got last year: green plenty, yellow some, red very little
+      c.fillStyle = t.vigor > 0.75 ? '#7fe07a' : t.vigor > 0.45 ? '#ffd23d' : '#ff5a4a';
+      c.strokeStyle = 'rgba(16, 36, 28, 0.9)';
+      c.lineWidth = 1.5;
+      c.beginPath(); c.arc(x, base - hp - 8, Math.max(4, Math.min(9, hp * 0.06)), 0, Math.PI * 2); c.fill(); c.stroke();
+    }
+    if (main && t.mine && !dying) {
       // your birch wears a yellow ribbon at breast height (1.3 m), where its rings are measured
       const tw = Math.max(3, (d / 100) * px * 1.6) + 3;
       const y = base - (h > 1.6 ? hp * (1.3 / h) : hp * 0.55);
@@ -765,15 +808,17 @@ function mixHex(a: string, b: string, t: number): string {
   return `rgb(${ch(16)},${ch(8)},${ch(0)})`;
 }
 
-function drawMoose(c: CanvasRenderingContext2D, x: number, y: number, s: number, season: Season) {
+/** `browse` 0..1 lowers the head towards a sapling. */
+function drawMoose(c: CanvasRenderingContext2D, x: number, y: number, s: number, season: Season, browse = 0) {
+  const hy = browse * s * 0.42;
   c.fillStyle = '#4a3426';
   c.beginPath(); c.ellipse(x, y - s * 0.75, s * 0.6, s * 0.28, 0, 0, Math.PI * 2); c.fill(); // body
   c.beginPath(); c.ellipse(x - s * 0.3, y - s * 0.95, s * 0.22, s * 0.15, 0, 0, Math.PI * 2); c.fill(); // shoulder hump
   for (const lx of [-0.4, -0.25, 0.3, 0.45]) c.fillRect(x + lx * s, y - s * 0.6, s * 0.07, s * 0.6); // long legs
-  c.beginPath(); c.moveTo(x - s * 0.5, y - s * 0.9); c.lineTo(x - s * 0.85, y - s * 0.85); c.lineTo(x - s * 0.95, y - s * 0.62); c.lineTo(x - s * 0.72, y - s * 0.6); c.closePath(); c.fill(); // long nose
+  c.beginPath(); c.moveTo(x - s * 0.5, y - s * 0.9); c.lineTo(x - s * 0.85, y - s * 0.85 + hy); c.lineTo(x - s * 0.95, y - s * 0.62 + hy); c.lineTo(x - s * 0.72, y - s * 0.6 + hy * 0.6); c.closePath(); c.fill(); // long nose
   if (season !== 'spring') { // bulls carry antlers from summer to winter
     c.strokeStyle = '#d8c7a0'; c.lineWidth = Math.max(1.5, s * 0.06);
-    c.beginPath(); c.moveTo(x - s * 0.6, y - s * 1.0); c.quadraticCurveTo(x - s * 0.55, y - s * 1.25, x - s * 0.35, y - s * 1.22); c.stroke();
+    c.beginPath(); c.moveTo(x - s * 0.6, y - s * 1.0 + hy * 0.5); c.quadraticCurveTo(x - s * 0.55, y - s * 1.25 + hy * 0.5, x - s * 0.35, y - s * 1.22 + hy * 0.5); c.stroke();
   }
 }
 

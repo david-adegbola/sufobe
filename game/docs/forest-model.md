@@ -308,3 +308,14 @@ The silver birch from Kasva! is a real tree in the player's forest.
 3. `applyZoom` nudges the ring by at most ±40 % of that year's growth, with the carbon moved to or from the air.
 
 Rings are measured at breast height (1.3 m), so a birch below that height only grows taller.
+
+## Phase 7: forestry by hand (`hands.ts`)
+
+The player's own decisions, tree by tree, use the same harvest code as the menu choices.
+- **Mark and cut.** `toggleMark` flags a tree (kept trees cannot be marked). The choice `cutMarked` takes every marked, unkept tree through `take(..., 'thin')`, so sorting, mills and the carbon ledger work as for a thinning.
+- **Keep.** `toggleKeep` sets `keep`, which every cut respects. The player's birch always stays kept.
+- **Plant.** `plantAt(f, species, x)` adds a seedling of a plantable species at plot position x, at most `PLANT_PER_YEAR` (8) a year, counted in `f.handPlanted`.
+- **Light lens.** `groundLight(f)` gives the light reaching the ground for each species, `exp(−shadeComp · G)`, from the same competition term the growth model uses. The lens colours each tree by its vigour: green above 0.75, yellow above 0.45, red below.
+- **Hints.** Only kinds in `MUST_ANSWER` (`regen`) stop the year. Other questions are hints: they show on a card, never block playback, and `resolveHint` clears them after one year of playback or when the player starts their birch's summer.
+
+None of this changes the growth model; the tools only add cuts and seedlings through existing paths. `tests/forest/hands.test.ts` checks that marked cuts balance the carbon books, kept trees are never cut, planting is capped, and hints pass on their own.

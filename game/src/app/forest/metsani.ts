@@ -16,11 +16,12 @@ import type { TreeMods } from '../../core/season';
 import {
   CO2_PER_C, PLANTABLE, SOILS, SPACING, SPECIES, applyChoice, createForest, plant, presentAnimals,
   applyZoom, canZoom, results, standStats, stemVolume, stepYear,
-  yearReport, zoomSeason, ensureMyBirch, myBirch, plantMyBirch, type ZoomSeason,
+  yearReport, zoomSeason, ensureMyBirch, myBirch, plantMyBirch, isHint, resolveHint, type ZoomSeason,
   type AnimalId, type ChoiceId, type Decision, type Forest, type ItemId, type PlaceId, type Results, type SoilId,
   type SortBin, type SpeciesId, type Spacing, type Tree, type YearRecord, type YearReport,
 } from '../../core/forest';
 import { Factory, HARVESTS } from './factory';
+import { Tools } from './tools';
 import { drawTikka } from '../scene/tikka';
 import type { Lang } from '../text';
 import { ForestScene, forestBudget, seasonOf } from './scene';
@@ -92,6 +93,9 @@ export class Metsani {
   private empty: Forest | null = null;
   private setupScene: ForestScene;
   private factory: Factory;
+  private tools: Tools;
+  /** years a hint has been open (it passes after one more year) */
+  private hintAge = 0;
   private asking: Asking | null = null;
   /** "What if?": the first pick waits here until the second is made */
   private compareOn = false;
@@ -119,6 +123,17 @@ export class Metsani {
       setPlaying: (on) => this.setPlaying(on),
       afterChoice: () => this.afterChoice(),
       renderSheet: () => this.renderSheet(),
+      asking: () => !!this.asking,
+    });
+    this.tools = new Tools({
+      t: () => this.t,
+      main: () => this.main,
+      comparing: () => this.comparing,
+      setPlaying: (on) => this.setPlaying(on),
+      persist: () => this.persist(),
+      refresh: () => { this.renderCard(); this.describe(); },
+      cutMarked: () => this.factory.startSort('cutMarked'),
+      announce: (s) => this.host.announce(s),
     });
     const s = this.save;
     if (s.current) { this.place = s.current.place; this.soil = s.current.soil; }
@@ -196,7 +211,7 @@ export class Metsani {
     const f = this.save.current;
     const b = f && myBirch(f);
     if (!f || !b) return null;
-    return { year: f.year, h: b.h, question: !!f.pending };
+    return { year: f.year, h: b.h, question: !!f.pending && !isHint(f.pending.kind) };
   }
 
   /**
@@ -206,7 +221,9 @@ export class Metsani {
    */
   birchSummer(base: TreeMods): { z: ZoomSeason; done: (storedG: number) => string } | null {
     const f = this.save.current;
-    if (!f || f.pending || this.active) return null;
+    if (!f || this.active) return null;
+    resolveHint(f);
+    if (f.pending) return null;
     const rec = stepYear(f);
     const b = myBirch(f)!;
     const z = zoomSeason(f, b, rec, base);
@@ -404,13 +421,20 @@ export class Metsani {
     $('m-report').hidden = true;
     this.renderView();
     // a question left open when the forest was saved comes back first
-    if (f.pending) { this.p = 0.999; this.ask({ d: f.pending, lane: 0 }); }
+    $('m-hint').hidden = true;
+    if (f.pending && isHint(f.pending.kind)) { this.p = 0.999; this.showHint(); this.setPlaying(true); }
+    else if (f.pending) { this.p = 0.999; this.ask({ d: f.pending, lane: 0 }); }
     else { this.beginYear(); this.setPlaying(true); this.maybeTip(); }
     requestAnimationFrame(() => $('m-year').focus());
   }
 
   /** Step every forest one year, and get ready to play it back from spring. */
   private beginYear() {
+    // a hint stays open through one more year of the forest, then passes as "leave it as it is"
+    if (this.main?.f.pending && isHint(this.main.f.pending.kind) && this.hintAge++ >= 1) {
+      for (const l of this.lanes) resolveHint(l.f);
+      $('m-hint').hidden = true;
+    }
     for (const l of this.lanes) {
       const f = l.f;
       l.prev = new Map(f.trees.map(t => [t.id, { h: t.h, d: t.d }]));
@@ -440,8 +464,35 @@ export class Metsani {
     }
     this.renderView();
     const i = this.lanes.findIndex(l => l.f.pending);
-    if (i >= 0) { this.ask({ d: this.lanes[i].f.pending!, lane: i }); return false; }
+    if (i >= 0) {
+      const d = this.lanes[i].f.pending!;
+      // Phase 7: most of Tikka's questions are hints, and the forest goes on
+      if (!this.comparing && isHint(d.kind)) { this.showHint(); return true; }
+      this.ask({ d, lane: i });
+      return false;
+    }
     return true;
+  }
+
+  /** Tikka's suggestion, without stopping the forest. */
+  private showHint() {
+    const m = this.main;
+    const d = m?.f.pending;
+    if (!m || !d) return;
+    const t = this.t;
+    const n = d.kind === 'storm' || d.kind === 'beetle' ? m.rec?.events?.find(e => e.kind === d.kind)?.count ?? 0 : 0;
+    $('m-hint-who').textContent = t.hint.who;
+    $('m-hint-q').textContent = t.questions[d.kind](n);
+    $('m-hint-note').textContent = t.hint.note;
+    $('btn-m-hint-choices').textContent = t.hint.choices;
+    $('btn-m-hint-mark').textContent = t.hint.mark;
+    $('btn-m-hint-mark').hidden = !(d.kind === 'young' || d.kind === 'crowded' || d.kind === 'mature');
+    $('btn-m-hint-later').textContent = t.hint.later;
+    this.hintAge = 0;
+    $('m-report').hidden = true;
+    $('m-hint').hidden = false;
+    face($<HTMLCanvasElement>('m-hint-face'));
+    this.host.announce(`${t.hint.who}: ${$('m-hint-q').textContent}`);
   }
 
   // ---------- the before/after class question ----------
@@ -549,7 +600,7 @@ export class Metsani {
         l.scene.draw({
           forest: l.f, prev: l.prev, dying: l.dying, p: Math.min(0.999, this.p), rec: l.rec,
           selected: this.selected && this.lanes[this.selected.lane] === l ? this.selected.id : null,
-          time: this.time, reducedMotion: this.host.reducedMotion, animals: l.animals,
+          time: this.time, reducedMotion: this.host.reducedMotion, animals: l.animals, lens: this.tools.lens,
         }, dt);
       }
     } else {
@@ -650,6 +701,7 @@ export class Metsani {
     this.renderControls();
     this.renderResults();
     this.renderCard();
+    this.tools.render();
     if (this.asking) this.renderSheet();
   }
 
@@ -822,6 +874,7 @@ export class Metsani {
   }
 
   private afterChoice() {
+    this.persist();
     const next = this.lanes.findIndex(l => l.f.pending);
     if (next >= 0) { this.ask({ d: this.lanes[next].f.pending!, lane: next }); return; }
     for (const l of this.lanes) { l.shown = results(l.f); l.animals = presentAnimals(l.f); }
@@ -882,6 +935,7 @@ export class Metsani {
     $('m-card-note').textContent = (tree.mine ? t.myBirchNote + ' ' : '') + (tree.d > 0 ? t.card.rings : t.card.seedling);
     $('btn-m-card-close').setAttribute('aria-label', t.card.close);
     drawRings($<HTMLCanvasElement>('m-rings'), tree.rings);
+    this.tools.renderCard(tree, lane === this.main);
     const zoomable = !this.comparing && lane === this.main && canZoom(tree, lane?.rec);
     $('btn-m-zoom').hidden = !zoomable;
     $('btn-m-zoom').textContent = t.zoomButton;
@@ -920,6 +974,12 @@ export class Metsani {
       if (!this.active) return;
       const b = (e.target as HTMLElement).closest('button');
       if (!b) return;
+      if (this.screen === 'view' && this.tools.click(b)) return;
+      if (b.id === 'btn-m-hint-choices' && this.main?.f.pending) { $('m-hint').hidden = true; this.ask({ d: this.main.f.pending, lane: 0 }); return; }
+      if (b.id === 'btn-m-hint-mark') { $('m-hint').hidden = true; this.tools.setTool('mark'); $<HTMLButtonElement>('m-tools').querySelector<HTMLButtonElement>('[data-tool="mark"]')?.focus(); return; }
+      if (b.id === 'btn-m-hint-later') { $('m-hint').hidden = true; if (this.main) resolveHint(this.main.f); this.persist(); return; }
+      if (b.id === 'btn-m-card-mark' && this.selected) { this.tools.mark(this.selected.id); return; }
+      if (b.id === 'btn-m-card-keep' && this.selected) { this.tools.keep(this.selected.id); return; }
       if (b.dataset.place) { this.place = b.dataset.place as PlaceId; this.renderSetup(); return; }
       if (b.dataset.soil) { this.soil = b.dataset.soil as SoilId; this.renderSetup(); return; }
       if (b.dataset.species) {
@@ -986,6 +1046,7 @@ export class Metsani {
     this.canvas.addEventListener('pointerdown', (e) => {
       if (!this.active || this.screen !== 'view') return;
       const r = this.canvas.getBoundingClientRect();
+      if (this.tools.tap(e.clientX - r.left, e.clientY - r.top)) return;
       for (let i = 0; i < this.lanes.length; i++) {
         const id = this.lanes[i].scene.hit(e.clientX - r.left, e.clientY - r.top);
         if (id !== null) { this.select({ id, lane: i }); return; }

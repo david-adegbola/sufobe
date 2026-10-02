@@ -193,6 +193,11 @@ export function applyChoice(f: Forest, choice: ChoiceId, opt: ChoiceOptions = {}
     case 'removeFallen': return salvage(f, freshLogs(f, 'storm'), opt);
     case 'removeHalf': { const l = freshLogs(f, 'storm'); return salvage(f, l.filter((_, i) => i % 2 === 0), opt); }
     case 'removeBeetle': return salvage(f, freshLogs(f, 'beetle'), opt);
+    case 'cutMarked': {
+      const marked = f.trees.filter(t => t.marked && !t.keep);
+      for (const t of f.trees) t.marked = false;
+      return take(f, marked, 'thin', opt);
+    }
     case 'nothing': case 'leaveOld': case 'leaveFallen': case 'leaveBeetle': return null;
   }
 }

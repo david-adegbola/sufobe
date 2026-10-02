@@ -47,6 +47,8 @@ export interface Tree {
   zoomed?: number;
   /** the player's own birch from Kasva! (mybirch.ts) */
   mine?: boolean;
+  /** marked by the child to be cut (hands.ts) */
+  marked?: boolean;
 }
 
 /** Why a tree died. */
@@ -83,7 +85,9 @@ export type DecisionKind = 'regen' | 'young' | 'crowded' | 'mature' | 'storm' | 
 export type ChoiceId =
   | 'plant' | 'seed' | 'nothing' | 'tend' | 'thin' | 'thinLight'
   | 'clearcut' | 'clearcutKeep' | 'cc' | 'leaveOld'
-  | 'removeFallen' | 'leaveFallen' | 'removeHalf' | 'removeBeetle' | 'leaveBeetle';
+  | 'removeFallen' | 'leaveFallen' | 'removeHalf' | 'removeBeetle' | 'leaveBeetle'
+  /** cut the trees the child marked by hand (hands.ts) */
+  | 'cutMarked';
 export interface Decision { kind: DecisionKind; year: number; choices: ChoiceId[] }
 
 export interface YearRecord {
@@ -123,6 +127,8 @@ export interface Forest {
   nextId: number;
   /** the player's birch line, if this forest has one (mybirch.ts) */
   birch?: BirchInfo;
+  /** seedlings the child planted by hand this year (hands.ts) */
+  handPlanted?: { year: number; n: number };
   ledger: Ledger;
   pools: Record<ProductKind, number>;
   history: YearRecord[];

@@ -40,6 +40,7 @@ The same guide is published as a one-page web page. This file is the copy kept w
 - Pelissä yksi koeala (20 × 20 m) kuvaa hehtaaria. Säästöpuita jätetään näkyvyyden vuoksi enemmän kuin metsissä yleensä.
 - Avohakkuu ja jatkuva kasvatus ovat pelissä tasavertaisia vaihtoehtoja. Peli näyttää seuraukset eikä valitse puolta.
 - Jokaisen metsän keskellä kasvaa oppilaan oma Kasva!-koivu, jossa on keltainen nauha. Sitä ei kaadeta. Tarinakesien jälkeen Kasva!-kesä pelataan tälle koivulle, ja jokainen kesä on yksi vuosi metsässä.
+- Oppilas voi hoitaa metsää itse: merkitä puita kaadettaviksi, jättää puita säästöpuiksi ja istuttaa taimia. Valolinssi näyttää, mitkä puut kärsivät varjosta. Tikan vihjeet eivät pysäytä vuotta; vain uudistaminen avohakkuun jälkeen pitää päättää.
 - Pelin osoite: https://david-adegbola.github.io/sufobe/.
 
 ## In English
@@ -80,4 +81,5 @@ The same guide is published as a one-page web page. This file is the copy kept w
 - One plot (20 × 20 m) stands for a hectare. Retention trees are kept in larger numbers than in real forests, so that they are visible.
 - Clear-cutting and continuous cover are equal choices in the game. It shows the consequences and does not take a side.
 - In every forest the child's own Kasva! birch stands in the middle, with a yellow ribbon. It is never cut. After the story summers, each Kasva! summer is played for this birch, and each summer is one year in the forest.
+- Children can work the forest by hand: mark trees to cut, keep trees as retention trees, and plant seedlings. The light lens shows which trees suffer from shade. Tikka's hints no longer stop the year; only regeneration after a clearcut must be decided.
 - Game address: https://david-adegbola.github.io/sufobe/.

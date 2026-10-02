@@ -223,6 +223,11 @@
     .timeline i { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1.5px; background: var(--sun); box-shadow: 0 0 6px var(--sun); }
     .mbottom { display: grid; gap: 8px; padding: 10px; border-radius: 18px; width: min(100%, 760px); margin: 0 auto; }
     .mctrl { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .mtools { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .mtools .tool, .plantsp button { font: 700 0.8rem/1 var(--display); padding: 8px 11px; border-radius: 999px; border: 1.5px solid var(--line); background: transparent; color: var(--paper); cursor: pointer; touch-action: manipulation; min-height: 36px; }
+    .mtools .tool[aria-pressed="true"], .plantsp button[aria-pressed="true"] { background: var(--sun); color: var(--ink); border-color: var(--sun); }
+    .plantsp { display: inline-flex; gap: 4px; }
+    .toolnote { margin: 0; min-height: 1.2em; }
     .mctrl .icon[aria-pressed="true"] { background: var(--sun); color: var(--deep); }
     .mctrl .icon.wide { width: auto; padding: 0 14px; border-radius: 999px; font-size: 0.9rem; }
     .mresults { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
@@ -266,6 +271,8 @@
     .mreport p { margin: 0 0 4px; font: 700 1.2rem/1.15 var(--hand); }
     .mreport .newsp { font: 800 0.8rem/1 var(--display); background: var(--sun); border-radius: 999px; padding: 3px 8px; margin-right: 4px; display: inline-block; }
     .mreport .btn { align-self: center; flex: 0 0 auto; }
+    .mhintcard .note { font: 500 0.82rem/1.3 var(--body); color: #3d5249; }
+    .mhintcard .row { gap: 6px; margin-top: 6px; }
     .mdecide { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 10px); width: min(620px, calc(100% - 20px));
       max-height: calc(100% - 90px); overflow-y: auto; padding: 14px; display: grid; gap: 10px; pointer-events: auto; z-index: 3; background: rgba(10, 40, 34, 0.94); }
     .mdecide .who { display: flex; gap: 8px; align-items: center; font: 800 0.8rem/1 var(--display); text-transform: uppercase; letter-spacing: 0.08em; color: var(--sun); }
@@ -569,6 +576,16 @@
       <div><h3 id="m-report-title"></h3><div id="m-report-body"></div></div>
       <button type="button" class="btn ghost small" id="btn-m-report-close"></button>
     </aside>
+    <aside class="mreport mhintcard" id="m-hint" hidden aria-labelledby="m-hint-q">
+      <canvas id="m-hint-face" width="96" height="96" aria-hidden="true"></canvas>
+      <div><h3 id="m-hint-who"></h3><p id="m-hint-q"></p><p class="note" id="m-hint-note"></p>
+        <div class="row" style="justify-content:flex-start">
+          <button type="button" class="btn small" id="btn-m-hint-choices"></button>
+          <button type="button" class="btn ghost small" id="btn-m-hint-mark"></button>
+          <button type="button" class="btn ghost small" id="btn-m-hint-later"></button>
+        </div>
+      </div>
+    </aside>
     <section class="mdecide glass" id="m-decide" hidden role="dialog" aria-labelledby="m-decide-q">
       <div class="who"><canvas id="m-decide-face" width="96" height="96" aria-hidden="true"></canvas><span id="m-decide-who"></span></div>
       <h3 id="m-decide-q" tabindex="-1"></h3>
@@ -590,6 +607,10 @@
       <p class="sub" id="m-card-sub"></p>
       <div class="grid" id="m-card-stats"></div>
       <div class="ringrow"><canvas id="m-rings" width="128" height="128" aria-hidden="true"></canvas><span id="m-card-note"></span></div>
+      <div class="row" style="justify-content:flex-start">
+        <button type="button" class="btn ghost small" id="btn-m-card-mark"></button>
+        <button type="button" class="btn ghost small" id="btn-m-card-keep"></button>
+      </div>
       <button type="button" class="btn small" id="btn-m-zoom" hidden></button>
       <p class="note" id="m-zoom-note"></p>
     </aside>
@@ -653,6 +674,18 @@
         <button type="button" class="icon wide" id="btn-m-jump"></button>
         <button type="button" class="icon wide whatif" id="btn-m-whatif"></button>
       </div>
+      <div class="mtools" id="m-tools" role="toolbar" aria-labelledby="m-tools-label">
+        <span class="sr-only" id="m-tools-label"></span>
+        <button type="button" class="tool" data-tool="look" aria-pressed="true"></button>
+        <button type="button" class="tool" data-tool="mark" aria-pressed="false"></button>
+        <button type="button" class="tool" data-tool="keep" aria-pressed="false"></button>
+        <button type="button" class="tool" data-tool="plant" aria-pressed="false"></button>
+        <button type="button" class="tool lens" id="btn-m-light" aria-pressed="false"></button>
+        <span class="plantsp" id="m-plant-sp" hidden></span>
+        <button type="button" class="btn small" id="btn-m-plant-one" hidden></button>
+        <button type="button" class="btn small" id="btn-m-cut" hidden></button>
+      </div>
+      <p class="note toolnote" id="m-tool-note" role="status"></p>
       <p class="note" id="m-same-weather" hidden></p>
       <div class="mrows" id="m-results"></div>
       <div class="row" id="m-keep" hidden>
