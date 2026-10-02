@@ -19,6 +19,12 @@ type Fx =
   | { kind: 'text'; x: number; y: number; life: number; text: string; gold: boolean }
   | { kind: 'ring'; x: number; y: number; life: number };
 
+
+/** Share of the screen width painted beyond each side of the landscape, so its layers can slide (2.5D). */
+const LAND_MARGIN = 0.12;
+/** How much of the menu's sideways slide each layer follows (the tree itself follows all of it). */
+const PARALLAX_K = { back: 0.15, mid: 0.35, floor: 0.6 } as const;
+
 export class Renderer {
   private c: CanvasRenderingContext2D;
   private world: HTMLCanvasElement;
@@ -41,6 +47,8 @@ export class Renderer {
   private rank = 0;
   /** Where the tree stands across the screen (0.5 = centre). */
   private focus = 0.5;
+  /** the layer offsets the background was last composed with (2.5D parallax) */
+  private baseKey = '';
 
   constructor(private canvas: HTMLCanvasElement) {
     this.c = canvas.getContext('2d')!;
@@ -67,7 +75,7 @@ export class Renderer {
       W, H, dpr, s, X, Y, groundY,
       horizonY: Y(700), lakeBottomY: Y(782), floorTopY: Y(785),
     };
-    this.setLand(paintLandscape(this.L, this.rank));
+    this.setLand(paintLandscape(this.L, this.rank, LAND_MARGIN));
     this.birchCache.clear();
     this.grain = this.makeGrain();
   }
@@ -110,18 +118,71 @@ export class Renderer {
   setRank(rank: number) {
     if (rank === this.rank) return;
     this.rank = rank;
-    this.setLand(paintLandscape(this.L, rank));
+    this.setLand(paintLandscape(this.L, rank, LAND_MARGIN));
   }
 
   private setLand(land: Landscape) {
     this.land = land;
     const b = (this.base ??= document.createElement('canvas'));
-    b.width = land.back.width;
-    b.height = land.back.height;
-    const bc = b.getContext('2d')!;
-    bc.drawImage(land.back, 0, 0);
-    bc.drawImage(land.mid, 0, 0);
-    bc.drawImage(land.floor, 0, 0);
+    b.width = Math.ceil(this.L.W * this.L.dpr);
+    b.height = Math.ceil(this.L.H * this.L.dpr);
+    this.baseKey = '';
+  }
+
+  /**
+   * 2.5D (increment 6): how far each landscape layer is moved, css px. Two
+   * things move them, each at the layer's own rate, while the tree, the
+   * floor under it and everything the player catches stay exactly where the
+   * game puts them:
+   *   - the menu sliding the tree aside on wide screens (`shift`): the far
+   *     hills follow a little, the groves more, the floor most;
+   *   - a slow drift of the view around the tree (`drift`): the hills move
+   *     most, the front boughs the other way: the scene has depth.
+   */
+  layerOffsets(): { back: number; mid: number; floor: number; front: number } {
+    const shift = (this.focus - 0.5) * this.L.W;
+    const drift = this.hud.reducedMotion ? 0 : Math.sin(this.time * 0.21) * 10 + Math.sin(this.time * 0.07 + 1) * 4;
+    return {
+      back: shift * PARALLAX_K.back + drift * 0.85,
+      mid: shift * PARALLAX_K.mid + drift * 0.6,
+      floor: shift * PARALLAX_K.floor + drift * 0.15,
+      front: drift * -0.45,
+    };
+  }
+
+  /** Compose hills, groves and floor into one image, only when their offsets have moved by half a pixel. */
+  private composeBase() {
+    const o = this.layerOffsets();
+    const q = (v: number) => Math.round(v * 2) / 2;
+    const key = `${q(o.back)}|${q(o.mid)}|${q(o.floor)}`;
+    if (key === this.baseKey) return;
+    this.baseKey = key;
+    const { land, L } = this;
+    const bc = this.base.getContext('2d')!;
+    bc.setTransform(1, 0, 0, 1, 0, 0);
+    bc.clearRect(0, 0, this.base.width, this.base.height);
+    const m = land.margin;
+    for (const [cv, dx] of [[land.back, q(o.back)], [land.mid, q(o.mid)], [land.floor, q(o.floor)]] as const) {
+      bc.drawImage(cv, Math.round((dx - m) * L.dpr), 0);
+    }
+  }
+
+  /** The birch's soft shadow on the forest floor, pointing away from the sun; long when the sun is low. */
+  private drawShadow(w: CanvasRenderingContext2D, light: number, dayProgress: number, isNight: boolean) {
+    if (isNight || light < 0.08) return;
+    const L = this.L;
+    const x = L.X(500), y = L.Y(905);
+    const sunX = L.W * (0.08 + 0.84 * dayProgress);
+    const away = Math.max(-1, Math.min(1, (x - sunX) / (L.W * 0.5)));
+    const low = 1 - Math.sin(Math.PI * Math.max(0, Math.min(1, dayProgress)));
+    const len = (70 + 150 * low) * L.s;
+    w.save();
+    w.globalAlpha = 0.28 * Math.min(1, light * 1.4);
+    w.fillStyle = '#16301f';
+    w.beginPath();
+    w.ellipse(x + away * len * 0.55, y + 4 * L.s, len * 0.6 + 40 * L.s, 13 * L.s, 0, 0, Math.PI * 2);
+    w.fill();
+    w.restore();
   }
 
   // ---------- effects triggered by game events ----------
@@ -156,8 +217,10 @@ export class Renderer {
     const w = this.wc;
     w.setTransform(1, 0, 0, 1, 0, 0);
     w.clearRect(0, 0, this.world.width, this.world.height);
+    this.composeBase();
     w.drawImage(this.base, 0, 0);
     w.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.drawShadow(w, light, k.dayProgress, k.isNight);
     this.drawBirch(w, sim, light, dt, k.weather === 'rain');
     this.drawTikka(w, dt);
     if (mood.tint[3] > 0.005) {
@@ -182,7 +245,7 @@ export class Renderer {
     w.clearRect(0, 0, this.world.width, this.world.height);
     w.setTransform(dpr, 0, 0, dpr, 0, 0);
     w.rotate(sway);
-    w.drawImage(this.land.front, 0, 0, W, H);
+    w.drawImage(this.land.front, this.layerOffsets().front, 0, W, H);
     w.setTransform(dpr, 0, 0, dpr, 0, 0);
     if (mood.tint[3] > 0.005) {
       w.globalCompositeOperation = 'source-atop';
